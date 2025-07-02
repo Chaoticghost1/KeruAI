@@ -1,0 +1,180 @@
+export default {
+  layout: "sidebar", // You can switch to "grid" or "landing" depending on Bolt.new's builder
+
+  languageToggle: {
+    default: "es",
+    options: ["es", "en"]
+  },
+
+  sections: [
+    {
+      id: "hero",
+      type: "hero",
+      content: {
+        es: {
+          title: "Electrobit.ai Suite",
+          subtitle: "Tecnología, educación y oportunidades para Honduras y el mundo",
+          cta: "Explora la suite"
+        },
+        en: {
+          title: "Electrobit.ai Suite",
+          subtitle: "Technology, education, and opportunity for Honduras and beyond",
+          cta: "Explore the suite"
+        },
+        backgroundImage: "/assets/bg-hero-electrobit.jpg",
+        overlay: true
+      }
+    },
+
+    {
+      id: "studybuddy",
+      type: "card",
+      content: {
+        es: {
+          title: "🎓 Study Buddy AI",
+          description: "Asistente educativo impulsado por IA para ayudarte con tareas, resúmenes y preparación de exámenes.",
+          cta: "Usar StudyBuddy"
+        },
+        en: {
+          title: "🎓 Study Buddy AI",
+          description: "AI-powered study assistant to help with homework, summaries, and exam prep.",
+          cta: "Launch StudyBuddy"
+        }
+      },
+      link: "/studybuddy"
+    },
+
+    {
+      id: "budgetpal",
+      type: "card",
+      content: {
+        es: {
+          title: "💸 BudgetPal",
+          description: "Herramienta de finanzas personales para trabajadores informales y jóvenes que quieren ahorrar.",
+          cta: "Gestionar mi dinero"
+        },
+        en: {
+          title: "💸 BudgetPal",
+          description: "Personal finance tracker designed for informal workers and young adults.",
+          cta: "Manage my money"
+        }
+      },
+      link: "/budgetpal"
+    },
+
+    {
+      id: "cruise-corner",
+      type: "section",
+      content: {
+        es: {
+          title: "🌍 Consejos de Viaje y Vida en Crucero",
+          description: "Aprende sobre destinos, comida, playas y trabaja en cruceros con la experiencia de Kevin."
+        },
+        en: {
+          title: "🌍 Travel & Cruise Life Advice",
+          description: "Learn about destinations, food, beaches, and cruise careers from Kevin’s experience."
+        }
+      },
+      children: [
+        {
+          type: "card",
+          content: {
+            es: {
+              title: "📖 Blog de Viajes",
+              description: "Consejos reales sobre lugares, comidas y cómo trabajar a bordo.",
+              cta: "Leer Blog"
+            },
+            en: {
+              title: "📖 Travel Blog",
+              description: "Real insights into destinations, food, and working aboard.",
+              cta: "Read Blog"
+            }
+          },
+          link: "/blog"
+        },
+        {
+          type: "card",
+          content: {
+            es: {
+              title: "💬 Pregunta a Kevin",
+              description: "¿Dudas sobre viajar o trabajar en cruceros? Pregunta aquí.",
+              cta: "Chatear con Kevin"
+            },
+            en: {
+              title: "💬 Ask Kevin",
+              description: "Questions about travel or cruise jobs? Ask me here.",
+              cta: "Chat Now"
+            }
+          },
+          link: "/chat"
+        }
+      ]
+    },
+
+    {
+      id: "cruiseword",
+      type: "card",
+      content: {
+        es: {
+          title: "🛳️ CruiseWord Game",
+          description: "Aprende 10 palabras al día del argot de cruceros para prepararte para trabajar en barcos.",
+          cta: "Comienza a jugar"
+        },
+        en: {
+          title: "🛳️ CruiseWord Game",
+          description: "Learn 10 daily cruise ship jargon terms to prep for cruise job success.",
+          cta: "Start Playing"
+        }
+      },
+      link: "/cruiseword"
+    },
+
+    {
+      id: "santarita",
+      type: "card",
+      content: {
+        es: {
+          title: "🚌 Proyectos Santa Rita DAO",
+          description: "Conoce Santa Rush, el sistema de transporte sostenible y los DAO locales.",
+          cta: "Explorar proyectos"
+        },
+        en: {
+          title: "🚌 Santa Rita DAO Projects",
+          description: "Explore Santa Rush, sustainable transport and local DAOs.",
+          cta: "Explore Projects"
+        }
+      },
+      link: "/dao"
+    },
+
+    {
+      id: "aethosbyte",
+      type: "card",
+      content: {
+        es: {
+          title: "🧠 AethosByte - Limpieza de Archivos",
+          description: "Herramienta de análisis local con IA que respeta tu privacidad.",
+          cta: "Probar gratis"
+        },
+        en: {
+          title: "🧠 AethosByte - File Cleanup",
+          description: "Local, privacy-respecting AI tool to analyze and clean your files.",
+          cta: "Try Free"
+        }
+      },
+      link: "/aethosbyte"
+    }
+  ],
+
+  footer: {
+    content: {
+      es: "Construido con ❤️ desde Honduras por Kevin Guillen · Síguenos en Electrobit.ai",
+      en: "Built with ❤️ from Honduras by Kevin Guillen · Follow us at Electrobit.ai"
+    },
+    social: [
+      { platform: "Twitter", url: "https://twitter.com/electrobitai" },
+      { platform: "YouTube", url: "https://youtube.com/@electrobitai" },
+      { platform: "GitHub", url: "https://github.com/electrobitai" }
+    ]
+  }
+}
