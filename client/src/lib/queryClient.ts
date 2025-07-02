@@ -23,18 +23,27 @@ export async function apiRequest(
   // Ensure URL is absolute
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
   
-  const res = await fetch(fullUrl, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-    body,
-    credentials: "include",
-  });
+  console.log('API Request:', { method, fullUrl, API_BASE_URL });
+  
+  try {
+    const res = await fetch(fullUrl, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body,
+      credentials: "include",
+    });
 
-  await throwIfResNotOk(res);
-  return await res.json();
+    await throwIfResNotOk(res);
+    const data = await res.json();
+    console.log('API Response:', data);
+    return data;
+  } catch (error) {
+    console.error('API Request failed:', { error, fullUrl, method });
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
