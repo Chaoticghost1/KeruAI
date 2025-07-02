@@ -147,7 +147,7 @@ export default function CruiseWord() {
                     onClick={() => setShowDefinition(true)}
                     className="mb-4"
                   >
-                    {t.language === 'es' ? 'Ver Definición' : 'Show Definition'}
+                    {t.common.showDefinition}
                   </Button>
                 </div>
               )}
@@ -156,10 +156,10 @@ export default function CruiseWord() {
             <div className="flex justify-center gap-4">
               <Button variant="outline" onClick={prevWord}>
                 <i className="fas fa-chevron-left mr-2"></i>
-                {t.language === 'es' ? 'Anterior' : 'Previous'}
+                {t.common.previous}
               </Button>
               <Button onClick={nextWord}>
-                {t.language === 'es' ? 'Siguiente' : 'Next'}
+                {t.common.next}
                 <i className="fas fa-chevron-right ml-2"></i>
               </Button>
             </div>

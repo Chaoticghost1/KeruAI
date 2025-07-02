@@ -17,22 +17,24 @@ import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 lg:ml-80">
-        <Switch>
-          <Route path="/" component={Home} />
-          <Route path="/studybuddy" component={StudyBuddy} />
-          <Route path="/budgetpal" component={BudgetPal} />
-          <Route path="/blog" component={Blog} />
-          <Route path="/chat" component={Chat} />
-          <Route path="/cruiseword" component={CruiseWord} />
-          <Route path="/dao" component={DAO} />
-          <Route path="/aethosbyte" component={AethosByte} />
-          <Route component={NotFound} />
-        </Switch>
-      </main>
-    </div>
+    <LanguageProvider>
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <main className="flex-1 lg:ml-80 pt-16 lg:pt-0">
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/studybuddy" component={StudyBuddy} />
+            <Route path="/budgetpal" component={BudgetPal} />
+            <Route path="/blog" component={Blog} />
+            <Route path="/chat" component={Chat} />
+            <Route path="/cruiseword" component={CruiseWord} />
+            <Route path="/dao" component={DAO} />
+            <Route path="/aethosbyte" component={AethosByte} />
+            <Route component={NotFound} />
+          </Switch>
+        </main>
+      </div>
+    </LanguageProvider>
   );
 }
 
@@ -40,10 +42,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <LanguageProvider>
-          <Toaster />
-          <Router />
-        </LanguageProvider>
+        <Toaster />
+        <Router />
       </TooltipProvider>
     </QueryClientProvider>
   );

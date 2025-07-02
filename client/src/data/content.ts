@@ -59,6 +59,16 @@ export const translations = {
     },
     footer: {
       built: "Construido con ❤️ desde Honduras por Kevin Guillen · Síguenos en Keru.ai"
+    },
+    common: {
+      start: "Comenzar",
+      learnMore: "Más Información",
+      download: "Descargar",
+      free: "Gratis",
+      next: "Siguiente",
+      previous: "Anterior",
+      viewDetails: "Ver Detalles",
+      showDefinition: "Ver Definición"
     }
   },
   en: {
@@ -68,7 +78,7 @@ export const translations = {
     },
     nav: {
       home: "Home",
-      study: "Study Buddy AI",
+      study: "Aprende conmigo AI",
       budget: "BudgetPal",
       travel: "Travel & Cruise",
       game: "CruiseWord Game",
@@ -81,9 +91,9 @@ export const translations = {
       cta: "Explore the suite"
     },
     studybuddy: {
-      title: "🎓 Study Buddy AI",
+      title: "🎓 Aprende conmigo AI",
       description: "AI-powered study assistant to help with homework, summaries, and exam prep.",
-      cta: "Launch StudyBuddy"
+      cta: "Launch Aprende conmigo AI"
     },
     budgetpal: {
       title: "💸 BudgetPal",
@@ -121,6 +131,16 @@ export const translations = {
     },
     footer: {
       built: "Built with ❤️ from Honduras by Kevin Guillen · Follow us at Keru.ai"
+    },
+    common: {
+      start: "Start",
+      learnMore: "Learn More",
+      download: "Download",
+      free: "Free",
+      next: "Next",
+      previous: "Previous",
+      viewDetails: "View Details",
+      showDefinition: "Show Definition"
     }
   }
 };

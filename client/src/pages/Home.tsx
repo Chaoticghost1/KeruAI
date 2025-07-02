@@ -7,7 +7,7 @@ export default function Home() {
   const { t } = useLanguage();
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen lg:pt-0 -mt-16 lg:mt-0">
       <HeroSection />
       
       {/* Tools Grid */}

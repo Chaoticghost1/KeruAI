@@ -46,7 +46,7 @@ export function Sidebar() {
       )}
 
       {/* Mobile Header */}
-      <header className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between relative z-30">
+      <header className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
         <button 
           onClick={() => setIsMobileOpen(true)}
           className="text-slate-600 hover:text-slate-900"
