@@ -3,13 +3,15 @@ import { Link, useLocation } from 'wouter';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
 import { socialLinks } from '../data/content';
+import { useAuth } from '../hooks/use-auth';
 
 export function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { t } = useLanguage();
   const [location] = useLocation();
+  const { user } = useAuth();
 
-  const navItems = [
+  const baseNavItems = [
     { href: '/', icon: 'fas fa-home', key: 'home' },
     { href: '/studybuddy', icon: 'fas fa-graduation-cap', key: 'study' },
     { href: '/budgetpal', icon: 'fas fa-wallet', key: 'budget' },
@@ -18,6 +20,16 @@ export function Sidebar() {
     { href: '/dao', icon: 'fas fa-bus', key: 'dao' },
     { href: '/aethosbyte', icon: 'fas fa-brain', key: 'cleanup' },
   ];
+
+  // Add admin/teacher dashboard for authorized users
+  const navItems = [...baseNavItems];
+  if (user && (user.role === 'superuser' || user.role === 'teacher')) {
+    navItems.push({
+      href: '/admin',
+      icon: user.role === 'superuser' ? 'fas fa-shield-alt' : 'fas fa-chalkboard-teacher',
+      key: user.role === 'superuser' ? 'admin' : 'teacher'
+    });
+  }
 
   const isActive = (href: string) => {
     if (href === '/' && location === '/') return true;
@@ -92,6 +104,56 @@ export function Sidebar() {
             <LanguageToggle />
           </div>
 
+          {/* User Menu - Show if logged in */}
+          {user && (
+            <div className="mb-6 p-4 bg-slate-700 rounded-lg">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <i className={`fas ${
+                    user.role === 'superuser' ? 'fa-shield-alt' : 
+                    user.role === 'teacher' ? 'fa-chalkboard-teacher' : 
+                    'fa-user'
+                  } text-white text-sm`}></i>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {user.firstName || user.username}
+                  </p>
+                  <p className="text-xs text-slate-300 capitalize">
+                    {user.role}
+                  </p>
+                </div>
+              </div>
+              
+              {(user.role === 'superuser' || user.role === 'teacher') && (
+                <div className="space-y-1">
+                  <Link
+                    href="/admin"
+                    onClick={() => setIsMobileOpen(false)}
+                    className="flex items-center space-x-2 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-600 rounded transition-colors"
+                  >
+                    <i className={`fas ${user.role === 'superuser' ? 'fa-cogs' : 'fa-chalkboard'} w-4`}></i>
+                    <span>{user.role === 'superuser' ? 'Admin Panel' : 'Teacher Panel'}</span>
+                  </Link>
+                  
+                  {user.role === 'superuser' && (
+                    <Link
+                      href="/admin"
+                      onClick={() => {
+                        setIsMobileOpen(false);
+                        // Could add a state to switch to user management tab
+                      }}
+                      className="flex items-center space-x-2 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-600 rounded transition-colors"
+                    >
+                      <i className="fas fa-users w-4"></i>
+                      <span>User Management</span>
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Navigation Menu */}
           <nav className="space-y-2">
             {navItems.map((item) => (
@@ -118,6 +180,28 @@ export function Sidebar() {
 
         {/* Footer in Sidebar */}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-slate-900">
+          {/* Auth Links - Show if not logged in */}
+          {!user && (
+            <div className="mb-4 space-y-2">
+              <Link
+                href="/auth"
+                onClick={() => setIsMobileOpen(false)}
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                <i className="fas fa-sign-in-alt"></i>
+                <span>Sign In</span>
+              </Link>
+              <Link
+                href="/auth"
+                onClick={() => setIsMobileOpen(false)}
+                className="flex items-center justify-center space-x-2 px-4 py-2 border border-slate-600 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+              >
+                <i className="fas fa-user-plus"></i>
+                <span>Sign Up</span>
+              </Link>
+            </div>
+          )}
+
           <div className="text-center mb-4">
             <p className="text-xs text-slate-400">
               {t.footer.built}

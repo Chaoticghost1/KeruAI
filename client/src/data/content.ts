@@ -91,7 +91,9 @@ export const translations = {
       travel: "Viajes & Cruceros",
       game: "CruiseWord Game",
       dao: "Santa Rita DAO",
-      cleanup: "AethosByte"
+      cleanup: "AethosByte",
+      admin: 'Panel de Administración',
+      teacher: 'Panel de Profesor',
     },
     hero: {
       title: "Keru.ai Suite",
@@ -243,7 +245,9 @@ export const translations = {
       travel: "Travel & Cruise",
       game: "CruiseWord Game",
       dao: "Santa Rita DAO",
-      cleanup: "AethosByte"
+      cleanup: "AethosByte",
+      admin: 'Admin Dashboard',
+      teacher: 'Teacher Dashboard',
     },
     hero: {
       title: "Keru.ai Suite",
