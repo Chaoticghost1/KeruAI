@@ -199,6 +199,35 @@ export const studentAssignments = pgTable("student_assignments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Blog posts table for travel section
+export const blogPosts = pgTable("blog_posts", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  excerpt: text("excerpt"),
+  category: text("category").notNull(), // cruises, destinations, travel-tips, reviews
+  tags: text("tags").array(),
+  authorId: integer("author_id").references(() => users.id).notNull(),
+  isPublished: boolean("is_published").default(false).notNull(),
+  isHidden: boolean("is_hidden").default(false).notNull(),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Bot personas table for Telegram integration
+export const botPersonas = pgTable("bot_personas", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  key: text("key").unique().notNull(), // Unique identifier for the persona
+  description: text("description"),
+  systemPrompt: text("system_prompt").notNull(),
+  subjects: text("subjects").array(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   budgetCategories: many(budgetCategories),
@@ -325,6 +354,13 @@ export const studentAssignmentsRelations = relations(studentAssignments, ({ one 
   }),
 }));
 
+export const blogPostsRelations = relations(blogPosts, ({ one }) => ({
+  author: one(users, {
+    fields: [blogPosts.authorId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -407,6 +443,19 @@ export const insertStudentAssignmentSchema = createInsertSchema(studentAssignmen
   updatedAt: true,
 });
 
+export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
+  id: true,
+  publishedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBotPersonaSchema = createInsertSchema(botPersonas).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -438,3 +487,7 @@ export type InsertContentSubmission = z.infer<typeof insertContentSubmissionSche
 export type ContentSubmission = typeof contentSubmissions.$inferSelect;
 export type InsertStudentAssignment = z.infer<typeof insertStudentAssignmentSchema>;
 export type StudentAssignment = typeof studentAssignments.$inferSelect;
+export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
+export type BlogPost = typeof blogPosts.$inferSelect;
+export type InsertBotPersona = z.infer<typeof insertBotPersonaSchema>;
+export type BotPersona = typeof botPersonas.$inferSelect;

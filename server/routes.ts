@@ -926,6 +926,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // ADMIN API ROUTES
+  // ==========================================
+  
+  // Admin Analytics Routes
+  app.get("/api/admin/analytics", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const analytics = await storage.getAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get analytics" });
+    }
+  });
+
+  app.get("/api/admin/budget-analytics", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+    try {
+      const analytics = await storage.getBudgetAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get budget analytics" });
+    }
+  });
+
+  app.get("/api/admin/chat-analytics", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const analytics = await storage.getChatAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get chat analytics" });
+    }
+  });
+
+  // Bot Persona Management Routes
+  app.get("/api/admin/bot-personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const personas = await storage.getBotPersonas();
+      res.json(personas);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get bot personas" });
+    }
+  });
+
+  app.post("/api/admin/bot-personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const personaData = req.body;
+      // Convert comma-separated subjects to array
+      if (personaData.subjects && typeof personaData.subjects === 'string') {
+        personaData.subjects = personaData.subjects.split(',').map(s => s.trim()).filter(s => s);
+      }
+      const persona = await storage.createBotPersona(personaData);
+      res.json(persona);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create bot persona" });
+    }
+  });
+
+  app.put("/api/admin/bot-personas/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      // Convert comma-separated subjects to array
+      if (updates.subjects && typeof updates.subjects === 'string') {
+        updates.subjects = updates.subjects.split(',').map(s => s.trim()).filter(s => s);
+      }
+      const persona = await storage.updateBotPersona(id, updates);
+      res.json(persona);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update bot persona" });
+    }
+  });
+
+  app.delete("/api/admin/bot-personas/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteBotPersona(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete bot persona" });
+    }
+  });
+
+  // Blog Post Management Routes
+  app.get("/api/admin/blog-posts", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const posts = await storage.getBlogPosts();
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get blog posts" });
+    }
+  });
+
+  app.post("/api/admin/blog-posts", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const postData = { ...req.body, authorId: req.user!.id };
+      // Convert comma-separated tags to array
+      if (postData.tags && typeof postData.tags === 'string') {
+        postData.tags = postData.tags.split(',').map(t => t.trim()).filter(t => t);
+      }
+      if (postData.isPublished) {
+        postData.publishedAt = new Date();
+      }
+      const post = await storage.createBlogPost(postData);
+      res.json(post);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create blog post" });
+    }
+  });
+
+  app.put("/api/admin/blog-posts/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      // Convert comma-separated tags to array
+      if (updates.tags && typeof updates.tags === 'string') {
+        updates.tags = updates.tags.split(',').map(t => t.trim()).filter(t => t);
+      }
+      if (updates.isPublished && !updates.publishedAt) {
+        updates.publishedAt = new Date();
+      }
+      const post = await storage.updateBlogPost(id, updates);
+      res.json(post);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update blog post" });
+    }
+  });
+
+  app.delete("/api/admin/blog-posts/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteBlogPost(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete blog post" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

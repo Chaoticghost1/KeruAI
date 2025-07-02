@@ -43,7 +43,13 @@ import {
   type ContentSubmission,
   type InsertContentSubmission,
   type StudentAssignment,
-  type InsertStudentAssignment
+  type InsertStudentAssignment,
+  blogPosts,
+  botPersonas,
+  type BlogPost,
+  type InsertBlogPost,
+  type BotPersona,
+  type InsertBotPersona
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -160,6 +166,25 @@ export interface IStorage {
   updateStudentAssignment(id: number, updates: Partial<StudentAssignment>): Promise<StudentAssignment>;
   submitAssignment(assignmentId: number, submissionData: { submissionText?: string; submissionFiles?: string[] }): Promise<StudentAssignment>;
   gradeAssignment(assignmentId: number, grade: number, feedback?: string): Promise<StudentAssignment>;
+
+  // Admin analytics methods
+  getAnalytics(): Promise<any>;
+  getBudgetAnalytics(): Promise<any>;
+  getChatAnalytics(): Promise<any>;
+  
+  // Blog post methods
+  createBlogPost(post: InsertBlogPost): Promise<BlogPost>;
+  getBlogPost(id: number): Promise<BlogPost | undefined>;
+  getBlogPosts(): Promise<BlogPost[]>;
+  updateBlogPost(id: number, updates: Partial<BlogPost>): Promise<BlogPost>;
+  deleteBlogPost(id: number): Promise<void>;
+  
+  // Bot persona methods
+  createBotPersona(persona: InsertBotPersona): Promise<BotPersona>;
+  getBotPersona(id: number): Promise<BotPersona | undefined>;
+  getBotPersonas(): Promise<BotPersona[]>;
+  updateBotPersona(id: number, updates: Partial<BotPersona>): Promise<BotPersona>;
+  deleteBotPersona(id: number): Promise<void>;
 
   //Super Admin methods
   getAllUsers(): Promise<User[]>;
@@ -750,6 +775,135 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users).orderBy(users.createdAt);
+  }
+
+  // Admin analytics methods
+  async getAnalytics(): Promise<any> {
+    const totalUsers = await db.select({ count: sql<number>`count(*)` }).from(users);
+    const newUsersThisMonth = await db.select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(sql`created_at >= date_trunc('month', current_date)`);
+    const activeSessions = await db.select({ count: sql<number>`count(*)` })
+      .from(tutorSessions)
+      .where(eq(tutorSessions.isActive, true));
+
+    return {
+      totalUsers: totalUsers[0]?.count || 0,
+      newUsersThisMonth: newUsersThisMonth[0]?.count || 0,
+      activeSessions: activeSessions[0]?.count || 0
+    };
+  }
+
+  async getBudgetAnalytics(): Promise<any> {
+    const registeredUsers = await db.select({ count: sql<number>`count(distinct user_id)` }).from(budgetCategories);
+    const totalTransactions = await db.select({ count: sql<number>`count(*)` }).from(budgetTransactions);
+    const avgExpenses = await db.select({ 
+      avg: sql<number>`avg(amount)` 
+    }).from(budgetTransactions).where(sql`amount < 0`);
+    const avgIncome = await db.select({ 
+      avg: sql<number>`avg(amount)` 
+    }).from(budgetTransactions).where(sql`amount > 0`);
+    const popularCategory = await db.select({ 
+      name: budgetCategories.name,
+      count: sql<number>`count(*)`
+    })
+    .from(budgetTransactions)
+    .innerJoin(budgetCategories, eq(budgetTransactions.categoryId, budgetCategories.id))
+    .groupBy(budgetCategories.name)
+    .orderBy(sql`count(*) desc`)
+    .limit(1);
+
+    return {
+      registeredUsers: registeredUsers[0]?.count || 0,
+      totalTransactions: totalTransactions[0]?.count || 0,
+      monthlyAvgTransactions: Math.round((totalTransactions[0]?.count || 0) / 12),
+      avgMonthlyExpense: Math.abs(avgExpenses[0]?.avg || 0),
+      avgMonthlyIncome: avgIncome[0]?.avg || 0,
+      popularCategory: popularCategory[0]?.name || 'N/A'
+    };
+  }
+
+  async getChatAnalytics(): Promise<any> {
+    const totalRequests = await db.select({ count: sql<number>`count(*)` }).from(tutorMessages);
+    const thisMonth = await db.select({ count: sql<number>`count(*)` })
+      .from(tutorMessages)
+      .where(sql`timestamp >= date_trunc('month', current_date)`);
+
+    // Mock frequent questions for now (would need a separate table in real implementation)
+    const frequentQuestions = [
+      { text: "How do I solve quadratic equations?", count: 45 },
+      { text: "What is the derivative of x²?", count: 32 },
+      { text: "Explain photosynthesis", count: 28 }
+    ];
+
+    return {
+      totalRequests: totalRequests[0]?.count || 0,
+      thisMonth: thisMonth[0]?.count || 0,
+      avgPerDay: Math.round((thisMonth[0]?.count || 0) / 30),
+      frequentQuestions
+    };
+  }
+
+  // Blog post methods
+  async createBlogPost(post: InsertBlogPost): Promise<BlogPost> {
+    const [created] = await db
+      .insert(blogPosts)
+      .values(post)
+      .returning();
+    return created;
+  }
+
+  async getBlogPost(id: number): Promise<BlogPost | undefined> {
+    const [post] = await db.select().from(blogPosts).where(eq(blogPosts.id, id));
+    return post || undefined;
+  }
+
+  async getBlogPosts(): Promise<BlogPost[]> {
+    return await db.select().from(blogPosts).orderBy(desc(blogPosts.createdAt));
+  }
+
+  async updateBlogPost(id: number, updates: Partial<BlogPost>): Promise<BlogPost> {
+    const [updated] = await db
+      .update(blogPosts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(blogPosts.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBlogPost(id: number): Promise<void> {
+    await db.delete(blogPosts).where(eq(blogPosts.id, id));
+  }
+
+  // Bot persona methods
+  async createBotPersona(persona: InsertBotPersona): Promise<BotPersona> {
+    const [created] = await db
+      .insert(botPersonas)
+      .values(persona)
+      .returning();
+    return created;
+  }
+
+  async getBotPersona(id: number): Promise<BotPersona | undefined> {
+    const [persona] = await db.select().from(botPersonas).where(eq(botPersonas.id, id));
+    return persona || undefined;
+  }
+
+  async getBotPersonas(): Promise<BotPersona[]> {
+    return await db.select().from(botPersonas).orderBy(botPersonas.name);
+  }
+
+  async updateBotPersona(id: number, updates: Partial<BotPersona>): Promise<BotPersona> {
+    const [updated] = await db
+      .update(botPersonas)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(botPersonas.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBotPersona(id: number): Promise<void> {
+    await db.delete(botPersonas).where(eq(botPersonas.id, id));
   }
 }
 
