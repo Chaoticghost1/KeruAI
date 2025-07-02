@@ -8,7 +8,8 @@ async function throwIfResNotOk(res: Response) {
 }
 
 // Configure API base URL for web interface only (Telegram bot has separate config)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// In development, API requests go through the same server (Vite middleware mode)
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export async function apiRequest(
   method: string,
@@ -34,11 +35,17 @@ export async function apiRequest(
   
   console.log('API Request:', { method, fullUrl, API_BASE_URL });
   
-  const res = await fetch(fullUrl, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(fullUrl, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (fetchError: any) {
+    console.error('API Request failed:', { error: fetchError, fullUrl, method });
+    throw new Error(`Network error: ${fetchError?.message || 'Failed to connect to server'}`);
+  }
 
   // Handle token expiration
   if (res.status === 401 && token) {
