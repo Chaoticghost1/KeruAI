@@ -31,22 +31,23 @@ function Router() {
           {/* Public landing page for unauthenticated users */}
           <Route path="/" component={LandingPage} />
           
-          {/* Protected routes with sidebar */}
-          <Route path="/dashboard">
+          {/* Admin panel route - standalone without sidebar */}
+          <ProtectedRoute path="/admin" component={AdminDashboard} roles={['teacher', 'superuser']} />
+          
+          {/* Main application routes with sidebar */}
+          <Route>
             {() => (
               <div className="flex min-h-screen">
                 <Sidebar />
                 <main className="flex-1 lg:ml-80 pt-16 lg:pt-0">
                   <Switch>
-                    <ProtectedRoute path="/dashboard" component={Home} />
-                    <ProtectedRoute path="/dashboard/admin" component={AdminDashboard} roles={['teacher', 'superuser']} />
-                    <ProtectedRoute path="/dashboard/studybuddy" component={StudyBuddy} />
-                    <ProtectedRoute path="/dashboard/budgetpal" component={BudgetPal} />
-                    <ProtectedRoute path="/dashboard/blog" component={Blog} />
-                    <ProtectedRoute path="/dashboard/chat" component={Chat} />
-                    <ProtectedRoute path="/dashboard/cruiseword" component={CruiseWord} />
-                    <ProtectedRoute path="/dashboard/dao" component={DAO} />
-                    <ProtectedRoute path="/dashboard/aethosbyte" component={AethosByte} />
+                    <Route path="/studybuddy" component={StudyBuddy} />
+                    <Route path="/budgetpal" component={BudgetPal} />
+                    <Route path="/blog" component={Blog} />
+                    <Route path="/chat" component={Chat} />
+                    <Route path="/cruiseword" component={CruiseWord} />
+                    <Route path="/dao" component={DAO} />
+                    <Route path="/aethosbyte" component={AethosByte} />
                     <Route component={NotFound} />
                   </Switch>
                 </main>
