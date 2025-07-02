@@ -18,6 +18,9 @@ import {
   tutorSessions,
   tutorMessages,
   studentProfiles,
+  badges,
+  userBadges,
+  studyStreaks,
   type TutorAgent,
   type InsertTutorAgent,
   type TutorSession,
@@ -25,10 +28,22 @@ import {
   type TutorMessage,
   type InsertTutorMessage,
   type StudentProfile,
-  type InsertStudentProfile
+  type InsertStudentProfile,
+  type Badge,
+  type InsertBadge,
+  type UserBadge,
+  type InsertUserBadge,
+  type StudyStreak,
+  type InsertStudyStreak
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
+import { 
+  calculateLevel, 
+  calculateSessionPoints, 
+  checkBadgeEligibility,
+  PREDEFINED_BADGES
+} from "@shared/badgeSystem";
 
 export interface IStorage {
   // User methods
@@ -72,6 +87,38 @@ export interface IStorage {
   getStudentProfile(userId: number): Promise<StudentProfile | undefined>;
   createStudentProfile(profile: InsertStudentProfile): Promise<StudentProfile>;
   updateStudentProfile(userId: number, updates: Partial<StudentProfile>): Promise<StudentProfile>;
+  
+  // Badge system methods
+  getBadges(): Promise<Badge[]>;
+  getBadge(id: number): Promise<Badge | undefined>;
+  getBadgeByKey(badgeKey: string): Promise<Badge | undefined>;
+  createBadge(badge: InsertBadge): Promise<Badge>;
+  
+  // User badge methods
+  getUserBadges(userId: number): Promise<UserBadge[]>;
+  createUserBadge(userBadge: InsertUserBadge): Promise<UserBadge>;
+  markBadgeAsViewed(userId: number, badgeId: number): Promise<void>;
+  
+  // Study streak methods
+  getStudyStreaks(userId: number, limit?: number): Promise<StudyStreak[]>;
+  createStudyStreak(streak: InsertStudyStreak): Promise<StudyStreak>;
+  getTodayStreak(userId: number): Promise<StudyStreak | undefined>;
+  
+  // Reward calculation methods
+  awardSessionRewards(userId: number, sessionData: {
+    sessionId: number;
+    subject: string;
+    duration?: number;
+    messagesExchanged: number;
+    difficulty: number;
+  }): Promise<{ pointsEarned: number; badgesEarned: Badge[]; levelUp: boolean }>;
+  
+  // Statistics
+  getUserSessionStats(userId: number): Promise<{
+    subjectSessions: Record<string, number>;
+    todaySessions: number;
+    totalSessions: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -252,6 +299,224 @@ export class DatabaseStorage implements IStorage {
       .where(eq(studentProfiles.userId, userId))
       .returning();
     return updatedProfile;
+  }
+
+  // Badge system methods
+  async getBadges(): Promise<Badge[]> {
+    return await db.select().from(badges);
+  }
+
+  async getBadge(id: number): Promise<Badge | undefined> {
+    const [badge] = await db.select().from(badges).where(eq(badges.id, id));
+    return badge || undefined;
+  }
+
+  async getBadgeByKey(badgeKey: string): Promise<Badge | undefined> {
+    const [badge] = await db.select().from(badges).where(eq(badges.badgeKey, badgeKey));
+    return badge || undefined;
+  }
+
+  async createBadge(badge: InsertBadge): Promise<Badge> {
+    const [newBadge] = await db.insert(badges).values(badge).returning();
+    return newBadge;
+  }
+
+  // User badge methods
+  async getUserBadges(userId: number): Promise<UserBadge[]> {
+    return await db.select().from(userBadges).where(eq(userBadges.userId, userId));
+  }
+
+  async createUserBadge(userBadge: InsertUserBadge): Promise<UserBadge> {
+    const [newUserBadge] = await db.insert(userBadges).values(userBadge).returning();
+    return newUserBadge;
+  }
+
+  async markBadgeAsViewed(userId: number, badgeId: number): Promise<void> {
+    await db
+      .update(userBadges)
+      .set({ isNew: false })
+      .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badgeId)));
+  }
+
+  // Study streak methods
+  async getStudyStreaks(userId: number, limit: number = 30): Promise<StudyStreak[]> {
+    return await db
+      .select()
+      .from(studyStreaks)
+      .where(eq(studyStreaks.userId, userId))
+      .orderBy(desc(studyStreaks.date))
+      .limit(limit);
+  }
+
+  async createStudyStreak(streak: InsertStudyStreak): Promise<StudyStreak> {
+    const [newStreak] = await db.insert(studyStreaks).values(streak).returning();
+    return newStreak;
+  }
+
+  async getTodayStreak(userId: number): Promise<StudyStreak | undefined> {
+    const today = new Date().toISOString().split('T')[0];
+    const [streak] = await db
+      .select()
+      .from(studyStreaks)
+      .where(and(
+        eq(studyStreaks.userId, userId),
+        sql`DATE(${studyStreaks.date}) = ${today}`
+      ));
+    return streak || undefined;
+  }
+
+  // Reward calculation and badge awarding
+  async awardSessionRewards(userId: number, sessionData: {
+    sessionId: number;
+    subject: string;
+    duration?: number;
+    messagesExchanged: number;
+    difficulty: number;
+  }): Promise<{ pointsEarned: number; badgesEarned: Badge[]; levelUp: boolean }> {
+    // Get user's current profile
+    let profile = await this.getStudentProfile(userId);
+    if (!profile) {
+      profile = await this.createStudentProfile({
+        userId,
+        level: 1,
+        experiencePoints: 0,
+        totalSessionsCompleted: 0,
+        currentStreak: 0,
+        longestStreak: 0
+      });
+    }
+
+    // Calculate points for this session
+    const pointsEarned = calculateSessionPoints({
+      duration: sessionData.duration,
+      messagesExchanged: sessionData.messagesExchanged,
+      difficulty: sessionData.difficulty,
+      completed: true
+    });
+
+    // Update session count and streak
+    const sessionStats = await this.getUserSessionStats(userId);
+    const todayStreak = await this.getTodayStreak(userId);
+    let newStreak = profile.currentStreak;
+
+    if (!todayStreak) {
+      // First session today - increment streak
+      newStreak = profile.currentStreak + 1;
+      await this.createStudyStreak({
+        userId,
+        date: new Date(),
+        sessionsCompleted: 1,
+        pointsEarned: pointsEarned,
+        subjectsStudied: [sessionData.subject]
+      });
+    } else {
+      // Update today's streak session count
+      const currentSubjects = todayStreak.subjectsStudied || [];
+      const updatedSubjects = currentSubjects.includes(sessionData.subject) 
+        ? currentSubjects 
+        : [...currentSubjects, sessionData.subject];
+      
+      await db
+        .update(studyStreaks)
+        .set({ 
+          sessionsCompleted: todayStreak.sessionsCompleted + 1,
+          pointsEarned: todayStreak.pointsEarned + pointsEarned,
+          subjectsStudied: updatedSubjects
+        })
+        .where(eq(studyStreaks.id, todayStreak.id));
+    }
+
+    // Calculate new level
+    const newXP = profile.experiencePoints + pointsEarned;
+    const currentLevel = profile.level;
+    const newLevel = calculateLevel(newXP);
+    const levelUp = newLevel > currentLevel;
+
+    // Update profile
+    await this.updateStudentProfile(userId, {
+      experiencePoints: newXP,
+      level: newLevel,
+      totalSessionsCompleted: profile.totalSessionsCompleted + 1,
+      currentStreak: newStreak,
+      longestStreak: Math.max(profile.longestStreak, newStreak)
+    });
+
+    // Check for new badges
+    const earnedBadges: Badge[] = [];
+    const allBadges = await this.getBadges();
+    const userBadgesList = await this.getUserBadges(userId);
+    const earnedBadgeIds = new Set(userBadgesList.map(ub => ub.badgeId));
+
+    const updatedSessionStats = {
+      ...sessionStats,
+      totalSessions: sessionStats.totalSessions + 1,
+      todaySessions: sessionStats.todaySessions + 1,
+      subjectSessions: {
+        ...sessionStats.subjectSessions,
+        [sessionData.subject]: (sessionStats.subjectSessions[sessionData.subject] || 0) + 1
+      }
+    };
+
+    for (const badge of allBadges) {
+      if (!earnedBadgeIds.has(badge.id)) {
+        const updatedProfile = { ...profile, experiencePoints: newXP, level: newLevel, totalSessionsCompleted: profile.totalSessionsCompleted + 1, currentStreak: newStreak };
+        
+        if (checkBadgeEligibility(badge, updatedProfile, {
+          ...updatedSessionStats,
+          sessionTime: new Date()
+        })) {
+          await this.createUserBadge({
+            userId,
+            badgeId: badge.id,
+            progress: 100,
+            isNew: true
+          });
+          earnedBadges.push(badge);
+        }
+      }
+    }
+
+    return {
+      pointsEarned,
+      badgesEarned: earnedBadges,
+      levelUp
+    };
+  }
+
+  // Statistics helper
+  async getUserSessionStats(userId: number): Promise<{
+    subjectSessions: Record<string, number>;
+    todaySessions: number;
+    totalSessions: number;
+  }> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get all user sessions (completed sessions have endedAt set)
+    const allSessions = await db
+      .select()
+      .from(tutorSessions)
+      .where(and(
+        eq(tutorSessions.userId, userId),
+        sql`${tutorSessions.endedAt} IS NOT NULL`
+      ));
+
+    // Get today's sessions
+    const todaySessions = allSessions.filter(session => 
+      session.startedAt.toISOString().split('T')[0] === today
+    );
+
+    // Count sessions by subject
+    const subjectSessions: Record<string, number> = {};
+    for (const session of allSessions) {
+      const subject = session.subject || 'general';
+      subjectSessions[subject] = (subjectSessions[subject] || 0) + 1;
+    }
+
+    return {
+      subjectSessions,
+      todaySessions: todaySessions.length,
+      totalSessions: allSessions.length
+    };
   }
 }
 

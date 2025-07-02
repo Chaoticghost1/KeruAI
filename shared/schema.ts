@@ -94,8 +94,48 @@ export const studentProfiles = pgTable("student_profiles", {
   subjects: text("subjects").array().default([]).notNull(),
   strugglingAreas: text("struggling_areas").array().default([]).notNull(),
   preferences: text("preferences"), // JSON for detailed preferences
+  // Reward system fields
+  totalPoints: integer("total_points").default(0).notNull(),
+  currentStreak: integer("current_streak").default(0).notNull(),
+  longestStreak: integer("longest_streak").default(0).notNull(),
+  totalSessionsCompleted: integer("total_sessions_completed").default(0).notNull(),
+  level: integer("level").default(1).notNull(),
+  experiencePoints: integer("experience_points").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Badges and achievements system
+export const badges = pgTable("badges", {
+  id: serial("id").primaryKey(),
+  badgeKey: text("badge_key").unique().notNull(), // first_session, week_warrior, math_master, etc.
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  icon: text("icon").notNull(), // emoji or icon name
+  category: text("category").notNull(), // streak, achievement, subject, milestone
+  rarity: text("rarity").default("common").notNull(), // common, rare, epic, legendary
+  requirements: text("requirements").notNull(), // JSON describing requirements
+  points: integer("points").default(10).notNull(), // points awarded for earning this badge
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+export const userBadges = pgTable("user_badges", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  badgeId: integer("badge_id").references(() => badges.id).notNull(),
+  earnedAt: timestamp("earned_at").defaultNow().notNull(),
+  progress: integer("progress").default(0).notNull(), // for tracking partial progress
+  isNew: boolean("is_new").default(true).notNull() // for showing new badge notifications
+});
+
+export const studyStreaks = pgTable("study_streaks", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  date: timestamp("date").defaultNow().notNull(),
+  sessionsCompleted: integer("sessions_completed").default(1).notNull(),
+  pointsEarned: integer("points_earned").default(0).notNull(),
+  subjectsStudied: text("subjects_studied").array().default([]).notNull()
 });
 
 // Relations
@@ -169,6 +209,28 @@ export const studentProfilesRelations = relations(studentProfiles, ({ one }) => 
   }),
 }));
 
+export const badgesRelations = relations(badges, ({ many }) => ({
+  userBadges: many(userBadges),
+}));
+
+export const userBadgesRelations = relations(userBadges, ({ one }) => ({
+  user: one(users, {
+    fields: [userBadges.userId],
+    references: [users.id],
+  }),
+  badge: one(badges, {
+    fields: [userBadges.badgeId],
+    references: [badges.id],
+  }),
+}));
+
+export const studyStreaksRelations = relations(studyStreaks, ({ one }) => ({
+  user: one(users, {
+    fields: [studyStreaks.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -217,6 +279,21 @@ export const insertStudentProfileSchema = createInsertSchema(studentProfiles).om
   updatedAt: true,
 });
 
+export const insertBadgeSchema = createInsertSchema(badges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserBadgeSchema = createInsertSchema(userBadges).omit({
+  id: true,
+  earnedAt: true,
+});
+
+export const insertStudyStreakSchema = createInsertSchema(studyStreaks).omit({
+  id: true,
+  date: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -236,3 +313,9 @@ export type InsertTutorMessage = z.infer<typeof insertTutorMessageSchema>;
 export type TutorMessage = typeof tutorMessages.$inferSelect;
 export type InsertStudentProfile = z.infer<typeof insertStudentProfileSchema>;
 export type StudentProfile = typeof studentProfiles.$inferSelect;
+export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type Badge = typeof badges.$inferSelect;
+export type InsertUserBadge = z.infer<typeof insertUserBadgeSchema>;
+export type UserBadge = typeof userBadges.$inferSelect;
+export type InsertStudyStreak = z.infer<typeof insertStudyStreakSchema>;
+export type StudyStreak = typeof studyStreaks.$inferSelect;

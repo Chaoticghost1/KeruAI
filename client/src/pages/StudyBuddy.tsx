@@ -11,6 +11,36 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { apiRequest } from '@/lib/queryClient';
 
+interface Badge {
+  id: number;
+  badgeKey: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  rarity: string;
+  points: number;
+}
+
+interface UserBadge {
+  id: number;
+  userId: number;
+  badgeId: number;
+  earnedAt: string;
+  progress: number;
+  isNew: boolean;
+}
+
+interface StudentProfile {
+  id: number;
+  userId: number;
+  level: number;
+  experiencePoints: number;
+  totalSessionsCompleted: number;
+  currentStreak: number;
+  longestStreak: number;
+}
+
 interface TutorAgent {
   id: number;
   agentKey: string;
@@ -41,6 +71,138 @@ interface TutorMessage {
   messageType: string;
   toolsUsed: string[];
   timestamp: string;
+}
+
+// Progress Dashboard Component
+function ProgressDashboard({ userId }: { userId: number }) {
+  const { t } = useLanguage();
+  
+  const { data: profile } = useQuery<StudentProfile>({
+    queryKey: ['/api/students/profile', userId],
+  });
+  
+  const { data: userBadges } = useQuery<UserBadge[]>({
+    queryKey: ['/api/users', userId, 'badges'],
+  });
+  
+  const { data: allBadges } = useQuery<Badge[]>({
+    queryKey: ['/api/badges'],
+  });
+  
+  const earnedBadgeIds = new Set(userBadges?.map(ub => ub.badgeId) || []);
+  const earnedBadges = allBadges?.filter(badge => earnedBadgeIds.has(badge.id)) || [];
+  
+  // Calculate level progress
+  const getXPProgress = (profile: StudentProfile) => {
+    const currentLevel = profile.level;
+    const nextLevelXP = Math.pow(currentLevel, 2) * 50;
+    const currentLevelXP = currentLevel === 1 ? 0 : Math.pow(currentLevel - 1, 2) * 50;
+    const neededXP = nextLevelXP - currentLevelXP;
+    const currentXP = profile.experiencePoints - currentLevelXP;
+    
+    return {
+      current: currentXP,
+      needed: neededXP,
+      progress: Math.round((currentXP / neededXP) * 100)
+    };
+  };
+  
+  const progress = profile ? getXPProgress(profile) : null;
+  
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      {/* Level Progress */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🎯 {t.language === 'es' ? 'Progreso del Nivel' : 'Level Progress'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {profile ? (
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600">{profile.level}</div>
+                <p className="text-sm text-slate-600">
+                  {t.language === 'es' ? 'Nivel Actual' : 'Current Level'}
+                </p>
+              </div>
+              
+              {progress && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>{progress.current} XP</span>
+                    <span>{progress.needed} XP</span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${progress.progress}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-center text-slate-600">
+                    {progress.progress}% {t.language === 'es' ? 'al siguiente nivel' : 'to next level'}
+                  </p>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <div className="text-center">
+                  <div className="text-xl font-semibold text-emerald-600">{profile.currentStreak}</div>
+                  <p className="text-xs text-slate-600">
+                    {t.language === 'es' ? 'Racha Actual' : 'Current Streak'}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-semibold text-purple-600">{profile.totalSessionsCompleted}</div>
+                  <p className="text-xs text-slate-600">
+                    {t.language === 'es' ? 'Sesiones' : 'Sessions'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-center text-slate-600">
+              {t.language === 'es' ? 'Comienza tu primera sesión para ver tu progreso' : 'Start your first session to see progress'}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Badges */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🏆 {t.language === 'es' ? 'Insignias' : 'Badges'} ({earnedBadges.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {earnedBadges.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3">
+              {earnedBadges.slice(0, 6).map((badge) => (
+                <div key={badge.id} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50">
+                  <span className="text-2xl">{badge.icon}</span>
+                  <div>
+                    <p className="font-medium text-sm">{badge.name}</p>
+                    <p className="text-xs text-slate-600 capitalize">{badge.rarity}</p>
+                  </div>
+                </div>
+              ))}
+              {earnedBadges.length > 6 && (
+                <div className="col-span-2 text-center text-sm text-slate-600">
+                  +{earnedBadges.length - 6} {t.language === 'es' ? 'más' : 'more'}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-center text-slate-600">
+              {t.language === 'es' ? 'Completa sesiones para ganar insignias' : 'Complete sessions to earn badges'}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 export default function StudyBuddy() {
@@ -169,6 +331,9 @@ export default function StudyBuddy() {
             {t.studybuddy.description}
           </p>
         </div>
+
+        {/* Progress Dashboard */}
+        <ProgressDashboard userId={userId} />
 
         {!currentSession ? (
           // Agent Selection View

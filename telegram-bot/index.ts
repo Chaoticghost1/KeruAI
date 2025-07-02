@@ -2,6 +2,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { db } from '../server/db.js';
 import { storage } from '../server/storage.js';
 import { tutorPersonas, getPersonaByKey, generatePersonaResponse } from '../shared/tutorPersonas.js';
+import { calculateLevel, getXPProgress } from '../shared/badgeSystem.js';
 import OpenAI from 'openai';
 
 // Initialize OpenAI client
@@ -17,6 +18,9 @@ const userSessions = new Map<string, {
   currentAgent?: any;
   sessionId?: number;
   userId: number;
+  messageCount?: number;
+  startTime?: Date;
+  subject?: string;
 }>();
 
 // Bot command handlers
@@ -111,6 +115,10 @@ bot.on('message', async (msg) => {
   }
   
   try {
+    // Increment message count
+    session.messageCount = (session.messageCount || 0) + 1;
+    userSessions.set(chatId.toString(), session);
+    
     // Store student message
     const studentMessage = await storage.createTutorMessage({
       sessionId: session.sessionId,
@@ -163,9 +171,12 @@ async function startTutorSession(chatId: number, agentKey: string) {
     isActive: true
   });
   
-  // Update user session
+  // Update user session with all required fields
   session.currentAgent = agent;
   session.sessionId = tutorSession.id;
+  session.messageCount = 0;
+  session.startTime = new Date();
+  session.subject = agent.subjects[0] || 'general';
   userSessions.set(chatId.toString(), session);
   
   // Get persona for greeting
@@ -227,6 +238,147 @@ Respond as this character would, helping the student with their question. Keep r
     return "Let me think about that question and get back to you!";
   }
 }
+
+// Session completion and badge awarding
+async function completeSession(chatId: number, sessionData: {
+  sessionId: number;
+  userId: number;
+  subject?: string;
+  messageCount?: number;
+  startTime?: Date;
+}) {
+  try {
+    const startTime = sessionData.startTime || new Date();
+    const messageCount = sessionData.messageCount || 1;
+    const subject = sessionData.subject || 'general';
+    
+    const duration = Math.floor((Date.now() - startTime.getTime()) / (1000 * 60)); // minutes
+    const difficulty = Math.min(Math.max(Math.floor(messageCount / 3), 1), 5); // 1-5 scale
+    
+    // Award session rewards
+    const rewards = await storage.awardSessionRewards(sessionData.userId, {
+      sessionId: sessionData.sessionId,
+      subject,
+      duration,
+      messagesExchanged: messageCount,
+      difficulty
+    });
+    
+    // Send completion message
+    let message = `🎉 *Session Complete!*\n\n`;
+    message += `📊 *Your Progress:*\n`;
+    message += `• Points earned: ${rewards.pointsEarned} XP\n`;
+    message += `• Duration: ${duration} minutes\n`;
+    message += `• Messages exchanged: ${messageCount}\n\n`;
+    
+    if (rewards.levelUp) {
+      message += `🎊 *LEVEL UP!* You're now level ${await getUserLevel(sessionData.userId)}!\n\n`;
+    }
+    
+    if (rewards.badgesEarned.length > 0) {
+      message += `🏆 *New Badges Earned:*\n`;
+      for (const badge of rewards.badgesEarned) {
+        message += `${badge.icon} *${badge.name}* - ${badge.description}\n`;
+      }
+      message += `\n`;
+    }
+    
+    // Show progress to next level
+    const profile = await storage.getStudentProfile(sessionData.userId);
+    if (profile) {
+      const progress = getXPProgress(profile);
+      message += `📈 *Level Progress:* ${progress.current}/${progress.needed} XP (${progress.progress}%)\n`;
+      message += `🔥 *Current Streak:* ${profile.currentStreak} days\n`;
+    }
+    
+    bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    
+  } catch (error) {
+    console.error('Error completing session:', error);
+    bot.sendMessage(chatId, '⚠️ Session completed but there was an error calculating rewards.');
+  }
+}
+
+// Helper function to get user level
+async function getUserLevel(userId: number): Promise<number> {
+  const profile = await storage.getStudentProfile(userId);
+  return profile ? profile.level : 1;
+}
+
+// Command to check badges and progress
+bot.onText(/\/progress/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from?.id || chatId;
+  
+  try {
+    const profile = await storage.getStudentProfile(userId);
+    if (!profile) {
+      bot.sendMessage(chatId, '📊 Start your first tutoring session to begin tracking progress!');
+      return;
+    }
+    
+    const userBadges = await storage.getUserBadges(userId);
+    const progress = getXPProgress(profile);
+    
+    let message = `📊 *Your Learning Progress*\n\n`;
+    message += `🎯 *Level:* ${profile.level}\n`;
+    message += `✨ *Experience:* ${profile.experiencePoints} XP\n`;
+    message += `📈 *Progress to next level:* ${progress.current}/${progress.needed} XP (${progress.progress}%)\n`;
+    message += `🎓 *Sessions completed:* ${profile.totalSessionsCompleted}\n`;
+    message += `🔥 *Current streak:* ${profile.currentStreak} days\n`;
+    message += `🏆 *Longest streak:* ${profile.longestStreak} days\n\n`;
+    
+    if (userBadges.length > 0) {
+      message += `🏅 *Your Badges (${userBadges.length}):*\n`;
+      // Get badge details
+      for (const userBadge of userBadges.slice(0, 5)) { // Show first 5 badges
+        const badge = await storage.getBadge(userBadge.badgeId);
+        if (badge) {
+          message += `${badge.icon} ${badge.name}\n`;
+        }
+      }
+      if (userBadges.length > 5) {
+        message += `... and ${userBadges.length - 5} more!\n`;
+      }
+    } else {
+      message += `🏅 *No badges yet* - Complete sessions to earn your first badge!\n`;
+    }
+    
+    bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    
+  } catch (error) {
+    console.error('Error fetching progress:', error);
+    bot.sendMessage(chatId, '⚠️ Error fetching your progress. Please try again.');
+  }
+});
+
+// Command to end current session
+bot.onText(/\/end/, async (msg) => {
+  const chatId = msg.chat.id;
+  const session = userSessions.get(chatId.toString());
+  
+  if (!session || !session.sessionId) {
+    bot.sendMessage(chatId, '❌ No active session to end.');
+    return;
+  }
+  
+  // End the session in database
+  await storage.endTutorSession(session.sessionId);
+  
+  // Award rewards and show progress
+  await completeSession(chatId, {
+    sessionId: session.sessionId,
+    userId: session.userId,
+    subject: session.subject,
+    messageCount: session.messageCount,
+    startTime: session.startTime
+  });
+  
+  // Clear session
+  userSessions.delete(chatId.toString());
+  
+  bot.sendMessage(chatId, '👋 Session ended. Use /tutor to start a new session or /progress to view your achievements!');
+});
 
 // Error handling
 bot.on('polling_error', (error) => {
