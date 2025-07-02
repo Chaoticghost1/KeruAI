@@ -57,14 +57,16 @@ export default function StudyBuddy() {
   const userId = 1;
 
   // Fetch available tutor agents
-  const { data: agents = [], isLoading: agentsLoading } = useQuery({
-    queryKey: ['/api/tutors'],
+  const { data: agents = [], isLoading: agentsLoading } = useQuery<TutorAgent[]>({
+    queryKey: ['tutors'],
+    queryFn: () => apiRequest('/api/tutors'),
     enabled: true
   });
 
   // Fetch session messages
-  const { data: messages = [], isLoading: messagesLoading } = useQuery({
-    queryKey: ['/api/tutors/sessions', currentSession?.id, 'messages'],
+  const { data: messages = [], isLoading: messagesLoading } = useQuery<TutorMessage[]>({
+    queryKey: ['sessionMessages', currentSession?.id],
+    queryFn: () => apiRequest(`/api/tutors/sessions/${currentSession?.id}/messages`),
     enabled: !!currentSession?.id
   });
 
@@ -78,7 +80,7 @@ export default function StudyBuddy() {
     },
     onSuccess: (session) => {
       setCurrentSession(session);
-      queryClient.invalidateQueries({ queryKey: ['/api/tutors/sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['tutorSessions'] });
     }
   });
 
@@ -93,7 +95,7 @@ export default function StudyBuddy() {
     onSuccess: () => {
       setMessageInput('');
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/tutors/sessions', currentSession?.id, 'messages'] 
+        queryKey: ['sessionMessages', currentSession?.id] 
       });
     }
   });
@@ -108,7 +110,7 @@ export default function StudyBuddy() {
     onSuccess: () => {
       setCurrentSession(null);
       setSelectedAgent(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/tutors/sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['tutorSessions'] });
     }
   });
 
