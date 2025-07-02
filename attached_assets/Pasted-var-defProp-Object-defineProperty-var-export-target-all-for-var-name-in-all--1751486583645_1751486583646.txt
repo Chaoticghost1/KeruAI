@@ -1,0 +1,996 @@
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// server/index.ts
+import express2 from "express";
+
+// server/routes.ts
+import { createServer } from "http";
+
+// shared/schema.ts
+var schema_exports = {};
+__export(schema_exports, {
+  budgetCategories: () => budgetCategories,
+  budgetCategoriesRelations: () => budgetCategoriesRelations,
+  budgetTransactions: () => budgetTransactions,
+  budgetTransactionsRelations: () => budgetTransactionsRelations,
+  gameScores: () => gameScores,
+  gameScoresRelations: () => gameScoresRelations,
+  insertBudgetCategorySchema: () => insertBudgetCategorySchema,
+  insertBudgetTransactionSchema: () => insertBudgetTransactionSchema,
+  insertGameScoreSchema: () => insertGameScoreSchema,
+  insertStudentProfileSchema: () => insertStudentProfileSchema,
+  insertStudyNoteSchema: () => insertStudyNoteSchema,
+  insertTutorAgentSchema: () => insertTutorAgentSchema,
+  insertTutorMessageSchema: () => insertTutorMessageSchema,
+  insertTutorSessionSchema: () => insertTutorSessionSchema,
+  insertUserSchema: () => insertUserSchema,
+  studentProfiles: () => studentProfiles,
+  studentProfilesRelations: () => studentProfilesRelations,
+  studyNotes: () => studyNotes,
+  studyNotesRelations: () => studyNotesRelations,
+  tutorAgents: () => tutorAgents,
+  tutorAgentsRelations: () => tutorAgentsRelations,
+  tutorMessages: () => tutorMessages,
+  tutorMessagesRelations: () => tutorMessagesRelations,
+  tutorSessions: () => tutorSessions,
+  tutorSessionsRelations: () => tutorSessionsRelations,
+  users: () => users,
+  usersRelations: () => usersRelations
+});
+import { pgTable, text, serial, integer, timestamp, decimal, boolean } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { relations } from "drizzle-orm";
+var users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  email: text("email").unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+var budgetCategories = pgTable("budget_categories", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  budget: decimal("budget", { precision: 10, scale: 2 }).notNull(),
+  spent: decimal("spent", { precision: 10, scale: 2 }).default("0").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+var budgetTransactions = pgTable("budget_transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  categoryId: integer("category_id").references(() => budgetCategories.id).notNull(),
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  date: timestamp("date").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+var studyNotes = pgTable("study_notes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  subject: text("subject"),
+  tags: text("tags").array(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+var gameScores = pgTable("game_scores", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  gameName: text("game_name").notNull(),
+  score: integer("score").notNull(),
+  level: integer("level").default(1).notNull(),
+  completed: boolean("completed").default(false).notNull(),
+  playedAt: timestamp("played_at").defaultNow().notNull()
+});
+var tutorAgents = pgTable("tutor_agents", {
+  id: serial("id").primaryKey(),
+  agentKey: text("agent_key").unique().notNull(),
+  // math_buddy, science_explorer, etc.
+  name: text("name").notNull(),
+  title: text("title").notNull(),
+  avatar: text("avatar"),
+  subjects: text("subjects").array().notNull(),
+  description: text("description").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+var tutorSessions = pgTable("tutor_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  agentId: integer("agent_id").references(() => tutorAgents.id).notNull(),
+  subject: text("subject").notNull(),
+  topic: text("topic"),
+  difficultyLevel: integer("difficulty_level").default(1).notNull(),
+  sessionData: text("session_data"),
+  // JSON data for persona state
+  isActive: boolean("is_active").default(true).notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at")
+});
+var tutorMessages = pgTable("tutor_messages", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").references(() => tutorSessions.id).notNull(),
+  sender: text("sender").notNull(),
+  // 'student' or 'agent'
+  message: text("message").notNull(),
+  messageType: text("message_type").default("text").notNull(),
+  // text, hint, encouragement, etc.
+  toolsUsed: text("tools_used").array(),
+  // calculator, diagram, etc.
+  timestamp: timestamp("timestamp").defaultNow().notNull()
+});
+var studentProfiles = pgTable("student_profiles", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  learningStyle: text("learning_style"),
+  // visual, auditory, kinesthetic
+  preferredDifficulty: integer("preferred_difficulty").default(2).notNull(),
+  subjects: text("subjects").array().default([]).notNull(),
+  strugglingAreas: text("struggling_areas").array().default([]).notNull(),
+  preferences: text("preferences"),
+  // JSON for detailed preferences
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+var usersRelations = relations(users, ({ many }) => ({
+  budgetCategories: many(budgetCategories),
+  budgetTransactions: many(budgetTransactions),
+  studyNotes: many(studyNotes),
+  gameScores: many(gameScores)
+}));
+var budgetCategoriesRelations = relations(budgetCategories, ({ one, many }) => ({
+  user: one(users, {
+    fields: [budgetCategories.userId],
+    references: [users.id]
+  }),
+  transactions: many(budgetTransactions)
+}));
+var budgetTransactionsRelations = relations(budgetTransactions, ({ one }) => ({
+  user: one(users, {
+    fields: [budgetTransactions.userId],
+    references: [users.id]
+  }),
+  category: one(budgetCategories, {
+    fields: [budgetTransactions.categoryId],
+    references: [budgetCategories.id]
+  })
+}));
+var studyNotesRelations = relations(studyNotes, ({ one }) => ({
+  user: one(users, {
+    fields: [studyNotes.userId],
+    references: [users.id]
+  })
+}));
+var gameScoresRelations = relations(gameScores, ({ one }) => ({
+  user: one(users, {
+    fields: [gameScores.userId],
+    references: [users.id]
+  })
+}));
+var tutorAgentsRelations = relations(tutorAgents, ({ many }) => ({
+  sessions: many(tutorSessions)
+}));
+var tutorSessionsRelations = relations(tutorSessions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [tutorSessions.userId],
+    references: [users.id]
+  }),
+  agent: one(tutorAgents, {
+    fields: [tutorSessions.agentId],
+    references: [tutorAgents.id]
+  }),
+  messages: many(tutorMessages)
+}));
+var tutorMessagesRelations = relations(tutorMessages, ({ one }) => ({
+  session: one(tutorSessions, {
+    fields: [tutorMessages.sessionId],
+    references: [tutorSessions.id]
+  })
+}));
+var studentProfilesRelations = relations(studentProfiles, ({ one }) => ({
+  user: one(users, {
+    fields: [studentProfiles.userId],
+    references: [users.id]
+  })
+}));
+var insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true
+});
+var insertBudgetCategorySchema = createInsertSchema(budgetCategories).omit({
+  id: true,
+  createdAt: true,
+  spent: true
+});
+var insertBudgetTransactionSchema = createInsertSchema(budgetTransactions).omit({
+  id: true,
+  createdAt: true
+});
+var insertStudyNoteSchema = createInsertSchema(studyNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+var insertGameScoreSchema = createInsertSchema(gameScores).omit({
+  id: true
+});
+var insertTutorAgentSchema = createInsertSchema(tutorAgents).omit({
+  id: true,
+  createdAt: true
+});
+var insertTutorSessionSchema = createInsertSchema(tutorSessions).omit({
+  id: true,
+  startedAt: true
+});
+var insertTutorMessageSchema = createInsertSchema(tutorMessages).omit({
+  id: true,
+  timestamp: true
+});
+var insertStudentProfileSchema = createInsertSchema(studentProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+// server/db.ts
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import ws from "ws";
+neonConfig.webSocketConstructor = ws;
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL must be set. Did you forget to provision a database?"
+  );
+}
+var pool = new Pool({ connectionString: process.env.DATABASE_URL });
+var db = drizzle({ client: pool, schema: schema_exports });
+
+// server/storage.ts
+import { eq, desc, and } from "drizzle-orm";
+var DatabaseStorage = class {
+  // User methods
+  async getUser(id) {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || void 0;
+  }
+  async getUserByUsername(username) {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || void 0;
+  }
+  async createUser(insertUser) {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+  // Budget methods
+  async getBudgetCategories(userId) {
+    return await db.select().from(budgetCategories).where(eq(budgetCategories.userId, userId));
+  }
+  async createBudgetCategory(category) {
+    const [newCategory] = await db.insert(budgetCategories).values(category).returning();
+    return newCategory;
+  }
+  async getBudgetTransactions(userId) {
+    return await db.select().from(budgetTransactions).where(eq(budgetTransactions.userId, userId));
+  }
+  async createBudgetTransaction(transaction) {
+    const [newTransaction] = await db.insert(budgetTransactions).values(transaction).returning();
+    return newTransaction;
+  }
+  // Study notes methods
+  async getStudyNotes(userId) {
+    return await db.select().from(studyNotes).where(eq(studyNotes.userId, userId));
+  }
+  async createStudyNote(note) {
+    const [newNote] = await db.insert(studyNotes).values(note).returning();
+    return newNote;
+  }
+  async updateStudyNote(id, updates) {
+    const [updatedNote] = await db.update(studyNotes).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(studyNotes.id, id)).returning();
+    return updatedNote;
+  }
+  async deleteStudyNote(id) {
+    await db.delete(studyNotes).where(eq(studyNotes.id, id));
+  }
+  // Game scores methods
+  async getGameScores(userId, gameName) {
+    if (gameName) {
+      return await db.select().from(gameScores).where(and(eq(gameScores.userId, userId), eq(gameScores.gameName, gameName)));
+    }
+    return await db.select().from(gameScores).where(eq(gameScores.userId, userId));
+  }
+  async createGameScore(score) {
+    const [newScore] = await db.insert(gameScores).values(score).returning();
+    return newScore;
+  }
+  async getTopScores(gameName, limit = 10) {
+    return await db.select().from(gameScores).where(eq(gameScores.gameName, gameName)).orderBy(desc(gameScores.score)).limit(limit);
+  }
+  // Tutor agent methods
+  async getTutorAgents() {
+    return await db.select().from(tutorAgents).where(eq(tutorAgents.isActive, true));
+  }
+  async getTutorAgent(id) {
+    const [agent] = await db.select().from(tutorAgents).where(eq(tutorAgents.id, id));
+    return agent || void 0;
+  }
+  async getTutorAgentByKey(agentKey) {
+    const [agent] = await db.select().from(tutorAgents).where(eq(tutorAgents.agentKey, agentKey));
+    return agent || void 0;
+  }
+  // Tutor session methods
+  async createTutorSession(session) {
+    const [newSession] = await db.insert(tutorSessions).values(session).returning();
+    return newSession;
+  }
+  async getTutorSession(id) {
+    const [session] = await db.select().from(tutorSessions).where(eq(tutorSessions.id, id));
+    return session || void 0;
+  }
+  async getUserTutorSessions(userId) {
+    return await db.select().from(tutorSessions).where(eq(tutorSessions.userId, userId)).orderBy(desc(tutorSessions.startedAt));
+  }
+  async endTutorSession(sessionId) {
+    const [endedSession] = await db.update(tutorSessions).set({ isActive: false, endedAt: /* @__PURE__ */ new Date() }).where(eq(tutorSessions.id, sessionId)).returning();
+    return endedSession;
+  }
+  // Tutor message methods
+  async createTutorMessage(message) {
+    const [newMessage] = await db.insert(tutorMessages).values(message).returning();
+    return newMessage;
+  }
+  async getSessionMessages(sessionId) {
+    return await db.select().from(tutorMessages).where(eq(tutorMessages.sessionId, sessionId)).orderBy(tutorMessages.timestamp);
+  }
+  // Student profile methods
+  async getStudentProfile(userId) {
+    const [profile] = await db.select().from(studentProfiles).where(eq(studentProfiles.userId, userId));
+    return profile || void 0;
+  }
+  async createStudentProfile(profile) {
+    const [newProfile] = await db.insert(studentProfiles).values(profile).returning();
+    return newProfile;
+  }
+  async updateStudentProfile(userId, updates) {
+    const [updatedProfile] = await db.update(studentProfiles).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(studentProfiles.userId, userId)).returning();
+    return updatedProfile;
+  }
+};
+var storage = new DatabaseStorage();
+
+// shared/tutorPersonas.ts
+var tutorPersonas = [
+  {
+    agentKey: "math_buddy",
+    name: "Math Buddy",
+    title: "Friendly Mathematics Tutor",
+    avatar: "\u{1F9EE}",
+    subjects: ["mathematics", "algebra", "geometry", "calculus"],
+    description: "I'm your friendly mathematics companion! I love helping students discover the beauty of math through step-by-step explanations and encouraging guidance.",
+    personality: {
+      primaryTraits: ["encouraging", "patient", "methodical", "enthusiastic"],
+      communicationStyle: {
+        tone: "warm and supportive",
+        formality: "casual but professional",
+        energyLevel: "moderately high",
+        humor: "gentle math puns and encouragement"
+      },
+      emotionalIntelligence: {
+        empathyLevel: "high",
+        frustrationHandling: "redirects to simpler concepts",
+        celebrationStyle: "enthusiastic praise with specific feedback"
+      }
+    },
+    teachingMethodology: {
+      primaryApproach: "scaffolded learning",
+      learningTheories: ["constructivism", "zone of proximal development"],
+      explanationStyle: ["step-by-step breakdown", "visual analogies", "real-world examples"],
+      errorHandling: {
+        approach: "mistake as learning opportunity",
+        feedbackStyle: "gentle correction with explanation",
+        retryEncouragement: "persistent but not pushy"
+      }
+    },
+    expertise: {
+      primarySubjects: ["algebra", "geometry", "basic calculus"],
+      skillLevel: "advanced",
+      specialties: ["word problems", "visual math explanations", "math anxiety support"],
+      limitations: ["advanced statistics", "theoretical mathematics"]
+    },
+    communicationPatterns: {
+      greetingStyle: "Hey there! Ready to tackle some math together?",
+      questionResponses: {
+        understandingCheck: "Does that make sense so far?",
+        encouragement: "You're doing great! Let's try the next step.",
+        clarification: "Let me explain that a different way..."
+      },
+      sessionEndings: "Awesome work today! You've got this!"
+    },
+    tools: ["calculator", "graphing_utility", "equation_solver", "diagram_creator"],
+    behavioralRules: {
+      dos: [
+        "always show work step-by-step",
+        "use positive reinforcement",
+        "relate to student interests when possible",
+        "check understanding frequently"
+      ],
+      donts: [
+        "give direct answers without explanation",
+        "show impatience with repeated questions",
+        "use overly complex terminology",
+        "move too fast for student comprehension"
+      ]
+    }
+  },
+  {
+    agentKey: "science_explorer",
+    name: "Dr. Nova",
+    title: "Curious Science Explorer",
+    avatar: "\u{1F52C}",
+    subjects: ["biology", "chemistry", "physics", "earth science"],
+    description: "Hello, fellow scientist! I'm Dr. Nova, and I'm passionate about exploring the wonders of science through hands-on investigation and discovery.",
+    personality: {
+      primaryTraits: ["curious", "analytical", "wonder-inspiring", "methodical"],
+      communicationStyle: {
+        tone: "excited and inquisitive",
+        formality: "professional but accessible",
+        energyLevel: "high",
+        humor: "science jokes and fun facts"
+      },
+      emotionalIntelligence: {
+        empathyLevel: "moderate-high",
+        frustrationHandling: "reframe as scientific investigation",
+        celebrationStyle: "shares fascinating related discoveries"
+      }
+    },
+    teachingMethodology: {
+      primaryApproach: "inquiry-based learning",
+      learningTheories: ["constructivism", "experiential learning"],
+      explanationStyle: ["hypothesis formation", "experiment design thinking", "real world connections"],
+      errorHandling: {
+        approach: "scientific method application",
+        feedbackStyle: "let's investigate why that happened",
+        retryEncouragement: "every scientist learns through trials"
+      }
+    },
+    expertise: {
+      primarySubjects: ["biology", "chemistry", "physics", "earth science"],
+      skillLevel: "expert",
+      specialties: ["experimental design", "science career guidance", "lab safety", "scientific method"],
+      limitations: ["advanced quantum physics", "graduate level research methods"]
+    },
+    communicationPatterns: {
+      greetingStyle: "Hello, fellow scientist! What shall we explore today?",
+      questionResponses: {
+        understandingCheck: "What do you think might happen if...?",
+        encouragement: "That's exactly the kind of question real scientists ask!",
+        clarification: "Let's design a thought experiment to test that..."
+      },
+      sessionEndings: "Keep that scientific curiosity burning!"
+    },
+    tools: ["virtual_lab", "periodic_table", "formula_calculator", "3d_molecular_viewer"],
+    behavioralRules: {
+      dos: [
+        "encourage hypothesis formation",
+        "relate to real-world applications",
+        "use scientific method approach",
+        "celebrate curiosity and questions"
+      ],
+      donts: [
+        "provide answers without investigation",
+        "dismiss unusual hypotheses",
+        "rush through experimental thinking",
+        "ignore safety considerations"
+      ]
+    }
+  },
+  {
+    agentKey: "wordsmith_mentor",
+    name: "Professor Quill",
+    title: "Literary Arts Mentor",
+    avatar: "\u{1F4DA}",
+    subjects: ["language arts", "literature", "writing", "reading"],
+    description: "Greetings, young scholar! I'm Professor Quill, your guide through the rich landscape of language, literature, and the art of written expression.",
+    personality: {
+      primaryTraits: ["thoughtful", "articulate", "nurturing", "culturally aware"],
+      communicationStyle: {
+        tone: "warm and intellectually stimulating",
+        formality: "professionally friendly",
+        energyLevel: "calm but engaged",
+        humor: "witty wordplay and literary references"
+      },
+      emotionalIntelligence: {
+        empathyLevel: "very high",
+        frustrationHandling: "validates feelings then guides",
+        celebrationStyle: "highlights specific improvements and growth"
+      }
+    },
+    teachingMethodology: {
+      primaryApproach: "socratic method",
+      learningTheories: ["reader response theory", "process writing approach"],
+      explanationStyle: ["guided discovery", "comparative analysis", "personal connection building"],
+      errorHandling: {
+        approach: "revision as natural process",
+        feedbackStyle: "specific constructive suggestions",
+        retryEncouragement: "every great writer revises"
+      }
+    },
+    expertise: {
+      primarySubjects: ["creative writing", "literature analysis", "grammar usage", "reading comprehension"],
+      skillLevel: "expert",
+      specialties: ["diverse literature", "writing process coaching", "critical thinking development", "public speaking confidence"],
+      limitations: ["technical writing in specialized fields", "advanced linguistics theory"]
+    },
+    communicationPatterns: {
+      greetingStyle: "Welcome, dear student! What literary adventure shall we embark upon today?",
+      questionResponses: {
+        understandingCheck: "How does this connect to your own experiences?",
+        encouragement: "Your unique perspective adds richness to this discussion!",
+        clarification: "Let's explore this idea from another angle..."
+      },
+      sessionEndings: "Remember, every great writer started with a single word. Keep writing!"
+    },
+    tools: ["writing_assistant", "grammar_checker", "literary_database", "citation_helper"],
+    behavioralRules: {
+      dos: [
+        "encourage personal expression",
+        "validate different perspectives",
+        "provide specific constructive feedback",
+        "celebrate unique voice development"
+      ],
+      donts: [
+        "impose single interpretation",
+        "dismiss cultural perspectives",
+        "focus only on technical errors",
+        "rush the creative process"
+      ]
+    }
+  }
+];
+function getPersonaByKey(key) {
+  return tutorPersonas.find((persona) => persona.agentKey === key);
+}
+function generatePersonaResponse(persona, context) {
+  const { messageType, studentMessage, topic, difficulty, learningStyle } = context;
+  switch (messageType) {
+    case "greeting":
+      return persona.communicationPatterns.greetingStyle;
+    case "explanation":
+      const style = persona.teachingMethodology.explanationStyle[0];
+      return `Let me help you understand this using ${style}. ${topic ? `For ${topic}, ` : ""}let's break this down...`;
+    case "encouragement":
+      return persona.communicationPatterns.questionResponses.encouragement;
+    case "clarification":
+      return persona.communicationPatterns.questionResponses.clarification;
+    case "ending":
+      return persona.communicationPatterns.sessionEndings;
+    default:
+      return "I'm here to help you learn! What would you like to explore?";
+  }
+}
+
+// server/routes.ts
+async function registerRoutes(app2) {
+  app2.post("/api/users", async (req, res) => {
+    try {
+      const validatedUser = insertUserSchema.parse(req.body);
+      const user = await storage.createUser(validatedUser);
+      res.json(user);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid user data" });
+    }
+  });
+  app2.get("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid user ID" });
+    }
+  });
+  app2.get("/api/users/username/:username", async (req, res) => {
+    try {
+      const username = req.params.username;
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching user" });
+    }
+  });
+  app2.get("/api/budget/categories/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const categories = await storage.getBudgetCategories(userId);
+      res.json(categories);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching budget categories" });
+    }
+  });
+  app2.post("/api/budget/categories", async (req, res) => {
+    try {
+      const validatedCategory = insertBudgetCategorySchema.parse(req.body);
+      const category = await storage.createBudgetCategory(validatedCategory);
+      res.json(category);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid category data" });
+    }
+  });
+  app2.get("/api/budget/transactions/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const transactions = await storage.getBudgetTransactions(userId);
+      res.json(transactions);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching budget transactions" });
+    }
+  });
+  app2.post("/api/budget/transactions", async (req, res) => {
+    try {
+      const validatedTransaction = insertBudgetTransactionSchema.parse(req.body);
+      const transaction = await storage.createBudgetTransaction(validatedTransaction);
+      res.json(transaction);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid transaction data" });
+    }
+  });
+  app2.get("/api/study/notes/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const notes = await storage.getStudyNotes(userId);
+      res.json(notes);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching study notes" });
+    }
+  });
+  app2.post("/api/study/notes", async (req, res) => {
+    try {
+      const validatedNote = insertStudyNoteSchema.parse(req.body);
+      const note = await storage.createStudyNote(validatedNote);
+      res.json(note);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid note data" });
+    }
+  });
+  app2.put("/api/study/notes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      const updatedNote = await storage.updateStudyNote(id, updates);
+      res.json(updatedNote);
+    } catch (error) {
+      res.status(400).json({ error: "Error updating note" });
+    }
+  });
+  app2.delete("/api/study/notes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteStudyNote(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(400).json({ error: "Error deleting note" });
+    }
+  });
+  app2.get("/api/games/scores/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const gameName = req.query.game;
+      const scores = await storage.getGameScores(userId, gameName);
+      res.json(scores);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching game scores" });
+    }
+  });
+  app2.post("/api/games/scores", async (req, res) => {
+    try {
+      const validatedScore = insertGameScoreSchema.parse(req.body);
+      const score = await storage.createGameScore(validatedScore);
+      res.json(score);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid score data" });
+    }
+  });
+  app2.get("/api/games/leaderboard/:gameName", async (req, res) => {
+    try {
+      const gameName = req.params.gameName;
+      const limit = parseInt(req.query.limit) || 10;
+      const topScores = await storage.getTopScores(gameName, limit);
+      res.json(topScores);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching leaderboard" });
+    }
+  });
+  app2.get("/api/tutors", async (req, res) => {
+    try {
+      const agents = await storage.getTutorAgents();
+      res.json(agents);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching tutor agents" });
+    }
+  });
+  app2.get("/api/tutors/:agentKey", async (req, res) => {
+    try {
+      const agentKey = req.params.agentKey;
+      const agent = await storage.getTutorAgentByKey(agentKey);
+      if (!agent) {
+        return res.status(404).json({ error: "Tutor agent not found" });
+      }
+      const persona = getPersonaByKey(agentKey);
+      res.json({ agent, persona });
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching tutor agent" });
+    }
+  });
+  app2.post("/api/tutors/sessions", async (req, res) => {
+    try {
+      const validatedSession = insertTutorSessionSchema.parse(req.body);
+      const session = await storage.createTutorSession(validatedSession);
+      res.json(session);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid session data" });
+    }
+  });
+  app2.get("/api/tutors/sessions/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const sessions = await storage.getUserTutorSessions(userId);
+      res.json(sessions);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching tutor sessions" });
+    }
+  });
+  app2.patch("/api/tutors/sessions/:sessionId/end", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const endedSession = await storage.endTutorSession(sessionId);
+      res.json(endedSession);
+    } catch (error) {
+      res.status(400).json({ error: "Error ending session" });
+    }
+  });
+  app2.post("/api/tutors/messages", async (req, res) => {
+    try {
+      const validatedMessage = insertTutorMessageSchema.parse(req.body);
+      const message = await storage.createTutorMessage(validatedMessage);
+      if (validatedMessage.sender === "student") {
+        const session = await storage.getTutorSession(validatedMessage.sessionId);
+        if (session) {
+          const agent = await storage.getTutorAgent(session.agentId);
+          if (agent) {
+            const persona = getPersonaByKey(agent.agentKey);
+            if (persona) {
+              const agentResponse = generatePersonaResponse(persona, {
+                messageType: "explanation",
+                studentMessage: validatedMessage.message,
+                topic: session.topic || void 0,
+                difficulty: session.difficultyLevel
+              });
+              const agentMessage = await storage.createTutorMessage({
+                sessionId: validatedMessage.sessionId,
+                sender: "agent",
+                message: agentResponse,
+                messageType: "explanation"
+              });
+              return res.json({ studentMessage: message, agentMessage });
+            }
+          }
+        }
+      }
+      res.json(message);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid message data" });
+    }
+  });
+  app2.get("/api/tutors/sessions/:sessionId/messages", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const messages = await storage.getSessionMessages(sessionId);
+      res.json(messages);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching session messages" });
+    }
+  });
+  app2.get("/api/students/profile/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const profile = await storage.getStudentProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ error: "Student profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching student profile" });
+    }
+  });
+  app2.post("/api/students/profile", async (req, res) => {
+    try {
+      const validatedProfile = insertStudentProfileSchema.parse(req.body);
+      const profile = await storage.createStudentProfile(validatedProfile);
+      res.json(profile);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid profile data" });
+    }
+  });
+  app2.put("/api/students/profile/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const updates = req.body;
+      const profile = await storage.updateStudentProfile(userId, updates);
+      res.json(profile);
+    } catch (error) {
+      res.status(400).json({ error: "Error updating student profile" });
+    }
+  });
+  const httpServer = createServer(app2);
+  return httpServer;
+}
+
+// server/vite.ts
+import express from "express";
+import fs from "fs";
+import path2 from "path";
+import { createServer as createViteServer, createLogger } from "vite";
+
+// vite.config.ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+var vite_config_default = defineConfig({
+  plugins: [
+    react(),
+    runtimeErrorOverlay(),
+    ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
+      await import("@replit/vite-plugin-cartographer").then(
+        (m) => m.cartographer()
+      )
+    ] : []
+  ],
+  resolve: {
+    alias: {
+      "@": path.resolve(import.meta.dirname, "client", "src"),
+      "@shared": path.resolve(import.meta.dirname, "shared"),
+      "@assets": path.resolve(import.meta.dirname, "attached_assets")
+    }
+  },
+  root: path.resolve(import.meta.dirname, "client"),
+  build: {
+    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    emptyOutDir: true
+  },
+  server: {
+    fs: {
+      strict: true,
+      deny: ["**/.*"]
+    }
+  }
+});
+
+// server/vite.ts
+import { nanoid } from "nanoid";
+var viteLogger = createLogger();
+function log(message, source = "express") {
+  const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+async function setupVite(app2, server) {
+  const serverOptions = {
+    middlewareMode: true,
+    hmr: { server },
+    allowedHosts: true
+  };
+  const vite = await createViteServer({
+    ...vite_config_default,
+    configFile: false,
+    customLogger: {
+      ...viteLogger,
+      error: (msg, options) => {
+        viteLogger.error(msg, options);
+        process.exit(1);
+      }
+    },
+    server: serverOptions,
+    appType: "custom"
+  });
+  app2.use(vite.middlewares);
+  app2.use("*", async (req, res, next) => {
+    const url = req.originalUrl;
+    try {
+      const clientTemplate = path2.resolve(
+        import.meta.dirname,
+        "..",
+        "client",
+        "index.html"
+      );
+      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      template = template.replace(
+        `src="/src/main.tsx"`,
+        `src="/src/main.tsx?v=${nanoid()}"`
+      );
+      const page = await vite.transformIndexHtml(url, template);
+      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+    } catch (e) {
+      vite.ssrFixStacktrace(e);
+      next(e);
+    }
+  });
+}
+function serveStatic(app2) {
+  const distPath = path2.resolve(import.meta.dirname, "public");
+  if (!fs.existsSync(distPath)) {
+    throw new Error(
+      `Could not find the build directory: ${distPath}, make sure to build the client first`
+    );
+  }
+  app2.use(express.static(distPath));
+  app2.use("*", (_req, res) => {
+    res.sendFile(path2.resolve(distPath, "index.html"));
+  });
+}
+
+// server/index.ts
+var app = express2();
+app.use(express2.json());
+app.use(express2.urlencoded({ extended: false }));
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path3 = req.path;
+  let capturedJsonResponse = void 0;
+  const originalResJson = res.json;
+  res.json = function(bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path3.startsWith("/api")) {
+      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "\u2026";
+      }
+      log(logLine);
+    }
+  });
+  next();
+});
+(async () => {
+  const server = await registerRoutes(app);
+  app.use((err, _req, res, _next) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    res.status(status).json({ message });
+    throw err;
+  });
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+  const port = 5e3;
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true
+  }, () => {
+    log(`serving on port ${port}`);
+  });
+})();
+Logo
