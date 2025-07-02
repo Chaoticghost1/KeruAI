@@ -4,13 +4,21 @@ import { User, InsertUser } from "@shared/schema";
 import { apiRequest } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+type AuthResponse = {
+  user: User;
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+  };
+};
+
 type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<User, Error, LoginData>;
+  loginMutation: UseMutationResult<AuthResponse, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<User, Error, InsertUser>;
+  registerMutation: UseMutationResult<AuthResponse, Error, InsertUser>;
 };
 
 type LoginData = {
@@ -55,11 +63,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await response.json();
     },
-    onSuccess: (user: User) => {
-      queryClient.setQueryData(["/api/auth/me"], user);
+    onSuccess: (data: { user: User; tokens: { accessToken: string; refreshToken: string } }) => {
+      // Store tokens in localStorage
+      localStorage.setItem('accessToken', data.tokens.accessToken);
+      localStorage.setItem('refreshToken', data.tokens.refreshToken);
+      
+      // Update user data in cache
+      queryClient.setQueryData(["/api/auth/me"], data.user);
+      
       toast({
         title: "Welcome back!",
-        description: `Logged in as ${user.firstName} ${user.lastName}`,
+        description: `Logged in as ${data.user.firstName} ${data.user.lastName}`,
       });
     },
     onError: (error: Error) => {
@@ -80,8 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await response.json();
     },
-    onSuccess: (user: User) => {
-      queryClient.setQueryData(["/api/auth/me"], user);
+    onSuccess: (data: { user: User; tokens: { accessToken: string; refreshToken: string } }) => {
+      // Store tokens in localStorage
+      localStorage.setItem('accessToken', data.tokens.accessToken);
+      localStorage.setItem('refreshToken', data.tokens.refreshToken);
+      
+      // Update user data in cache
+      queryClient.setQueryData(["/api/auth/me"], data.user);
+      
       toast({
         title: "Welcome to Keru.ai!",
         description: "Your account has been created successfully.",
@@ -101,14 +121,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", "/api/auth/logout");
     },
     onSuccess: () => {
+      // Clear tokens from localStorage
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      
+      // Clear cache
       queryClient.setQueryData(["/api/auth/me"], null);
-      queryClient.clear(); // Clear all cache on logout
+      queryClient.clear();
+      
       toast({
         title: "Logged out",
         description: "You have been successfully logged out.",
       });
     },
     onError: (error: Error) => {
+      // Even if logout fails on server, clear local tokens
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      queryClient.setQueryData(["/api/auth/me"], null);
+      
       toast({
         title: "Logout failed",
         description: error.message,
