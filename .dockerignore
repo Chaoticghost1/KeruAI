@@ -1,0 +1,49 @@
+# Development files
+node_modules
+npm-debug.log*
+.npm
+.replit
+.env*
+!.env.telegram
+
+# Version control
+.git
+.gitignore
+
+# IDE files
+.vscode
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# Build artifacts (will be rebuilt in container)
+dist
+build
+
+# Web interface specific (not needed for Telegram bot)
+client/dist
+client/node_modules
+
+# Documentation
+README.md
+TELEGRAM_DEPLOYMENT.md
+*.md
+
+# Vercel related (conflicts resolved)
+vercel.json
+.vercel
+
+# Development scripts
+run-telegram-bot.js

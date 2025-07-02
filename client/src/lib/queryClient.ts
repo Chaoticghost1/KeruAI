@@ -7,7 +7,7 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-// Configure API base URL - will use environment variable in production
+// Configure API base URL for web interface only (Telegram bot has separate config)
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export async function apiRequest(

@@ -13,8 +13,11 @@ RUN npm ci --only=production
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application (includes telegram bot compilation)
 RUN npm run build
+
+# Build telegram bot specifically
+RUN npx esbuild telegram-bot/index.ts telegram-bot/bot-runner.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/telegram-bot
 
 # Production stage
 FROM node:18-alpine AS production
@@ -30,8 +33,10 @@ RUN npm ci --only=production && npm cache clean --force
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/telegram-bot ./telegram-bot
 COPY --from=builder /app/shared ./shared
+
+# Copy telegram bot source (will be compiled in dist)
+COPY telegram-bot ./telegram-bot
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
