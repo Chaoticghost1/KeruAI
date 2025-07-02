@@ -27,11 +27,16 @@ The application follows a monorepo structure with clear separation between clien
 ### Backend Architecture
 - **Server Framework**: Express.js with TypeScript
 - **Database Layer**: Drizzle ORM configured for PostgreSQL
-- **Storage Interface**: Abstracted storage layer with in-memory implementation
+- **Storage Interface**: Abstracted storage layer with PostgreSQL database implementation
 - **Development Setup**: Hot reload with tsx and middleware logging
 
 ### Database Schema
-- **Users Table**: Basic user structure with id, username, and password fields
+- **Users Table**: User management with id, username, password, email, and timestamps
+- **Budget Categories**: Financial tracking categories with budget limits and spending totals
+- **Budget Transactions**: Individual financial transactions linked to categories
+- **Study Notes**: Educational content storage with tags and subject organization
+- **Game Scores**: Gaming achievement tracking with scores, levels, and completion status
+- **Relations**: Fully modeled relationships between all entities using Drizzle ORM
 - **Migration Support**: Drizzle Kit configured for schema migrations
 - **Connection**: Uses Neon Database serverless PostgreSQL
 
@@ -42,7 +47,7 @@ The application follows a monorepo structure with clear separation between clien
 3. **Storage Layer**: Abstracted interface allows switching between memory and database storage
 4. **Response**: JSON responses are cached by React Query for optimal performance
 
-The application currently uses in-memory storage but is configured to easily switch to PostgreSQL database when needed.
+The application now uses PostgreSQL database with full CRUD operations for all data entities including users, budget tracking, study notes, and game scores.
 
 ## External Dependencies
 
@@ -90,7 +95,12 @@ The application is configured for deployment with the following approach:
 
 ```
 Changelog:
-- July 02, 2025. Initial setup
+- July 02, 2025. Initial setup - React/Express app with multi-language support
+- July 02, 2025. Added comprehensive PostgreSQL database with Drizzle ORM
+  - Created users, budget_categories, budget_transactions, study_notes, game_scores tables
+  - Implemented full CRUD API endpoints for all entities
+  - Database relations properly modeled with foreign keys
+  - Replaced in-memory storage with database storage layer
 ```
 
 ## User Preferences
