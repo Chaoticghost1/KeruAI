@@ -221,24 +221,28 @@ export default function StudyBuddy() {
   // Fetch available tutor agents
   const { data: agents = [], isLoading: agentsLoading } = useQuery<TutorAgent[]>({
     queryKey: ['tutors'],
-    queryFn: () => apiRequest('/api/tutors'),
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/tutors');
+      return await response.json();
+    },
     enabled: true
   });
 
   // Fetch session messages
   const { data: messages = [], isLoading: messagesLoading } = useQuery<TutorMessage[]>({
     queryKey: ['sessionMessages', currentSession?.id],
-    queryFn: () => apiRequest(`/api/tutors/sessions/${currentSession?.id}/messages`),
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/tutors/sessions/${currentSession?.id}/messages`);
+      return await response.json();
+    },
     enabled: !!currentSession?.id
   });
 
   // Create new tutor session
   const createSessionMutation = useMutation({
     mutationFn: async (sessionData: any) => {
-      return apiRequest('/api/tutors/sessions', {
-        method: 'POST',
-        body: JSON.stringify(sessionData)
-      });
+      const response = await apiRequest('POST', '/api/tutors/sessions', sessionData);
+      return await response.json();
     },
     onSuccess: (session) => {
       setCurrentSession(session);
@@ -249,10 +253,8 @@ export default function StudyBuddy() {
   // Send message
   const sendMessageMutation = useMutation({
     mutationFn: async (messageData: any) => {
-      return apiRequest('/api/tutors/messages', {
-        method: 'POST',
-        body: JSON.stringify(messageData)
-      });
+      const response = await apiRequest('POST', '/api/tutors/messages', messageData);
+      return await response.json();
     },
     onSuccess: () => {
       setMessageInput('');
@@ -265,9 +267,8 @@ export default function StudyBuddy() {
   // End session
   const endSessionMutation = useMutation({
     mutationFn: async (sessionId: number) => {
-      return apiRequest(`/api/tutors/sessions/${sessionId}/end`, {
-        method: 'PATCH'
-      });
+      const response = await apiRequest('PATCH', `/api/tutors/sessions/${sessionId}/end`);
+      return await response.json();
     },
     onSuccess: () => {
       setCurrentSession(null);
