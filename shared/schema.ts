@@ -6,9 +6,23 @@ import { relations } from "drizzle-orm";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password"),
   email: text("email").unique(),
+  phoneNumber: text("phone_number").unique(),
+  role: text("role").notNull().default("student"), // superuser, teacher, student
+  isVerified: boolean("is_verified").default(false).notNull(),
+  verificationToken: text("verification_token"),
+  passwordResetToken: text("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires"),
+  googleId: text("google_id").unique(),
+  facebookId: text("facebook_id").unique(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  profileImage: text("profile_image"),
+  isActive: boolean("is_active").default(true).notNull(),
+  lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const budgetCategories = pgTable("budget_categories", {
@@ -138,12 +152,66 @@ export const studyStreaks = pgTable("study_streaks", {
   subjectsStudied: text("subjects_studied").array().default([]).notNull()
 });
 
+// Authentication tokens table
+export const authTokens = pgTable("auth_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  token: text("token").notNull().unique(),
+  type: text("type").notNull(), // 'access', 'refresh', 'verification', 'reset'
+  expiresAt: timestamp("expires_at").notNull(),
+  isRevoked: boolean("is_revoked").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Teacher content submissions table
+export const contentSubmissions = pgTable("content_submissions", {
+  id: serial("id").primaryKey(),
+  teacherId: integer("teacher_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  contentType: text("content_type").notNull(), // 'image', 'pdf', 'whiteboard', 'diagram', 'html', 'video'
+  filePath: text("file_path"),
+  fileUrl: text("file_url"),
+  htmlContent: text("html_content"),
+  subject: text("subject").notNull(),
+  gradeLevel: text("grade_level"),
+  tags: text("tags").array().default([]).notNull(),
+  isPublished: boolean("is_published").default(false).notNull(),
+  publishedAt: timestamp("published_at"),
+  viewCount: integer("view_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Student assignments table (for tracking student work on teacher content)
+export const studentAssignments = pgTable("student_assignments", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => users.id).notNull(),
+  contentId: integer("content_id").references(() => contentSubmissions.id).notNull(),
+  status: text("status").notNull().default("assigned"), // 'assigned', 'in_progress', 'completed', 'reviewed'
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  submissionText: text("submission_text"),
+  submissionFiles: text("submission_files").array().default([]).notNull(),
+  teacherFeedback: text("teacher_feedback"),
+  grade: integer("grade"), // 0-100
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   budgetCategories: many(budgetCategories),
   budgetTransactions: many(budgetTransactions),
   studyNotes: many(studyNotes),
   gameScores: many(gameScores),
+  authTokens: many(authTokens),
+  contentSubmissions: many(contentSubmissions),
+  studentAssignments: many(studentAssignments, { relationName: "studentAssignments" }),
+  tutorSessions: many(tutorSessions),
+  studentProfiles: many(studentProfiles),
+  userBadges: many(userBadges),
+  studyStreaks: many(studyStreaks),
 }));
 
 export const budgetCategoriesRelations = relations(budgetCategories, ({ one, many }) => ({
@@ -231,6 +299,32 @@ export const studyStreaksRelations = relations(studyStreaks, ({ one }) => ({
   }),
 }));
 
+export const authTokensRelations = relations(authTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [authTokens.userId],
+    references: [users.id],
+  }),
+}));
+
+export const contentSubmissionsRelations = relations(contentSubmissions, ({ one, many }) => ({
+  teacher: one(users, {
+    fields: [contentSubmissions.teacherId],
+    references: [users.id],
+  }),
+  assignments: many(studentAssignments),
+}));
+
+export const studentAssignmentsRelations = relations(studentAssignments, ({ one }) => ({
+  student: one(users, {
+    fields: [studentAssignments.studentId],
+    references: [users.id],
+  }),
+  content: one(contentSubmissions, {
+    fields: [studentAssignments.contentId],
+    references: [contentSubmissions.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -294,6 +388,25 @@ export const insertStudyStreakSchema = createInsertSchema(studyStreaks).omit({
   date: true,
 });
 
+export const insertAuthTokenSchema = createInsertSchema(authTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertContentSubmissionSchema = createInsertSchema(contentSubmissions).omit({
+  id: true,
+  publishedAt: true,
+  viewCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertStudentAssignmentSchema = createInsertSchema(studentAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -319,3 +432,9 @@ export type InsertUserBadge = z.infer<typeof insertUserBadgeSchema>;
 export type UserBadge = typeof userBadges.$inferSelect;
 export type InsertStudyStreak = z.infer<typeof insertStudyStreakSchema>;
 export type StudyStreak = typeof studyStreaks.$inferSelect;
+export type InsertAuthToken = z.infer<typeof insertAuthTokenSchema>;
+export type AuthToken = typeof authTokens.$inferSelect;
+export type InsertContentSubmission = z.infer<typeof insertContentSubmissionSchema>;
+export type ContentSubmission = typeof contentSubmissions.$inferSelect;
+export type InsertStudentAssignment = z.infer<typeof insertStudentAssignmentSchema>;
+export type StudentAssignment = typeof studentAssignments.$inferSelect;

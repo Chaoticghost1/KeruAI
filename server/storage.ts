@@ -21,6 +21,9 @@ import {
   badges,
   userBadges,
   studyStreaks,
+  authTokens,
+  contentSubmissions,
+  studentAssignments,
   type TutorAgent,
   type InsertTutorAgent,
   type TutorSession,
@@ -34,7 +37,13 @@ import {
   type UserBadge,
   type InsertUserBadge,
   type StudyStreak,
-  type InsertStudyStreak
+  type InsertStudyStreak,
+  type AuthToken,
+  type InsertAuthToken,
+  type ContentSubmission,
+  type InsertContentSubmission,
+  type StudentAssignment,
+  type InsertStudentAssignment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -49,7 +58,14 @@ export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByPhone(phoneNumber: string): Promise<User | undefined>;
+  getUserByGoogleId(googleId: string): Promise<User | undefined>;
+  getUserByFacebookId(facebookId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, updates: Partial<User>): Promise<User>;
+  verifyUser(id: number): Promise<User>;
+  updateLastLogin(id: number): Promise<void>;
   
   // Budget methods
   getBudgetCategories(userId: number): Promise<BudgetCategory[]>;
@@ -119,6 +135,31 @@ export interface IStorage {
     todaySessions: number;
     totalSessions: number;
   }>;
+  
+  // Auth token methods
+  createAuthToken(token: InsertAuthToken): Promise<AuthToken>;
+  getAuthToken(tokenId: string): Promise<AuthToken | undefined>;
+  getAuthTokenByToken(token: string): Promise<AuthToken | undefined>;
+  revokeAuthToken(tokenId: string): Promise<void>;
+  revokeAllUserTokens(userId: number): Promise<void>;
+  
+  // Content submission methods
+  createContentSubmission(content: InsertContentSubmission): Promise<ContentSubmission>;
+  getContentSubmission(id: number): Promise<ContentSubmission | undefined>;
+  getTeacherContentSubmissions(teacherId: number): Promise<ContentSubmission[]>;
+  getAllContentSubmissions(published?: boolean): Promise<ContentSubmission[]>;
+  updateContentSubmission(id: number, updates: Partial<ContentSubmission>): Promise<ContentSubmission>;
+  deleteContentSubmission(id: number): Promise<void>;
+  publishContentSubmission(id: number): Promise<ContentSubmission>;
+  
+  // Student assignment methods
+  createStudentAssignment(assignment: InsertStudentAssignment): Promise<StudentAssignment>;
+  getStudentAssignment(id: number): Promise<StudentAssignment | undefined>;
+  getStudentAssignments(studentId: number): Promise<StudentAssignment[]>;
+  getContentAssignments(contentId: number): Promise<StudentAssignment[]>;
+  updateStudentAssignment(id: number, updates: Partial<StudentAssignment>): Promise<StudentAssignment>;
+  submitAssignment(assignmentId: number, submissionData: { submissionText?: string; submissionFiles?: string[] }): Promise<StudentAssignment>;
+  gradeAssignment(assignmentId: number, grade: number, feedback?: string): Promise<StudentAssignment>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -139,6 +180,51 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async getUserByPhone(phoneNumber: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber));
+    return user || undefined;
+  }
+
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
+    return user || undefined;
+  }
+
+  async getUserByFacebookId(facebookId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.facebookId, facebookId));
+    return user || undefined;
+  }
+
+  async updateUser(id: number, updates: Partial<User>): Promise<User> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
+  }
+
+  async verifyUser(id: number): Promise<User> {
+    const [verifiedUser] = await db
+      .update(users)
+      .set({ isVerified: true, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return verifiedUser;
+  }
+
+  async updateLastLogin(id: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLoginAt: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, id));
   }
 
   // Budget methods
@@ -517,6 +603,146 @@ export class DatabaseStorage implements IStorage {
       todaySessions: todaySessions.length,
       totalSessions: allSessions.length
     };
+  }
+
+  // Auth token methods
+  async createAuthToken(token: InsertAuthToken): Promise<AuthToken> {
+    const [authToken] = await db
+      .insert(authTokens)
+      .values(token)
+      .returning();
+    return authToken;
+  }
+
+  async getAuthToken(tokenId: string): Promise<AuthToken | undefined> {
+    const [token] = await db.select().from(authTokens).where(eq(authTokens.token, tokenId));
+    return token || undefined;
+  }
+
+  async getAuthTokenByToken(token: string): Promise<AuthToken | undefined> {
+    const [authToken] = await db.select().from(authTokens).where(eq(authTokens.token, token));
+    return authToken || undefined;
+  }
+
+  async revokeAuthToken(tokenId: string): Promise<void> {
+    await db
+      .update(authTokens)
+      .set({ isRevoked: true })
+      .where(eq(authTokens.token, tokenId));
+  }
+
+  async revokeAllUserTokens(userId: number): Promise<void> {
+    await db
+      .update(authTokens)
+      .set({ isRevoked: true })
+      .where(eq(authTokens.userId, userId));
+  }
+
+  // Content submission methods
+  async createContentSubmission(content: InsertContentSubmission): Promise<ContentSubmission> {
+    const [submission] = await db
+      .insert(contentSubmissions)
+      .values(content)
+      .returning();
+    return submission;
+  }
+
+  async getContentSubmission(id: number): Promise<ContentSubmission | undefined> {
+    const [submission] = await db.select().from(contentSubmissions).where(eq(contentSubmissions.id, id));
+    return submission || undefined;
+  }
+
+  async getTeacherContentSubmissions(teacherId: number): Promise<ContentSubmission[]> {
+    return await db.select().from(contentSubmissions).where(eq(contentSubmissions.teacherId, teacherId));
+  }
+
+  async getAllContentSubmissions(published?: boolean): Promise<ContentSubmission[]> {
+    if (published !== undefined) {
+      return await db.select().from(contentSubmissions).where(eq(contentSubmissions.isPublished, published));
+    }
+    return await db.select().from(contentSubmissions);
+  }
+
+  async updateContentSubmission(id: number, updates: Partial<ContentSubmission>): Promise<ContentSubmission> {
+    const [updated] = await db
+      .update(contentSubmissions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(contentSubmissions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteContentSubmission(id: number): Promise<void> {
+    await db.delete(contentSubmissions).where(eq(contentSubmissions.id, id));
+  }
+
+  async publishContentSubmission(id: number): Promise<ContentSubmission> {
+    const [published] = await db
+      .update(contentSubmissions)
+      .set({ isPublished: true, publishedAt: new Date(), updatedAt: new Date() })
+      .where(eq(contentSubmissions.id, id))
+      .returning();
+    return published;
+  }
+
+  // Student assignment methods
+  async createStudentAssignment(assignment: InsertStudentAssignment): Promise<StudentAssignment> {
+    const [created] = await db
+      .insert(studentAssignments)
+      .values(assignment)
+      .returning();
+    return created;
+  }
+
+  async getStudentAssignment(id: number): Promise<StudentAssignment | undefined> {
+    const [assignment] = await db.select().from(studentAssignments).where(eq(studentAssignments.id, id));
+    return assignment || undefined;
+  }
+
+  async getStudentAssignments(studentId: number): Promise<StudentAssignment[]> {
+    return await db.select().from(studentAssignments).where(eq(studentAssignments.studentId, studentId));
+  }
+
+  async getContentAssignments(contentId: number): Promise<StudentAssignment[]> {
+    return await db.select().from(studentAssignments).where(eq(studentAssignments.contentId, contentId));
+  }
+
+  async updateStudentAssignment(id: number, updates: Partial<StudentAssignment>): Promise<StudentAssignment> {
+    const [updated] = await db
+      .update(studentAssignments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(studentAssignments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async submitAssignment(assignmentId: number, submissionData: { submissionText?: string; submissionFiles?: string[] }): Promise<StudentAssignment> {
+    const [submitted] = await db
+      .update(studentAssignments)
+      .set({ 
+        status: 'completed',
+        completedAt: new Date(),
+        submissionText: submissionData.submissionText,
+        submissionFiles: submissionData.submissionFiles || [],
+        updatedAt: new Date()
+      })
+      .where(eq(studentAssignments.id, assignmentId))
+      .returning();
+    return submitted;
+  }
+
+  async gradeAssignment(assignmentId: number, grade: number, feedback?: string): Promise<StudentAssignment> {
+    const [graded] = await db
+      .update(studentAssignments)
+      .set({ 
+        status: 'reviewed',
+        grade,
+        teacherFeedback: feedback,
+        updatedAt: new Date()
+      })
+      .where(eq(studentAssignments.id, assignmentId))
+      .returning();
+    return graded;
   }
 }
 
