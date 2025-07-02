@@ -307,10 +307,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all users (superuser only)
   app.get("/api/admin/users", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
     try {
-      // Implementation needed for getting all users
-      res.json({ message: "Get all users - to be implemented" });
+      const users = await storage.getAllUsers();
+      // Remove password from all users
+      const sanitizedUsers = users.map(({ password, ...user }) => user);
+      res.json(sanitizedUsers);
     } catch (error) {
       res.status(500).json({ error: "Failed to get users" });
+    }
+  });
+
+  // Update user status (activate/deactivate)
+  app.patch("/api/admin/users/:id/status", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { isActive } = req.body;
+
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ error: "isActive must be a boolean" });
+      }
+
+      // Prevent deactivating yourself
+      if (userId === req.user!.id && !isActive) {
+        return res.status(400).json({ error: "Cannot deactivate your own account" });
+      }
+
+      const updatedUser = await storage.updateUser(userId, { isActive });
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update user status" });
+    }
+  });
+
+  // Update user role
+  app.patch("/api/admin/users/:id/role", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { role } = req.body;
+
+      if (!['student', 'teacher', 'superuser'].includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+
+      // Prevent changing your own role from superuser
+      if (userId === req.user!.id && req.user!.role === 'superuser' && role !== 'superuser') {
+        return res.status(400).json({ error: "Cannot change your own superuser role" });
+      }
+
+      const updatedUser = await storage.updateUser(userId, { role });
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update user role" });
+    }
+  });
+
+  // Verify user manually
+  app.patch("/api/admin/users/:id/verify", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      await storage.verifyUser(userId);
+      res.json({ message: "User verified successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to verify user" });
+    }
+  });
+
+  // System feature controls
+  app.patch("/api/admin/system/features", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+    try {
+      const { feature, enabled } = req.body;
+
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+
+      // In a real implementation, you would store these settings in the database
+      // For now, we'll just acknowledge the request
+      res.json({ message: `Feature ${feature} ${enabled ? 'enabled' : 'disabled'}` });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update system feature" });
     }
   });
 

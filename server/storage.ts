@@ -66,60 +66,60 @@ export interface IStorage {
   updateUser(id: number, updates: Partial<User>): Promise<User>;
   verifyUser(id: number): Promise<User>;
   updateLastLogin(id: number): Promise<void>;
-  
+
   // Budget methods
   getBudgetCategories(userId: number): Promise<BudgetCategory[]>;
   createBudgetCategory(category: InsertBudgetCategory): Promise<BudgetCategory>;
   getBudgetTransactions(userId: number): Promise<BudgetTransaction[]>;
   createBudgetTransaction(transaction: InsertBudgetTransaction): Promise<BudgetTransaction>;
-  
+
   // Study notes methods
   getStudyNotes(userId: number): Promise<StudyNote[]>;
   createStudyNote(note: InsertStudyNote): Promise<StudyNote>;
   updateStudyNote(id: number, updates: Partial<StudyNote>): Promise<StudyNote>;
   deleteStudyNote(id: number): Promise<void>;
-  
+
   // Game scores methods
   getGameScores(userId: number, gameName?: string): Promise<GameScore[]>;
   createGameScore(score: InsertGameScore): Promise<GameScore>;
   getTopScores(gameName: string, limit?: number): Promise<GameScore[]>;
-  
+
   // Tutor agent methods
   getTutorAgents(): Promise<TutorAgent[]>;
   getTutorAgent(id: number): Promise<TutorAgent | undefined>;
   getTutorAgentByKey(agentKey: string): Promise<TutorAgent | undefined>;
-  
+
   // Tutor session methods
   createTutorSession(session: InsertTutorSession): Promise<TutorSession>;
   getTutorSession(id: number): Promise<TutorSession | undefined>;
   getUserTutorSessions(userId: number): Promise<TutorSession[]>;
   endTutorSession(sessionId: number): Promise<TutorSession>;
-  
+
   // Tutor message methods
   createTutorMessage(message: InsertTutorMessage): Promise<TutorMessage>;
   getSessionMessages(sessionId: number): Promise<TutorMessage[]>;
-  
+
   // Student profile methods
   getStudentProfile(userId: number): Promise<StudentProfile | undefined>;
   createStudentProfile(profile: InsertStudentProfile): Promise<StudentProfile>;
   updateStudentProfile(userId: number, updates: Partial<StudentProfile>): Promise<StudentProfile>;
-  
+
   // Badge system methods
   getBadges(): Promise<Badge[]>;
   getBadge(id: number): Promise<Badge | undefined>;
   getBadgeByKey(badgeKey: string): Promise<Badge | undefined>;
   createBadge(badge: InsertBadge): Promise<Badge>;
-  
+
   // User badge methods
   getUserBadges(userId: number): Promise<UserBadge[]>;
   createUserBadge(userBadge: InsertUserBadge): Promise<UserBadge>;
   markBadgeAsViewed(userId: number, badgeId: number): Promise<void>;
-  
+
   // Study streak methods
   getStudyStreaks(userId: number, limit?: number): Promise<StudyStreak[]>;
   createStudyStreak(streak: InsertStudyStreak): Promise<StudyStreak>;
   getTodayStreak(userId: number): Promise<StudyStreak | undefined>;
-  
+
   // Reward calculation methods
   awardSessionRewards(userId: number, sessionData: {
     sessionId: number;
@@ -128,21 +128,21 @@ export interface IStorage {
     messagesExchanged: number;
     difficulty: number;
   }): Promise<{ pointsEarned: number; badgesEarned: Badge[]; levelUp: boolean }>;
-  
+
   // Statistics
   getUserSessionStats(userId: number): Promise<{
     subjectSessions: Record<string, number>;
     todaySessions: number;
     totalSessions: number;
   }>;
-  
+
   // Auth token methods
   createAuthToken(token: InsertAuthToken): Promise<AuthToken>;
   getAuthToken(tokenId: string): Promise<AuthToken | undefined>;
   getAuthTokenByToken(token: string): Promise<AuthToken | undefined>;
   revokeAuthToken(tokenId: string): Promise<void>;
   revokeAllUserTokens(userId: number): Promise<void>;
-  
+
   // Content submission methods
   createContentSubmission(content: InsertContentSubmission): Promise<ContentSubmission>;
   getContentSubmission(id: number): Promise<ContentSubmission | undefined>;
@@ -151,7 +151,7 @@ export interface IStorage {
   updateContentSubmission(id: number, updates: Partial<ContentSubmission>): Promise<ContentSubmission>;
   deleteContentSubmission(id: number): Promise<void>;
   publishContentSubmission(id: number): Promise<ContentSubmission>;
-  
+
   // Student assignment methods
   createStudentAssignment(assignment: InsertStudentAssignment): Promise<StudentAssignment>;
   getStudentAssignment(id: number): Promise<StudentAssignment | undefined>;
@@ -160,6 +160,9 @@ export interface IStorage {
   updateStudentAssignment(id: number, updates: Partial<StudentAssignment>): Promise<StudentAssignment>;
   submitAssignment(assignmentId: number, submissionData: { submissionText?: string; submissionFiles?: string[] }): Promise<StudentAssignment>;
   gradeAssignment(assignmentId: number, grade: number, feedback?: string): Promise<StudentAssignment>;
+
+  //Super Admin methods
+  getAllUsers(): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -284,7 +287,7 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(gameScores)
         .where(and(eq(gameScores.userId, userId), eq(gameScores.gameName, gameName)));
     }
-    
+
     return await db.select().from(gameScores).where(eq(gameScores.userId, userId));
   }
 
@@ -501,7 +504,7 @@ export class DatabaseStorage implements IStorage {
       const updatedSubjects = currentSubjects.includes(sessionData.subject) 
         ? currentSubjects 
         : [...currentSubjects, sessionData.subject];
-      
+
       await db
         .update(studyStreaks)
         .set({ 
@@ -546,7 +549,7 @@ export class DatabaseStorage implements IStorage {
     for (const badge of allBadges) {
       if (!earnedBadgeIds.has(badge.id)) {
         const updatedProfile = { ...profile, experiencePoints: newXP, level: newLevel, totalSessionsCompleted: profile.totalSessionsCompleted + 1, currentStreak: newStreak };
-        
+
         if (checkBadgeEligibility(badge, updatedProfile, {
           ...updatedSessionStats,
           sessionTime: new Date()
@@ -576,7 +579,7 @@ export class DatabaseStorage implements IStorage {
     totalSessions: number;
   }> {
     const today = new Date().toISOString().split('T')[0];
-    
+
     // Get all user sessions (completed sessions have endedAt set)
     const allSessions = await db
       .select()
@@ -743,6 +746,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(studentAssignments.id, assignmentId))
       .returning();
     return graded;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(users.createdAt);
   }
 }
 
