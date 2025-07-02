@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { 
   BookOpen, 
   GraduationCap, 
@@ -15,10 +16,13 @@ import {
   TrendingUp,
   Lock,
   CheckCircle,
-  ArrowRight
+  ArrowRight,
+  Globe
 } from "lucide-react";
 
 export default function LandingPage() {
+  const { language, setLanguage, t } = useLanguage();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Navigation */}
@@ -30,17 +34,28 @@ export default function LandingPage() {
                 <BookOpen className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Keru.ai
+                {t.brand.name}
               </span>
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Language Toggle */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}
+                className="flex items-center space-x-2"
+              >
+                <Globe className="h-4 w-4" />
+                <span>{language === 'es' ? 'EN' : 'ES'}</span>
+              </Button>
+              
               <Link href="/auth">
-                <Button variant="ghost">Sign In</Button>
+                <Button variant="ghost">{t.auth.signIn}</Button>
               </Link>
               <Link href="/auth">
                 <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                  Get Started
+                  {t.auth.getStarted}
                 </Button>
               </Link>
             </div>
@@ -53,31 +68,30 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-4xl mx-auto">
             <Badge variant="secondary" className="mb-4">
-              🚀 Now with AI-Powered Tutoring
+              {t.landing.aiTutoring}
             </Badge>
             
             <h1 className="text-4xl sm:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-              Your Complete
+              {t.landing.heroTitle.split(' ').slice(0, 2).join(' ')}
               <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Educational Platform
+                {t.landing.heroTitle.split(' ').slice(2).join(' ')}
               </span>
             </h1>
             
             <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-              Empower learning with AI tutors, content management, gamified progress tracking, 
-              and comprehensive tools for students, teachers, and administrators.
+              {t.landing.heroSubtitle}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/auth">
                 <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-8">
-                  Start Learning Today
+                  {t.landing.startLearning}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
               <Link href="/auth">
                 <Button size="lg" variant="outline" className="text-lg px-8">
-                  Join as Teacher
+                  {t.landing.joinAsTeacher}
                 </Button>
               </Link>
             </div>
@@ -90,11 +104,10 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Everything You Need for Modern Education
+              {t.landing.featuresTitle}
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              From AI-powered tutoring to comprehensive content management, 
-              Keru.ai provides tools for every educational need.
+              {t.landing.featuresSubtitle}
             </p>
           </div>
 
@@ -105,9 +118,9 @@ export default function LandingPage() {
                 <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
                   <Brain className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
-                <CardTitle>AI-Powered Tutoring</CardTitle>
+                <CardTitle>{t.landing.aiTutoringTitle}</CardTitle>
                 <CardDescription>
-                  Multiple AI personas for mathematics, science, and more with personalized learning approaches
+                  {t.landing.aiTutoringDesc}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -118,9 +131,9 @@ export default function LandingPage() {
                 <div className="h-12 w-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
                   <FileText className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
-                <CardTitle>Content Management</CardTitle>
+                <CardTitle>{t.landing.contentMgmtTitle}</CardTitle>
                 <CardDescription>
-                  Teachers can upload PDFs, images, whiteboards, diagrams, and HTML content for student assignments
+                  {t.landing.contentMgmtDesc}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -131,9 +144,9 @@ export default function LandingPage() {
                 <div className="h-12 w-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-4">
                   <Award className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
-                <CardTitle>Gamified Learning</CardTitle>
+                <CardTitle>{t.landing.gamificationTitle}</CardTitle>
                 <CardDescription>
-                  Earn badges, level up, maintain study streaks, and track progress with comprehensive reward systems
+                  {t.landing.gamificationDesc}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -144,9 +157,9 @@ export default function LandingPage() {
                 <div className="h-12 w-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center mb-4">
                   <Users className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                 </div>
-                <CardTitle>Role-Based Access</CardTitle>
+                <CardTitle>{t.landing.roleBasedTitle}</CardTitle>
                 <CardDescription>
-                  Dedicated interfaces for students, teachers, and administrators with appropriate permissions
+                  {t.landing.roleBasedDesc}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -157,9 +170,9 @@ export default function LandingPage() {
                 <div className="h-12 w-12 bg-teal-100 dark:bg-teal-900 rounded-lg flex items-center justify-center mb-4">
                   <MessageSquare className="h-6 w-6 text-teal-600 dark:text-teal-400" />
                 </div>
-                <CardTitle>Real-time Learning</CardTitle>
+                <CardTitle>{t.landing.realtimeTitle}</CardTitle>
                 <CardDescription>
-                  Interactive sessions with AI tutors, immediate feedback, and progress tracking
+                  {t.landing.realtimeDesc}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -170,9 +183,9 @@ export default function LandingPage() {
                 <div className="h-12 w-12 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center mb-4">
                   <TrendingUp className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <CardTitle>Progress Analytics</CardTitle>
+                <CardTitle>{t.landing.analyticsTitle}</CardTitle>
                 <CardDescription>
-                  Comprehensive tracking of learning progress, strengths, and areas for improvement
+                  {t.landing.analyticsDesc}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -185,7 +198,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Built for Every Educational Role
+              {t.landing.rolesTitle}
             </h2>
           </div>
 
@@ -196,34 +209,34 @@ export default function LandingPage() {
                 <div className="h-16 w-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
                   <GraduationCap className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                 </div>
-                <CardTitle className="text-2xl">Students</CardTitle>
+                <CardTitle className="text-2xl">{t.landing.studentsTitle}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3 text-left">
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    AI tutoring sessions
+                    {t.landing.aiTutoringSessions}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Assignment submissions
+                    {t.landing.assignmentSubmissions}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Progress tracking
+                    {t.landing.progressTracking}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Badge rewards
+                    {t.landing.badgeRewards}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Study streaks
+                    {t.landing.studyStreaks}
                   </li>
                 </ul>
                 <Link href="/auth" className="mt-6 block">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                    Join as Student
+                    {t.landing.joinAsStudent}
                   </Button>
                 </Link>
               </CardContent>
@@ -235,34 +248,34 @@ export default function LandingPage() {
                 <div className="h-16 w-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
                   <FileText className="h-8 w-8 text-green-600 dark:text-green-400" />
                 </div>
-                <CardTitle className="text-2xl">Teachers</CardTitle>
+                <CardTitle className="text-2xl">{t.landing.teachersTitle}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3 text-left">
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Content creation & upload
+                    {t.landing.contentCreation}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Assignment management
+                    {t.landing.assignmentMgmt}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Student progress review
+                    {t.landing.studentProgress}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Grading system
+                    {t.landing.gradingSystem}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Content publishing
+                    {t.landing.contentPublishing}
                   </li>
                 </ul>
                 <Link href="/auth" className="mt-6 block">
                   <Button className="w-full bg-green-600 hover:bg-green-700">
-                    Join as Teacher
+                    {t.landing.joinAsTeacher}
                   </Button>
                 </Link>
               </CardContent>
@@ -274,34 +287,34 @@ export default function LandingPage() {
                 <div className="h-16 w-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Shield className="h-8 w-8 text-purple-600 dark:text-purple-400" />
                 </div>
-                <CardTitle className="text-2xl">Administrators</CardTitle>
+                <CardTitle className="text-2xl">{t.landing.adminsTitle}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3 text-left">
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Platform management
+                    {t.landing.platformMgmt}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    User administration
+                    {t.landing.userAdmin}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Analytics & reports
+                    {t.landing.analyticsReports}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    Content moderation
+                    {t.landing.contentModeration}
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    System settings
+                    {t.landing.systemSettings}
                   </li>
                 </ul>
                 <Link href="/auth" className="mt-6 block">
                   <Button className="w-full bg-purple-600 hover:bg-purple-700">
-                    Admin Access
+                    {t.landing.adminAccess}
                   </Button>
                 </Link>
               </CardContent>
