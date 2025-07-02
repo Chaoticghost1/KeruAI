@@ -12,7 +12,7 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   const baseNavItems = [
-    { href: '/', icon: 'fas fa-home', key: 'home' },
+    { href: '/dashboard', icon: 'fas fa-home', key: 'home' },
     { href: '/studybuddy', icon: 'fas fa-graduation-cap', key: 'study' },
     { href: '/budgetpal', icon: 'fas fa-wallet', key: 'budget' },
     { href: '/blog', icon: 'fas fa-globe', key: 'travel' },

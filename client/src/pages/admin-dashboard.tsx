@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,14 +34,16 @@ import {
   Database,
   Save,
   RefreshCw,
-  Activity
+  Activity,
+  Home,
+  LogOut
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
@@ -278,9 +281,21 @@ export default function AdminDashboard() {
             Welcome back, {user.firstName} {user.lastName} ({user.role})
           </p>
         </div>
-        <Badge variant="outline" className="px-3 py-1">
-          {user.role === 'superuser' ? 'Super Administrator' : 'Administrator'}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard">
+            <Button variant="outline" size="sm">
+              <Home className="h-4 w-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+          <Button variant="outline" size="sm" onClick={() => logout()}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+          <Badge variant="outline" className="px-3 py-1">
+            {user.role === 'superuser' ? 'Super Administrator' : 'Administrator'}
+          </Badge>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
