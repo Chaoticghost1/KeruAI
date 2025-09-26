@@ -20,6 +20,7 @@ import AuthPage from "./pages/auth-page";
 import AdminDashboard from "./pages/admin-dashboard";
 import LandingPage from "./pages/landing-page";
 import NotFound from "@/pages/not-found";
+import { Redirect } from "./components/Redirect";
 
 function Router() {
   return (
@@ -29,8 +30,16 @@ function Router() {
           {/* Public routes */}
           <Route path="/auth" component={AuthPage} />
           
-          {/* Public landing page for unauthenticated users */}
-          <Route path="/" component={LandingPage} />
+          {/* Public landing page for unauthenticated users, redirect authenticated users */}
+          <Route path="/">
+            {() => {
+              const { user } = useAuth();
+              if (user) {
+                return <Redirect to="/dashboard" />;
+              }
+              return <LandingPage />;
+            }}
+          </Route>
           
           {/* Admin panel route - standalone without sidebar */}
           <ProtectedRoute path="/admin" component={AdminDashboard} roles={['teacher', 'superuser']} />
@@ -43,13 +52,13 @@ function Router() {
                 <main className="flex-1 lg:ml-80 pt-16 lg:pt-0">
                   <Switch>
                     <ProtectedRoute path="/dashboard" component={Dashboard} />
-                    <Route path="/studybuddy" component={StudyBuddy} />
-                    <Route path="/budgetpal" component={BudgetPal} />
-                    <Route path="/blog" component={Blog} />
-                    <Route path="/chat" component={Chat} />
-                    <Route path="/cruiseword" component={CruiseWord} />
-                    <Route path="/dao" component={DAO} />
-                    <Route path="/aethosbyte" component={AethosByte} />
+                    <ProtectedRoute path="/studybuddy" component={StudyBuddy} />
+                    <ProtectedRoute path="/budgetpal" component={BudgetPal} />
+                    <ProtectedRoute path="/blog" component={Blog} />
+                    <ProtectedRoute path="/chat" component={Chat} />
+                    <ProtectedRoute path="/cruiseword" component={CruiseWord} />
+                    <ProtectedRoute path="/dao" component={DAO} />
+                    <ProtectedRoute path="/aethosbyte" component={AethosByte} />
                     <Route component={NotFound} />
                   </Switch>
                 </main>
