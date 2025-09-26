@@ -13,7 +13,26 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>('es');
+  // Initialize language from localStorage or default to 'es'
+  const [language, setLanguageState] = useState<Language>(() => {
+    try {
+      const savedLanguage = localStorage.getItem('keru-language') as Language;
+      return savedLanguage && (savedLanguage === 'es' || savedLanguage === 'en') ? savedLanguage : 'es';
+    } catch {
+      return 'es';
+    }
+  });
+
+  // Custom setLanguage function that also saves to localStorage
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    try {
+      localStorage.setItem('keru-language', lang);
+    } catch {
+      // Handle localStorage not available (e.g., private browsing)
+      console.warn('Could not save language preference to localStorage');
+    }
+  };
 
   useEffect(() => {
     // Update document language
