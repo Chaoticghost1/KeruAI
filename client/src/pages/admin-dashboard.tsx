@@ -104,12 +104,12 @@ export default function AdminDashboard() {
 
   // Bot Persona Mutations
   const createPersonaMutation = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (data: any) => {
       const response = await apiRequest("POST", "/api/admin/bot-personas", data);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/admin/bot-personas']);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bot-personas'] });
       toast({ title: "Bot persona created successfully" });
       resetPersonaForm();
     },
