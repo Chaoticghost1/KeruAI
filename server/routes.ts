@@ -732,6 +732,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedSession = insertTutorSessionSchema.parse(req.body);
       const session = await storage.createTutorSession(validatedSession);
       
+      // Extract language preference from request
+      const language = req.body.language || 'es'; // Default to Spanish if not provided
+      
       // Generate welcome message from AI tutor
       try {
         // Get the agent record to extract agentKey
@@ -744,7 +747,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agent.agentKey, // Use actual agentKey from agent record
           validatedSession.subject,
           validatedSession.topic || undefined,
-          validatedSession.difficultyLevel
+          validatedSession.difficultyLevel,
+          language // Pass user's language preference
         );
         
         // Save welcome message
@@ -803,6 +807,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               throw new Error(`Agent not found: ${session.agentId}`);
             }
             
+            // Extract language preference from request
+            const language = req.body.language || 'es'; // Default to Spanish if not provided
+            
             // Get conversation history for context
             const sessionHistory = await storage.getSessionMessages(validatedMessage.sessionId);
             const conversationHistory = sessionHistory.map(msg => ({
@@ -817,7 +824,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               validatedMessage.message,
               session.subject,
               session.difficultyLevel,
-              conversationHistory
+              conversationHistory,
+              language // Pass user's language preference
             );
 
             // Save agent response

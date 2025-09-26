@@ -288,7 +288,8 @@ export default function StudyBuddy() {
       subject: selectedSubject,
       topic: topic || null,
       difficultyLevel,
-      isActive: true
+      isActive: true,
+      language: t.language // Include user's language preference
     });
   };
 
@@ -299,7 +300,8 @@ export default function StudyBuddy() {
       sessionId: currentSession.id,
       sender: 'student',
       message: messageInput.trim(),
-      messageType: 'text'
+      messageType: 'text',
+      language: t.language // Include user's language preference
     });
   };
 

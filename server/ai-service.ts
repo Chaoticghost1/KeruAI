@@ -29,7 +29,8 @@ export class AITutorService {
     studentMessage: string,
     subject: string,
     difficultyLevel: number,
-    sessionHistory: Array<{ sender: string; message: string; timestamp: string }> = []
+    sessionHistory: Array<{ sender: string; message: string; timestamp: string }> = [],
+    language: string = 'es'
   ): Promise<AITutorResponse> {
     try {
       const persona = getPersonaByKey(agentKey);
@@ -43,8 +44,15 @@ export class AITutorService {
         .map(msg => `${msg.sender}: ${msg.message}`)
         .join('\n');
 
+      // Get language instruction
+      const languageInstruction = language === 'en' 
+        ? 'IMPORTANT: Respond in English only.' 
+        : 'IMPORTANTE: Responde solo en español.';
+
       // Create persona-driven system prompt
       const systemPrompt = `You are ${persona.name}, ${persona.title}. 
+
+${languageInstruction}
 
 PERSONALITY: ${persona.personality.primaryTraits.join(', ')}
 COMMUNICATION STYLE: ${persona.personality.communicationStyle.tone}, ${persona.personality.communicationStyle.formality}
@@ -102,7 +110,7 @@ Provide your response in JSON format:
       
       // Try Perplexity AI as fallback
       try {
-        return await this.generatePerplexityResponse(agentKey, studentMessage, subject, difficultyLevel, sessionHistory);
+        return await this.generatePerplexityResponse(agentKey, studentMessage, subject, difficultyLevel, sessionHistory, language);
       } catch (perplexityError) {
         console.error('Perplexity AI Error:', perplexityError);
         
@@ -130,7 +138,8 @@ Provide your response in JSON format:
     studentMessage: string,
     subject: string,
     difficultyLevel: number,
-    sessionHistory: Array<{ sender: string; message: string; timestamp: string }> = []
+    sessionHistory: Array<{ sender: string; message: string; timestamp: string }> = [],
+    language: string = 'es'
   ): Promise<AITutorResponse> {
     const persona = getPersonaByKey(agentKey);
     if (!persona) {
@@ -143,8 +152,15 @@ Provide your response in JSON format:
       .map(msg => `${msg.sender}: ${msg.message}`)
       .join('\n');
 
+    // Get language instruction
+    const languageInstruction = language === 'en' 
+      ? 'IMPORTANT: Respond in English only.' 
+      : 'IMPORTANTE: Responde solo en español.';
+
     // Create persona-driven system prompt
     const systemPrompt = `You are ${persona.name}, ${persona.title}. 
+
+${languageInstruction}
 
 PERSONALITY: ${persona.personality.primaryTraits.join(', ')}
 COMMUNICATION STYLE: ${persona.personality.communicationStyle.tone}, ${persona.personality.communicationStyle.formality}
@@ -233,7 +249,8 @@ Provide a helpful tutoring response that includes factual, up-to-date informatio
     agentKey: string,
     subject: string,
     topic?: string,
-    difficultyLevel: number = 2
+    difficultyLevel: number = 2,
+    language: string = 'es'
   ): Promise<AITutorResponse> {
     const persona = getPersonaByKey(agentKey);
     if (!persona) {
@@ -244,6 +261,6 @@ Provide a helpful tutoring response that includes factual, up-to-date informatio
       ? `I'm starting a ${subject} tutoring session focused on ${topic}. Please introduce yourself and ask an engaging question to begin.`
       : `I'm starting a ${subject} tutoring session. Please introduce yourself and ask what specific area I'd like to explore.`;
 
-    return this.generateTutorResponse(agentKey, welcomePrompt, subject, difficultyLevel);
+    return this.generateTutorResponse(agentKey, welcomePrompt, subject, difficultyLevel, [], language);
   }
 }
