@@ -15,6 +15,7 @@ import {
   User
 } from "@shared/schema";
 import { getPersonaByKey, generatePersonaResponse } from "@shared/tutorPersonas";
+import { AITutorService } from "./ai-service.js";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -703,7 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tutor agent routes
   app.get("/api/tutors", async (req, res) => {
     try {
-      const agents = await storage.getTutorAgents();
+      const agents = AITutorService.getAvailableTutors();
       res.json(agents);
     } catch (error) {
       res.status(400).json({ error: "Error fetching tutor agents" });
@@ -729,6 +730,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedSession = insertTutorSessionSchema.parse(req.body);
       const session = await storage.createTutorSession(validatedSession);
+      
+      // Generate welcome message from AI tutor
+      try {
+        const welcomeResponse = await AITutorService.initializeTutoringSession(
+          validatedSession.agentId.toString(), // Use agentId as agentKey
+          validatedSession.subject,
+          validatedSession.topic || undefined,
+          validatedSession.difficultyLevel
+        );
+        
+        // Save welcome message
+        await storage.createTutorMessage({
+          sessionId: session.id,
+          sender: 'agent',
+          message: welcomeResponse.message,
+          messageType: 'greeting',
+          toolsUsed: welcomeResponse.toolsUsed
+        });
+      } catch (aiError) {
+        console.warn('Failed to generate welcome message:', aiError);
+      }
+      
       res.json(session);
     } catch (error) {
       res.status(400).json({ error: "Invalid session data" });
@@ -761,32 +784,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedMessage = insertTutorMessageSchema.parse(req.body);
       const message = await storage.createTutorMessage(validatedMessage);
       
-      // If this is a student message, generate agent response
+      // If this is a student message, generate AI agent response
       if (validatedMessage.sender === 'student') {
-        const session = await storage.getTutorSession(validatedMessage.sessionId);
-        if (session) {
-          const agent = await storage.getTutorAgent(session.agentId);
-          if (agent) {
-            const persona = getPersonaByKey(agent.agentKey);
-            if (persona) {
-              const agentResponse = generatePersonaResponse(persona, {
-                messageType: 'explanation',
-                studentMessage: validatedMessage.message,
-                topic: session.topic || undefined,
-                difficulty: session.difficultyLevel
-              });
+        try {
+          const session = await storage.getTutorSession(validatedMessage.sessionId);
+          if (session) {
+            // Get conversation history for context
+            const sessionHistory = await storage.getSessionMessages(validatedMessage.sessionId);
+            const conversationHistory = sessionHistory.map(msg => ({
+              sender: msg.sender,
+              message: msg.message,
+              timestamp: msg.timestamp.toISOString()
+            }));
+            
+            // Generate AI response using OpenAI
+            const aiResponse = await AITutorService.generateTutorResponse(
+              session.agentId.toString(), // Use agentId as agentKey
+              validatedMessage.message,
+              session.subject,
+              session.difficultyLevel,
+              conversationHistory
+            );
 
-              // Save agent response
-              const agentMessage = await storage.createTutorMessage({
-                sessionId: validatedMessage.sessionId,
-                sender: 'agent',
-                message: agentResponse,
-                messageType: 'explanation'
-              });
+            // Save agent response
+            const agentMessage = await storage.createTutorMessage({
+              sessionId: validatedMessage.sessionId,
+              sender: 'agent',
+              message: aiResponse.message,
+              messageType: 'explanation',
+              toolsUsed: aiResponse.toolsUsed
+            });
 
-              return res.json({ studentMessage: message, agentMessage });
-            }
+            return res.json({ studentMessage: message, agentMessage });
           }
+        } catch (aiError) {
+          console.error('AI response generation failed:', aiError);
+          // Continue with just the student message if AI fails
         }
       }
       
