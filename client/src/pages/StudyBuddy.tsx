@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -207,6 +208,7 @@ function ProgressDashboard({ userId }: { userId: number }) {
 
 export default function StudyBuddy() {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedAgent, setSelectedAgent] = useState<TutorAgent | null>(null);
   const [currentSession, setCurrentSession] = useState<TutorSession | null>(null);
@@ -215,8 +217,8 @@ export default function StudyBuddy() {
   const [topic, setTopic] = useState('');
   const [difficultyLevel, setDifficultyLevel] = useState(2);
 
-  // Mock user ID for demo - in real app this would come from auth
-  const userId = 1;
+  // Get authenticated user ID
+  const userId = user?.id;
 
   // Fetch available tutor agents
   const { data: agents = [], isLoading: agentsLoading } = useQuery<TutorAgent[]>({
@@ -278,7 +280,7 @@ export default function StudyBuddy() {
   });
 
   const startSession = () => {
-    if (!selectedAgent || !selectedSubject) return;
+    if (!selectedAgent || !selectedSubject || !userId) return;
 
     createSessionMutation.mutate({
       userId,
@@ -306,7 +308,7 @@ export default function StudyBuddy() {
     endSessionMutation.mutate(currentSession.id);
   };
 
-  if (agentsLoading) {
+  if (agentsLoading || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
         <div className="max-w-4xl mx-auto">
@@ -334,7 +336,7 @@ export default function StudyBuddy() {
         </div>
 
         {/* Progress Dashboard */}
-        <ProgressDashboard userId={userId} />
+        {userId && <ProgressDashboard userId={userId} />}
 
         {!currentSession ? (
           // Agent Selection View
