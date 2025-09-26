@@ -1,3 +1,7 @@
+// GitHub service for budget functionality has been removed
+// as per user request to remove GitHub integration from the budget planning section
+
+/*
 import { Octokit } from '@octokit/rest';
 
 let connectionSettings: any;
@@ -57,9 +61,6 @@ export interface BudgetTemplate {
 }
 
 export class GitHubBudgetService {
-  /**
-   * Search for budget management templates and tools in GitHub
-   */
   static async searchBudgetTemplates(query: string = 'budget management template', limit: number = 20): Promise<BudgetTemplate[]> {
     try {
       const github = await getUncachableGitHubClient();
@@ -90,9 +91,6 @@ export class GitHubBudgetService {
     }
   }
 
-  /**
-   * Get featured budget management repositories
-   */
   static async getFeaturedBudgetRepos(): Promise<BudgetTemplate[]> {
     const featuredQueries = [
       'personal finance app',
@@ -122,9 +120,6 @@ export class GitHubBudgetService {
     }
   }
 
-  /**
-   * Get repository details including README content
-   */
   static async getRepositoryDetails(owner: string, repo: string) {
     try {
       const github = await getUncachableGitHubClient();
@@ -150,9 +145,6 @@ export class GitHubBudgetService {
     }
   }
 
-  /**
-   * Fork a repository to user's account
-   */
   static async forkRepository(owner: string, repo: string) {
     try {
       const github = await getUncachableGitHubClient();
@@ -169,9 +161,6 @@ export class GitHubBudgetService {
     }
   }
 
-  /**
-   * Get user's GitHub profile information
-   */
   static async getUserProfile() {
     try {
       const github = await getUncachableGitHubClient();
@@ -183,9 +172,6 @@ export class GitHubBudgetService {
     }
   }
 
-  /**
-   * Categorize repository based on name and description
-   */
   private static categorizeRepository(name: string, description: string): string {
     const text = `${name} ${description}`.toLowerCase();
     
@@ -206,3 +192,4 @@ export class GitHubBudgetService {
     }
   }
 }
+*/

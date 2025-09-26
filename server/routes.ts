@@ -16,7 +16,6 @@ import {
 } from "@shared/schema";
 import { getPersonaByKey, generatePersonaResponse } from "@shared/tutorPersonas";
 import { AITutorService } from "./ai-service.js";
-import { GitHubBudgetService } from "./github-service.js";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -1120,55 +1119,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GitHub Budget Templates API
-  app.get("/api/budget/templates", async (req, res) => {
-    try {
-      const query = req.query.q as string || 'budget management template';
-      const limit = parseInt(req.query.limit as string) || 20;
-      const templates = await GitHubBudgetService.searchBudgetTemplates(query, limit);
-      res.json(templates);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch budget templates" });
-    }
-  });
-
-  app.get("/api/budget/templates/featured", async (req, res) => {
-    try {
-      const templates = await GitHubBudgetService.getFeaturedBudgetRepos();
-      res.json(templates);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch featured templates" });
-    }
-  });
-
-  app.get("/api/budget/templates/:owner/:repo", async (req, res) => {
-    try {
-      const { owner, repo } = req.params;
-      const details = await GitHubBudgetService.getRepositoryDetails(owner, repo);
-      res.json(details);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch repository details" });
-    }
-  });
-
-  app.post("/api/budget/templates/:owner/:repo/fork", async (req, res) => {
-    try {
-      const { owner, repo } = req.params;
-      const forkedRepo = await GitHubBudgetService.forkRepository(owner, repo);
-      res.json(forkedRepo);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fork repository" });
-    }
-  });
-
-  app.get("/api/budget/github/profile", async (req, res) => {
-    try {
-      const profile = await GitHubBudgetService.getUserProfile();
-      res.json(profile);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch GitHub profile" });
-    }
-  });
 
   const httpServer = createServer(app);
 
