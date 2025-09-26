@@ -755,8 +755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(session);
     } catch (error) {
-      console.log('Session creation error:', error);
-      console.log('Request body:', req.body);
+      // Log removed for cleaner output
       res.status(400).json({ error: "Invalid session data" });
     }
   });
