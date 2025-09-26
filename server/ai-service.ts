@@ -105,20 +105,26 @@ Provide your response in JSON format:
       };
 
     } catch (error) {
-      console.error('OpenAI API Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn('OpenAI API unavailable:', errorMessage);
       console.log('Trying Perplexity AI as fallback...');
       
       // Try Perplexity AI as fallback
       try {
         return await this.generatePerplexityResponse(agentKey, studentMessage, subject, difficultyLevel, sessionHistory, language);
       } catch (perplexityError) {
-        console.error('Perplexity AI Error:', perplexityError);
+        const perplexityErrorMessage = perplexityError instanceof Error ? perplexityError.message : 'Unknown error';
+        console.warn('Perplexity AI unavailable:', perplexityErrorMessage);
         
         // Final fallback to rule-based persona response
         const persona = getPersonaByKey(agentKey);
-        const fallbackMessage = persona 
-          ? generatePersonaResponse(persona, { messageType: 'encouragement' })
-          : "I'm here to help you learn! Could you please rephrase your question?";
+        const fallbackMessage = language === 'en' 
+          ? (persona 
+            ? `Hello! I'm ${persona.name}. I'm here to help you with ${subject}. While our AI system is temporarily unavailable, I can still provide basic guidance. What would you like to learn about?`
+            : "I'm here to help you learn! While our AI system is temporarily unavailable, feel free to ask your question and I'll do my best to assist you.")
+          : (persona 
+            ? `¡Hola! Soy ${persona.name}. Estoy aquí para ayudarte con ${subject}. Aunque nuestro sistema de IA no está disponible temporalmente, aún puedo proporcionarte orientación básica. ¿Qué te gustaría aprender?`
+            : "¡Estoy aquí para ayudarte a aprender! Aunque nuestro sistema de IA no está disponible temporalmente, siéntete libre de hacer tu pregunta e intentaré ayudarte.");
 
         return {
           message: fallbackMessage,
@@ -208,7 +214,8 @@ Provide a helpful tutoring response that includes factual, up-to-date informatio
     });
 
     if (!response.ok) {
-      throw new Error(`Perplexity API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`Perplexity API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();

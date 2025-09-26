@@ -760,13 +760,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           toolsUsed: welcomeResponse.toolsUsed
         });
       } catch (aiError) {
-        console.warn('Failed to generate welcome message:', aiError);
+        const errorMessage = aiError instanceof Error ? aiError.message : 'Unknown error';
+        console.warn('Failed to generate welcome message:', errorMessage);
+        // Continue without welcome message - this is not a critical failure
       }
       
       res.json(session);
     } catch (error) {
-      // Log removed for cleaner output
-      res.status(400).json({ error: "Invalid session data" });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error creating tutor session:', errorMessage);
+      res.status(500).json({ error: "Failed to create session" });
     }
   });
 
