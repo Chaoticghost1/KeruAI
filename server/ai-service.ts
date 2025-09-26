@@ -10,7 +10,7 @@ const openai = new OpenAI({
 const perplexity = {
   apiKey: process.env.PERPLEXITY_API_KEY,
   baseURL: 'https://api.perplexity.ai',
-  model: 'llama-3.1-sonar-small-128k-online'
+  model: 'sonar' // Updated to use current valid model (lightweight, cost-effective)
 };
 
 export interface AITutorResponse {
