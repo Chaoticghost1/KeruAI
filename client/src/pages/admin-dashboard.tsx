@@ -119,12 +119,12 @@ export default function AdminDashboard() {
   });
 
   const updatePersonaMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const response = await apiRequest("PUT", `/api/admin/bot-personas/${id}`, data);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/admin/bot-personas']);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bot-personas'] });
       toast({ title: "Bot persona updated successfully" });
       resetPersonaForm();
     },
@@ -134,12 +134,12 @@ export default function AdminDashboard() {
   });
 
   const deletePersonaMutation = useMutation({
-    mutationFn: async (id) => {
+    mutationFn: async (id: number) => {
       const response = await apiRequest("DELETE", `/api/admin/bot-personas/${id}`);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/admin/bot-personas']);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bot-personas'] });
       toast({ title: "Bot persona deleted successfully" });
     },
     onError: (error) => {
@@ -149,12 +149,12 @@ export default function AdminDashboard() {
 
   // Blog Post Mutations
   const createBlogMutation = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (data: any) => {
       const response = await apiRequest("POST", "/api/admin/blog-posts", data);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/admin/blog-posts']);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/blog-posts'] });
       toast({ title: "Blog post created successfully" });
       resetBlogForm();
     },
@@ -164,12 +164,12 @@ export default function AdminDashboard() {
   });
 
   const updateBlogMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const response = await apiRequest("PUT", `/api/admin/blog-posts/${id}`, data);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/admin/blog-posts']);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/blog-posts'] });
       toast({ title: "Blog post updated successfully" });
       resetBlogForm();
     },
@@ -179,12 +179,12 @@ export default function AdminDashboard() {
   });
 
   const deleteBlogMutation = useMutation({
-    mutationFn: async (id) => {
+    mutationFn: async (id: number) => {
       const response = await apiRequest("DELETE", `/api/admin/blog-posts/${id}`);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/admin/blog-posts']);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/blog-posts'] });
       toast({ title: "Blog post deleted successfully" });
     },
     onError: (error) => {
@@ -216,7 +216,7 @@ export default function AdminDashboard() {
     setSelectedPost(null);
   };
 
-  const handlePersonaSubmit = (e) => {
+  const handlePersonaSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedPersona) {
       updatePersonaMutation.mutate({ id: selectedPersona.id, data: personaForm });
@@ -225,7 +225,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleBlogSubmit = (e) => {
+  const handleBlogSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedPost) {
       updateBlogMutation.mutate({ id: selectedPost.id, data: blogForm });
@@ -234,7 +234,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const editPersona = (persona) => {
+  const editPersona = (persona: any) => {
     setSelectedPersona(persona);
     setPersonaForm({
       name: persona.name,
@@ -246,7 +246,7 @@ export default function AdminDashboard() {
     });
   };
 
-  const editBlogPost = (post) => {
+  const editBlogPost = (post: any) => {
     setSelectedPost(post);
     setBlogForm({
       title: post.title,
