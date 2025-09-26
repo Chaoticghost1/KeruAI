@@ -973,7 +973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const personaData = req.body;
       // Convert comma-separated subjects to array
       if (personaData.subjects && typeof personaData.subjects === 'string') {
-        personaData.subjects = personaData.subjects.split(',').map(s => s.trim()).filter(s => s);
+        personaData.subjects = personaData.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       }
       const persona = await storage.createBotPersona(personaData);
       res.json(persona);
@@ -988,7 +988,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body;
       // Convert comma-separated subjects to array
       if (updates.subjects && typeof updates.subjects === 'string') {
-        updates.subjects = updates.subjects.split(',').map(s => s.trim()).filter(s => s);
+        updates.subjects = updates.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       }
       const persona = await storage.updateBotPersona(id, updates);
       res.json(persona);
@@ -1022,7 +1022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const postData = { ...req.body, authorId: req.user!.id };
       // Convert comma-separated tags to array
       if (postData.tags && typeof postData.tags === 'string') {
-        postData.tags = postData.tags.split(',').map(t => t.trim()).filter(t => t);
+        postData.tags = postData.tags.split(',').map((t: string) => t.trim()).filter((t: string) => t);
       }
       if (postData.isPublished) {
         postData.publishedAt = new Date();
@@ -1040,7 +1040,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body;
       // Convert comma-separated tags to array
       if (updates.tags && typeof updates.tags === 'string') {
-        updates.tags = updates.tags.split(',').map(t => t.trim()).filter(t => t);
+        updates.tags = updates.tags.split(',').map((t: string) => t.trim()).filter((t: string) => t);
       }
       if (updates.isPublished && !updates.publishedAt) {
         updates.publishedAt = new Date();

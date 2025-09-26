@@ -518,7 +518,6 @@ export class DatabaseStorage implements IStorage {
       newStreak = profile.currentStreak + 1;
       await this.createStudyStreak({
         userId,
-        date: new Date(),
         sessionsCompleted: 1,
         pointsEarned: pointsEarned,
         subjectsStudied: [sessionData.subject]
