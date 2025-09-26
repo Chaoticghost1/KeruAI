@@ -16,6 +16,7 @@ import Blog from "./pages/Blog";
 import Chat from "./pages/Chat";
 import CruiseWord from "./pages/CruiseWord";
 import DAO from "./pages/DAO";
+import EnhancedDAO from "./pages/EnhancedDAO";
 import AethosByte from "./pages/AethosByte";
 import AuthPage from "./pages/auth-page";
 import AdminDashboard from "./pages/admin-dashboard";
@@ -58,8 +59,8 @@ function Router() {
                     <ProtectedRoute path="/blog" component={Blog} />
                     <ProtectedRoute path="/chat" component={Chat} />
                     <ProtectedRoute path="/cruiseword" component={CruiseWord} />
-                    <ProtectedRoute path="/dao" component={DAO} />
-                    <ProtectedRoute path="/aethosbyte" component={AethosByte} />
+                    <ProtectedRoute path="/dao" component={EnhancedDAO} />
+                    {/* <ProtectedRoute path="/aethosbyte" component={AethosByte} /> */} {/* Temporarily removed */}
                     <Route component={NotFound} />
                   </Switch>
                 </main>

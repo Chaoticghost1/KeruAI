@@ -18,7 +18,7 @@ export function Sidebar() {
     { href: '/blog', icon: 'fas fa-globe', key: 'travel' },
     { href: '/cruiseword', icon: 'fas fa-ship', key: 'game' },
     { href: '/dao', icon: 'fas fa-bus', key: 'dao' },
-    { href: '/aethosbyte', icon: 'fas fa-brain', key: 'cleanup' },
+    // { href: '/aethosbyte', icon: 'fas fa-brain', key: 'cleanup' }, // Temporarily removed
   ];
 
   // Add admin/teacher dashboard for authorized users
