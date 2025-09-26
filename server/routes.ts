@@ -734,8 +734,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate welcome message from AI tutor
       try {
+        // Get the agent record to extract agentKey
+        const agent = await storage.getTutorAgent(validatedSession.agentId);
+        if (!agent) {
+          throw new Error(`Agent not found: ${validatedSession.agentId}`);
+        }
+        
         const welcomeResponse = await AITutorService.initializeTutoringSession(
-          validatedSession.agentId.toString(), // Use agentId as agentKey
+          agent.agentKey, // Use actual agentKey from agent record
           validatedSession.subject,
           validatedSession.topic || undefined,
           validatedSession.difficultyLevel
@@ -791,6 +797,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const session = await storage.getTutorSession(validatedMessage.sessionId);
           if (session) {
+            // Get the agent record to extract agentKey
+            const agent = await storage.getTutorAgent(session.agentId);
+            if (!agent) {
+              throw new Error(`Agent not found: ${session.agentId}`);
+            }
+            
             // Get conversation history for context
             const sessionHistory = await storage.getSessionMessages(validatedMessage.sessionId);
             const conversationHistory = sessionHistory.map(msg => ({
@@ -801,7 +813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Generate AI response using OpenAI
             const aiResponse = await AITutorService.generateTutorResponse(
-              session.agentId.toString(), // Use agentId as agentKey
+              agent.agentKey, // Use actual agentKey from agent record
               validatedMessage.message,
               session.subject,
               session.difficultyLevel,
