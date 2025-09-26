@@ -705,7 +705,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tutor agent routes
   app.get("/api/tutors", async (req, res) => {
     try {
-      const agents = AITutorService.getAvailableTutors();
+      const agents = await storage.getTutorAgents();
       res.json(agents);
     } catch (error) {
       res.status(400).json({ error: "Error fetching tutor agents" });
@@ -755,6 +755,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(session);
     } catch (error) {
+      console.log('Session creation error:', error);
+      console.log('Request body:', req.body);
       res.status(400).json({ error: "Invalid session data" });
     }
   });
