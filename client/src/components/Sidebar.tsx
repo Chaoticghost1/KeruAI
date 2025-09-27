@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
+import { DataSaverToggle } from './DataSaverMode';
+import { OnboardingFlow } from './OnboardingFlow';
 import { socialLinks } from '../data/content';
 import { useAuth } from '../hooks/use-auth';
 
@@ -169,12 +171,26 @@ export function Sidebar() {
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-700 transition-colors ${
                     isActive(item.href) ? 'bg-slate-700' : ''
                   }`}
+                  data-testid={`nav-${item.key}`}
                 >
                   <i className={`${item.icon} w-5`}></i>
                   <span>{t.nav[item.key as keyof typeof t.nav]}</span>
                 </Link>
               ))}
             </nav>
+
+            {/* Honduras-First Features */}
+            {user && (
+              <div className="mt-6 space-y-4 px-4">
+                {/* Data Saver Toggle for Honduras low-bandwidth */}
+                <DataSaverToggle />
+                
+                {/* Onboarding Flow for Digital Literacy */}
+                <div className="mt-4">
+                  <OnboardingFlow />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

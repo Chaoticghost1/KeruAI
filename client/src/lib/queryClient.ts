@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { OfflineManager } from "./offline-storage";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -20,6 +21,22 @@ export async function apiRequest(
   // Ensure URL is absolute
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
   
+  // Honduras-first: Check for offline/data saver conditions
+  const settings = await OfflineManager.getSettings();
+  const dataSaverEnabled = settings?.dataSaverMode || false;
+  
+  // For GET requests, try cache first if offline or data saver enabled
+  if (method === 'GET' && (!navigator.onLine || dataSaverEnabled)) {
+    const cachedData = await OfflineManager.getCachedContent(fullUrl);
+    if (cachedData) {
+      console.log('Serving from cache (Honduras data saver/offline):', fullUrl);
+      return new Response(JSON.stringify(cachedData), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+  
   // Get auth token from localStorage
   const token = localStorage.getItem('accessToken');
   
@@ -27,6 +44,12 @@ export async function apiRequest(
     'Content-Type': 'application/json',
     ...additionalHeaders,
   };
+  
+  // Honduras-first: Add data saver headers for low-bandwidth optimization
+  if (dataSaverEnabled) {
+    headers['Save-Data'] = '1';
+    // Note: Accept-Encoding is handled automatically by the browser
+  }
   
   // Add authorization header if token exists
   if (token) {
@@ -88,8 +111,32 @@ export async function apiRequest(
   }
 
   if (!res.ok) {
+    // Honduras-first: For GET requests, try serving from cache if network fails
+    if (method === 'GET') {
+      const cachedData = await OfflineManager.getCachedContent(fullUrl);
+      if (cachedData) {
+        console.log('Network failed, serving from cache:', fullUrl);
+        return new Response(JSON.stringify(cachedData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+    
     const text = await res.text();
     throw new Error(`${res.status}: ${text}`);
+  }
+
+  // Honduras-first: Cache successful GET responses for offline use
+  if (method === 'GET' && res.ok) {
+    try {
+      const responseClone = res.clone();
+      const data = await responseClone.json();
+      const cacheHours = dataSaverEnabled ? 48 : 24; // Cache longer in data saver mode
+      await OfflineManager.cacheContent(fullUrl, data, cacheHours);
+    } catch (cacheError) {
+      console.warn('Failed to cache response:', cacheError);
+    }
   }
 
   return res;

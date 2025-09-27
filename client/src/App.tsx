@@ -5,6 +5,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
+import { DataSaverProvider } from "./components/DataSaverMode";
+import { OnboardingFlow } from "./components/OnboardingFlow";
+import { initializeOfflineStorage } from "./lib/offline-storage";
+import { useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { ProtectedRoute } from "./lib/protected-route";
 import Home from "./pages/Home";
@@ -25,10 +29,22 @@ import NotFound from "@/pages/not-found";
 import { Redirect } from "./components/Redirect";
 
 function Router() {
+  useEffect(() => {
+    // Initialize offline storage for Honduras-first strategy
+    initializeOfflineStorage().then((success) => {
+      if (success) {
+        console.log('Offline storage initialized for Honduras platform');
+      } else {
+        console.warn('Offline storage initialization failed');
+      }
+    });
+  }, []);
+
   return (
     <LanguageProvider>
-      <AuthProvider>
-        <Switch>
+      <DataSaverProvider>
+        <AuthProvider>
+          <Switch>
           {/* Public routes */}
           <Route path="/auth" component={AuthPage} />
           
@@ -70,7 +86,8 @@ function Router() {
           
           <Route component={NotFound} />
         </Switch>
-      </AuthProvider>
+        </AuthProvider>
+      </DataSaverProvider>
     </LanguageProvider>
   );
 }
