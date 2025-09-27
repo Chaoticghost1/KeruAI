@@ -22,6 +22,7 @@ import CruiseWord from "./pages/CruiseWord";
 import DAO from "./pages/DAO";
 import EnhancedDAO from "./pages/EnhancedDAO";
 import AethosByte from "./pages/AethosByte";
+import MentorshipHub from "./pages/MentorshipHub";
 import AuthPage from "./pages/auth-page";
 import AdminDashboard from "./pages/admin-dashboard";
 import LandingPage from "./pages/landing-page";
@@ -76,6 +77,7 @@ function Router() {
                     <ProtectedRoute path="/chat" component={Chat} />
                     <ProtectedRoute path="/cruiseword" component={CruiseWord} />
                     <ProtectedRoute path="/dao" component={EnhancedDAO} />
+                    <ProtectedRoute path="/mentorship-hub" component={MentorshipHub} />
                     {/* <ProtectedRoute path="/aethosbyte" component={AethosByte} /> */} {/* Temporarily removed */}
                     <Route component={NotFound} />
                   </Switch>
