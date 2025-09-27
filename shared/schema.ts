@@ -456,6 +456,125 @@ export const insertBotPersonaSchema = createInsertSchema(botPersonas).omit({
   updatedAt: true,
 });
 
+// Peer Mentorship System for Honduras Community Learning
+export const mentorProfiles = pgTable("mentor_profiles", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  subjects: text("subjects").array().notNull(), // [math, science, english, etc.]
+  bio: text("bio"),
+  rating: decimal("rating", { precision: 3, scale: 2 }).default("0.00").notNull(),
+  totalRatings: integer("total_ratings").default(0).notNull(),
+  hoursVolunteered: integer("hours_volunteered").default(0).notNull(),
+  isAvailable: boolean("is_available").default(true).notNull(),
+  isVerified: boolean("is_verified").default(false).notNull(), // Verified by community
+  languages: text("languages").array().default(["es"]).notNull(), // Spanish first for Honduras
+  gradeLevel: integer("grade_level"), // Grade level they can mentor (1-12)
+  hourlyRate: decimal("hourly_rate", { precision: 5, scale: 2 }).default("0.00"), // In Lempiras, 0 for volunteers
+  responseTime: integer("response_time_hours").default(24).notNull(), // Expected response time
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const mentorshipRequests = pgTable("mentorship_requests", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => users.id).notNull(),
+  mentorId: integer("mentor_id").references(() => users.id).notNull(),
+  subject: text("subject").notNull(),
+  description: text("description").notNull(),
+  status: text("status").default("pending").notNull(), // pending, accepted, rejected, completed
+  urgency: text("urgency").default("normal").notNull(), // low, normal, high
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  respondedAt: timestamp("responded_at"),
+  completedAt: timestamp("completed_at"),
+});
+
+export const mentorshipSessions = pgTable("mentorship_sessions", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").references(() => mentorshipRequests.id).notNull(),
+  studentId: integer("student_id").references(() => users.id).notNull(),
+  mentorId: integer("mentor_id").references(() => users.id).notNull(),
+  subject: text("subject").notNull(),
+  duration: integer("duration_minutes"),
+  sessionType: text("session_type").default("text").notNull(), // text, voice, video
+  notes: text("notes"), // Session summary from mentor
+  status: text("status").default("scheduled").notNull(), // scheduled, active, completed, cancelled
+  scheduledAt: timestamp("scheduled_at"),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const mentorRatings = pgTable("mentor_ratings", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").references(() => mentorshipSessions.id).notNull(),
+  studentId: integer("student_id").references(() => users.id).notNull(),
+  mentorId: integer("mentor_id").references(() => users.id).notNull(),
+  rating: integer("rating").notNull(), // 1-5 stars
+  feedback: text("feedback"),
+  wouldRecommend: boolean("would_recommend").default(true).notNull(),
+  helpfulness: integer("helpfulness").notNull(), // 1-5
+  clarity: integer("clarity").notNull(), // 1-5
+  patience: integer("patience").notNull(), // 1-5
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const communityPosts = pgTable("community_posts", {
+  id: serial("id").primaryKey(),
+  authorId: integer("author_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  subject: text("subject"), // Optional subject tag
+  postType: text("post_type").default("question").notNull(), // question, tip, achievement, discussion
+  isHelpful: boolean("is_helpful").default(false).notNull(), // Marked as helpful by community
+  upvotes: integer("upvotes").default(0).notNull(),
+  replies: integer("replies").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const communityReplies = pgTable("community_replies", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => communityPosts.id).notNull(),
+  authorId: integer("author_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  isHelpfulAnswer: boolean("is_helpful_answer").default(false).notNull(),
+  upvotes: integer("upvotes").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for peer mentorship system
+export const insertMentorProfileSchema = createInsertSchema(mentorProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMentorshipRequestSchema = createInsertSchema(mentorshipRequests).omit({
+  id: true,
+  requestedAt: true,
+});
+
+export const insertMentorshipSessionSchema = createInsertSchema(mentorshipSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMentorRatingSchema = createInsertSchema(mentorRatings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCommunityPostSchema = createInsertSchema(communityPosts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCommunityReplySchema = createInsertSchema(communityReplies).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -491,3 +610,17 @@ export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 export type BlogPost = typeof blogPosts.$inferSelect;
 export type InsertBotPersona = z.infer<typeof insertBotPersonaSchema>;
 export type BotPersona = typeof botPersonas.$inferSelect;
+
+// Peer mentorship types for Honduras community learning
+export type InsertMentorProfile = z.infer<typeof insertMentorProfileSchema>;
+export type MentorProfile = typeof mentorProfiles.$inferSelect;
+export type InsertMentorshipRequest = z.infer<typeof insertMentorshipRequestSchema>;
+export type MentorshipRequest = typeof mentorshipRequests.$inferSelect;
+export type InsertMentorshipSession = z.infer<typeof insertMentorshipSessionSchema>;
+export type MentorshipSession = typeof mentorshipSessions.$inferSelect;
+export type InsertMentorRating = z.infer<typeof insertMentorRatingSchema>;
+export type MentorRating = typeof mentorRatings.$inferSelect;
+export type InsertCommunityPost = z.infer<typeof insertCommunityPostSchema>;
+export type CommunityPost = typeof communityPosts.$inferSelect;
+export type InsertCommunityReply = z.infer<typeof insertCommunityReplySchema>;
+export type CommunityReply = typeof communityReplies.$inferSelect;

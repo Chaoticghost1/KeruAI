@@ -49,7 +49,25 @@ import {
   type BlogPost,
   type InsertBlogPost,
   type BotPersona,
-  type InsertBotPersona
+  type InsertBotPersona,
+  mentorProfiles,
+  mentorshipRequests,
+  mentorshipSessions,
+  mentorRatings,
+  communityPosts,
+  communityReplies,
+  type MentorProfile,
+  type InsertMentorProfile,
+  type MentorshipRequest,
+  type InsertMentorshipRequest,
+  type MentorshipSession,
+  type InsertMentorshipSession,
+  type MentorRating,
+  type InsertMentorRating,
+  type CommunityPost,
+  type InsertCommunityPost,
+  type CommunityReply,
+  type InsertCommunityReply
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -169,6 +187,40 @@ export interface IStorage {
 
   // Admin analytics methods
   getAnalytics(): Promise<any>;
+
+  // Peer Mentorship System for Honduras Community Learning
+  // Mentor profile methods
+  getMentorProfile(userId: number): Promise<MentorProfile | undefined>;
+  getMentorProfiles(filters?: { subjects?: string[], gradeLevel?: number, isVolunteer?: boolean, isAvailable?: boolean }): Promise<MentorProfile[]>;
+  createMentorProfile(profile: InsertMentorProfile): Promise<MentorProfile>;
+  updateMentorProfile(userId: number, updates: Partial<MentorProfile>): Promise<MentorProfile>;
+  updateMentorRating(mentorId: number, newRating: number, totalRatings: number): Promise<void>;
+
+  // Mentorship request methods
+  createMentorshipRequest(request: InsertMentorshipRequest): Promise<MentorshipRequest>;
+  getMentorshipRequest(id: number): Promise<MentorshipRequest | undefined>;
+  getMentorshipRequests(mentorId?: number, studentId?: number, status?: string): Promise<MentorshipRequest[]>;
+  updateMentorshipRequestStatus(id: number, status: string, respondedAt?: Date): Promise<MentorshipRequest>;
+
+  // Mentorship session methods
+  createMentorshipSession(session: InsertMentorshipSession): Promise<MentorshipSession>;
+  getMentorshipSession(id: number): Promise<MentorshipSession | undefined>;
+  getMentorshipSessions(mentorId?: number, studentId?: number, status?: string): Promise<MentorshipSession[]>;
+  updateMentorshipSession(id: number, updates: Partial<MentorshipSession>): Promise<MentorshipSession>;
+  completeMentorshipSession(id: number, duration?: number, notes?: string): Promise<MentorshipSession>;
+
+  // Mentor rating methods
+  createMentorRating(rating: InsertMentorRating): Promise<MentorRating>;
+  getMentorRatings(mentorId: number): Promise<MentorRating[]>;
+  
+  // Community methods
+  createCommunityPost(post: InsertCommunityPost): Promise<CommunityPost>;
+  getCommunityPosts(subject?: string, postType?: string, limit?: number): Promise<CommunityPost[]>;
+  updateCommunityPost(id: number, updates: Partial<CommunityPost>): Promise<CommunityPost>;
+  createCommunityReply(reply: InsertCommunityReply): Promise<CommunityReply>;
+  getCommunityReplies(postId: number): Promise<CommunityReply[]>;
+  upvotePost(postId: number, userId: number): Promise<void>;
+  upvoteReply(replyId: number, userId: number): Promise<void>;
   getBudgetAnalytics(): Promise<any>;
   getChatAnalytics(): Promise<any>;
   
