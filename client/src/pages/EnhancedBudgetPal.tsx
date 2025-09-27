@@ -13,6 +13,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
+import { formatCurrency } from '@/lib/currency-formatter';
 
 
 // Form schemas
@@ -69,6 +70,9 @@ interface Income {
 export default function EnhancedBudgetPal() {
   const { t } = useLanguage();
   const { toast } = useToast();
+  
+  // Honduras-first: Use proper currency formatting
+  const formatHondurasCurrency = (amount: number) => formatCurrency(amount, 'HNL', t.language);
   
   // State for storing budget data
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -219,7 +223,7 @@ export default function EnhancedBudgetPal() {
                       <p className="text-emerald-100 text-sm">
                         {t.language === 'es' ? 'Ingresos Totales' : 'Total Income'}
                       </p>
-                      <p className="text-2xl font-bold">${totalIncome.toLocaleString()}</p>
+                      <p className="text-2xl font-bold">{formatHondurasCurrency(totalIncome)}</p>
                     </div>
                     <DollarSign className="h-8 w-8 text-emerald-200" />
                   </div>
@@ -233,7 +237,7 @@ export default function EnhancedBudgetPal() {
                       <p className="text-red-100 text-sm">
                         {t.language === 'es' ? 'Gastos Totales' : 'Total Expenses'}
                       </p>
-                      <p className="text-2xl font-bold">${totalExpenses.toLocaleString()}</p>
+                      <p className="text-2xl font-bold">{formatHondurasCurrency(totalExpenses)}</p>
                     </div>
                     <Receipt className="h-8 w-8 text-red-200" />
                   </div>
@@ -248,7 +252,7 @@ export default function EnhancedBudgetPal() {
                         {t.language === 'es' ? 'Presupuesto Restante' : 'Remaining Budget'}
                       </p>
                       <p className={`text-2xl font-bold ${remainingBudget < 0 ? 'text-red-200' : 'text-white'}`}>
-                        ${remainingBudget.toLocaleString()}
+                        {formatHondurasCurrency(remainingBudget)}
                       </p>
                     </div>
                     <Wallet className="h-8 w-8 text-blue-200" />
@@ -263,7 +267,7 @@ export default function EnhancedBudgetPal() {
                       <p className="text-green-100 text-sm">
                         {t.language === 'es' ? 'Ahorros Actuales' : 'Current Savings'}
                       </p>
-                      <p className="text-2xl font-bold">${totalSavingsCurrent.toLocaleString()}</p>
+                      <p className="text-2xl font-bold">{formatHondurasCurrency(totalSavingsCurrent)}</p>
                     </div>
                     <Target className="h-8 w-8 text-green-200" />
                   </div>
@@ -629,7 +633,7 @@ export default function EnhancedBudgetPal() {
                               {expenseCategories.find(cat => cat.value === expense.category)?.label} • {expense.date}
                             </p>
                           </div>
-                          <Badge variant="destructive">${expense.amount}</Badge>
+                          <Badge variant="destructive">{formatHondurasCurrency(expense.amount)}</Badge>
                         </div>
                       ))}
                       {expenses.length > 3 && (
@@ -663,7 +667,7 @@ export default function EnhancedBudgetPal() {
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{goal.name}</span>
                             <span className="text-sm text-slate-500">
-                              ${goal.currentAmount.toLocaleString()} / ${goal.targetAmount.toLocaleString()}
+                              {formatHondurasCurrency(goal.currentAmount)} / {formatHondurasCurrency(goal.targetAmount)}
                             </span>
                           </div>
                           <Progress value={goal.progress} className="h-2" />

@@ -39,6 +39,11 @@ export function HeroSection() {
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
       
       <div className="relative z-10 text-center max-w-4xl mx-auto px-6">
+        <div className="mb-4">
+          <span className="inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold">
+            {t.hero.hondurasWelcome}
+          </span>
+        </div>
         <h1 className="text-5xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           {t.hero.title}
         </h1>

@@ -97,18 +97,21 @@ export const translations = {
     },
     hero: {
       title: "Keru.ai Suite",
-      subtitle: "Tecnología, educación y oportunidades para Honduras y el mundo",
-      cta: "Explora la suite"
+      subtitle: "Tecnología, educación y oportunidades para Honduras y Centroamérica",
+      cta: "Explora la suite",
+      hondurasWelcome: "¡Bienvenidos a la revolución educativa hondureña!"
     },
     studybuddy: {
       title: "🎓 Aprende conmigo AI",
-      description: "Asistente educativo impulsado por IA para ayudarte con tareas, resúmenes y preparación de exámenes.",
-      cta: "Usar Aprende conmigo AI"
+      description: "Asistente educativo impulsado por IA alineado al Currículo Nacional Básico de Honduras para ayudarte con tareas, resúmenes y preparación de exámenes.",
+      cta: "Usar Aprende conmigo AI",
+      hondurasCurriculum: "Adaptado al sistema educativo hondureño y contenido relevante para estudiantes de primaria y secundaria"
     },
     budgetpal: {
       title: "💸 BudgetPal",
-      description: "Herramienta de finanzas personales para trabajadores informales y jóvenes que quieren ahorrar.",
-      cta: "Gestionar mi dinero"
+      description: "Herramienta de finanzas personales para trabajadores informales y jóvenes hondureños que quieren ahorrar en Lempiras.",
+      cta: "Gestionar mi dinero",
+      hondurasFeatures: "Diseñado para la economía hondureña con precios en Lempiras y opciones de ahorro local"
     },
     cruise: {
       title: "🌍 Consejos de Viaje y Vida en Crucero",
@@ -251,18 +254,21 @@ export const translations = {
     },
     hero: {
       title: "Keru.ai Suite",
-      subtitle: "Technology, education, and opportunity for Honduras and beyond",
-      cta: "Explore the suite"
+      subtitle: "Technology, education, and opportunity for Honduras and Central America",
+      cta: "Explore the suite",
+      hondurasWelcome: "Welcome to the Honduran educational revolution!"
     },
     studybuddy: {
       title: "🎓 Aprende conmigo AI",
-      description: "AI-powered study assistant to help with homework, summaries, and exam prep.",
-      cta: "Launch Aprende conmigo AI"
+      description: "AI-powered study assistant aligned with Honduras National Basic Curriculum to help with homework, summaries, and exam prep.",
+      cta: "Launch Aprende conmigo AI",
+      hondurasCurriculum: "Adapted to the Honduran education system with relevant content for primary and secondary students"
     },
     budgetpal: {
       title: "💸 BudgetPal",
-      description: "Personal finance tracker designed for informal workers and young adults.",
-      cta: "Manage my money"
+      description: "Personal finance tracker designed for Honduran informal workers and young adults to save in Lempiras.",
+      cta: "Manage my money",
+      hondurasFeatures: "Designed for the Honduran economy with prices in Lempiras and local savings options"
     },
     cruise: {
       title: "🌍 Travel & Cruise Life Advice",

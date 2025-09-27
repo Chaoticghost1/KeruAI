@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExternalLink, Users, MessageSquare, Bookmark, Calendar } from 'lucide-react';
+import { formatAsHondurasCurrency } from '@/lib/currency-formatter';
 
 export default function EnhancedDAO() {
   const { t } = useLanguage();
@@ -22,7 +23,7 @@ export default function EnhancedDAO() {
       icon: 'fas fa-bus',
       progress: 65,
       contributors: 8,
-      funding: '$12,500'
+      fundingUSD: 12500
     },
     {
       name: "Mercado Local DAO",
@@ -35,7 +36,7 @@ export default function EnhancedDAO() {
       icon: 'fas fa-store',
       progress: 25,
       contributors: 12,
-      funding: '$8,200'
+      fundingUSD: 8200
     },
     {
       name: "EcoCredits",
@@ -48,7 +49,7 @@ export default function EnhancedDAO() {
       icon: 'fas fa-leaf',
       progress: 40,
       contributors: 6,
-      funding: '$5,800'
+      fundingUSD: 5800
     }
   ];
 
@@ -253,7 +254,7 @@ export default function EnhancedDAO() {
                           {project.contributors}
                         </span>
                         <span className="font-medium text-green-600">
-                          {project.funding}
+                          {formatAsHondurasCurrency(project.fundingUSD, t.language)}
                         </span>
                       </div>
                     </div>
@@ -326,7 +327,9 @@ export default function EnhancedDAO() {
                     </p>
                   </div>
                   <div>
-                    <div className="text-3xl font-bold text-orange-600">$47,200</div>
+                    <div className="text-3xl font-bold text-orange-600">
+                      {formatAsHondurasCurrency(projects.reduce((sum, p) => sum + p.fundingUSD, 0), t.language)}
+                    </div>
                     <p className="text-sm text-slate-600">
                       {t.language === 'es' ? 'Fondos Totales' : 'Total Funding'}
                     </p>
