@@ -56,29 +56,6 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState("overview");
 
-  // Clear cache for admin panel to ensure fresh data
-  useEffect(() => {
-    const clearAdminCache = async () => {
-      try {
-        // Clear all admin-related queries from React Query cache
-        queryClient.invalidateQueries({ queryKey: ['/api/admin'] });
-        
-        // Dynamically import to avoid initialization issues
-        const { offlineDb } = await import('@/lib/offline-storage');
-        // Clear cached content from IndexedDB for admin endpoints
-        await offlineDb.contentCache.where('url').startsWithIgnoreCase('/api/admin').delete();
-        
-        console.log('Admin cache cleared for fresh data');
-      } catch (error) {
-        console.error('Failed to clear admin cache:', error);
-      }
-    };
-    
-    if (user && ['superuser', 'teacher'].includes(user.role)) {
-      clearAdminCache();
-    }
-  }, [user, queryClient]);
-
   // Protect access - only superuser and teachers can access
   if (!user || !['superuser', 'teacher'].includes(user.role)) {
     return (

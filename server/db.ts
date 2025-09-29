@@ -12,7 +12,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Create connection pool with better error handling and connection management
-export const pool = new Pool({
+export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   max: 10, // Maximum number of connections in the pool
   maxUses: Infinity, // No limit on connection reuse

@@ -282,24 +282,15 @@ export class OfflineManager {
 // Initialize offline database
 export const initializeOfflineStorage = async () => {
   try {
-    // Add timeout to prevent blocking
-    const initPromise = Promise.race([
-      offlineDb.open(),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Initialization timeout')), 5000)
-      )
-    ]);
+    await offlineDb.open();
     
-    await initPromise;
-    
-    // Clear expired cache on startup (non-blocking)
-    OfflineManager.clearExpiredCache().catch(console.warn);
+    // Clear expired cache on startup
+    await OfflineManager.clearExpiredCache();
     
     console.log('Offline storage initialized successfully');
     return true;
   } catch (error) {
     console.error('Failed to initialize offline storage:', error);
-    // Return true to not block the app
-    return true;
+    return false;
   }
 };

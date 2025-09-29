@@ -25,41 +25,11 @@ export async function apiRequest(
   const settings = await OfflineManager.getSettings();
   const dataSaverEnabled = settings?.dataSaverMode || false;
   
-  // Critical endpoints that should always fetch fresh data (not from cache)
-  const criticalEndpoints = [
-    '/api/auth',
-    '/api/admin',
-    '/api/users',
-    '/api/dashboard',
-    '/api/students/profile',
-    '/api/tutors',
-    '/api/badges',
-    '/api/revision',
-    '/api/assignments',
-    '/api/content'
-  ];
-  
-  // Check if this is a critical endpoint that needs fresh data
-  const isCriticalEndpoint = criticalEndpoints.some(endpoint => url.includes(endpoint));
-  
   // For GET requests, try cache first if offline or data saver enabled
-  // BUT skip cache for critical endpoints unless we're actually offline
-  if (method === 'GET' && !isCriticalEndpoint && (!navigator.onLine || dataSaverEnabled)) {
+  if (method === 'GET' && (!navigator.onLine || dataSaverEnabled)) {
     const cachedData = await OfflineManager.getCachedContent(fullUrl);
     if (cachedData) {
       console.log('Serving from cache (Honduras data saver/offline):', fullUrl);
-      return new Response(JSON.stringify(cachedData), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-  
-  // For critical endpoints, only use cache if truly offline
-  if (method === 'GET' && isCriticalEndpoint && !navigator.onLine) {
-    const cachedData = await OfflineManager.getCachedContent(fullUrl);
-    if (cachedData) {
-      console.log('Network offline - serving critical endpoint from cache:', fullUrl);
       return new Response(JSON.stringify(cachedData), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
@@ -142,8 +112,7 @@ export async function apiRequest(
 
   if (!res.ok) {
     // Honduras-first: For GET requests, try serving from cache if network fails
-    // BUT NEVER serve cached auth data when server returns 401 - respect auth failures
-    if (method === 'GET' && res.status !== 401) {
+    if (method === 'GET') {
       const cachedData = await OfflineManager.getCachedContent(fullUrl);
       if (cachedData) {
         console.log('Network failed, serving from cache:', fullUrl);

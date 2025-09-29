@@ -10,7 +10,6 @@ import { OnboardingFlow } from "./components/OnboardingFlow";
 import { initializeOfflineStorage } from "./lib/offline-storage";
 import { useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { ProtectedRoute } from "./lib/protected-route";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
@@ -33,25 +32,34 @@ import { Redirect } from "./components/Redirect";
 
 function Router() {
   useEffect(() => {
-    // Initialize offline storage for Honduras-first strategy (non-blocking)
+    // Initialize offline storage for Honduras-first strategy
     initializeOfflineStorage().then((success) => {
       if (success) {
         console.log('Offline storage initialized for Honduras platform');
       } else {
         console.warn('Offline storage initialization failed');
       }
-    }).catch((error) => {
-      console.warn('Offline storage initialization error:', error);
     });
   }, []);
 
   return (
-        <Switch>
+    <LanguageProvider>
+      <DataSaverProvider>
+        <AuthProvider>
+          <Switch>
           {/* Public routes */}
           <Route path="/auth" component={AuthPage} />
           
-          {/* Public landing page */}
-          <Route path="/" component={LandingPage} />
+          {/* Public landing page for unauthenticated users, redirect authenticated users */}
+          <Route path="/">
+            {() => {
+              const { user } = useAuth();
+              if (user) {
+                return <Redirect to="/dashboard" />;
+              }
+              return <LandingPage />;
+            }}
+          </Route>
           
           {/* Admin panel route - standalone without sidebar */}
           <ProtectedRoute path="/admin" component={AdminDashboard} roles={['teacher', 'superuser']} />
@@ -59,39 +67,42 @@ function Router() {
           {/* Main application routes with sidebar */}
           <Route>
             {() => (
-              <SidebarProvider>
-                <div className="flex min-h-screen">
-                  <Sidebar />
-                  <main className="flex-1 lg:ml-80 pt-16 lg:pt-0">
-                    <Switch>
-                      <ProtectedRoute path="/dashboard" component={Dashboard} />
-                      <ProtectedRoute path="/studybuddy" component={StudyBuddy} />
-                      <ProtectedRoute path="/revision" component={StudentRevision} roles={['student']} />
-                      <ProtectedRoute path="/budgetpal" component={EnhancedBudgetPal} />
-                      <ProtectedRoute path="/blog" component={Blog} />
-                      <ProtectedRoute path="/chat" component={Chat} />
-                      <ProtectedRoute path="/cruiseword" component={CruiseWord} />
-                      <ProtectedRoute path="/dao" component={EnhancedDAO} />
-                      <ProtectedRoute path="/mentorship-hub" component={MentorshipHub} />
-                      {/* <ProtectedRoute path="/aethosbyte" component={AethosByte} /> */} {/* Temporarily removed */}
-                      <Route component={NotFound} />
-                    </Switch>
-                  </main>
-                </div>
-              </SidebarProvider>
+              <div className="flex min-h-screen">
+                <Sidebar />
+                <main className="flex-1 lg:ml-80 pt-16 lg:pt-0">
+                  <Switch>
+                    <ProtectedRoute path="/dashboard" component={Dashboard} />
+                    <ProtectedRoute path="/studybuddy" component={StudyBuddy} />
+                    <ProtectedRoute path="/revision" component={StudentRevision} roles={['student']} />
+                    <ProtectedRoute path="/budgetpal" component={EnhancedBudgetPal} />
+                    <ProtectedRoute path="/blog" component={Blog} />
+                    <ProtectedRoute path="/chat" component={Chat} />
+                    <ProtectedRoute path="/cruiseword" component={CruiseWord} />
+                    <ProtectedRoute path="/dao" component={EnhancedDAO} />
+                    <ProtectedRoute path="/mentorship-hub" component={MentorshipHub} />
+                    {/* <ProtectedRoute path="/aethosbyte" component={AethosByte} /> */} {/* Temporarily removed */}
+                    <Route component={NotFound} />
+                  </Switch>
+                </main>
+              </div>
             )}
           </Route>
           
           <Route component={NotFound} />
-      </Switch>
+        </Switch>
+        </AuthProvider>
+      </DataSaverProvider>
+    </LanguageProvider>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }
