@@ -17,6 +17,14 @@ export default function Dashboard() {
       icon: 'fas fa-graduation-cap',
       color: 'from-blue-500 to-blue-600'
     },
+    ...(user?.role === 'student' ? [{
+      id: 'revision',
+      title: 'Revision Materials',
+      description: 'Study your assigned materials with AI assistance',
+      href: '/revision',
+      icon: 'fas fa-book-open',
+      color: 'from-indigo-500 to-indigo-600'
+    }] : []),
     {
       id: 'budgetpal',
       title: t.budgetpal.title,

@@ -562,6 +562,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==========================================
+  // STUDENT REVISION ROUTES (Phase 2)
+  // ==========================================
+
+  // Get revision materials for student (assignments with content)
+  app.get("/api/revision/materials", authenticateToken, authorizeRoles('student'), async (req: AuthRequest, res) => {
+    try {
+      const assignments = await storage.getStudentAssignments(req.user!.id);
+      
+      // Get content details for each assignment
+      const materialsWithContent = await Promise.all(
+        assignments.map(async (assignment) => {
+          const content = await storage.getContentSubmission(assignment.contentId);
+          return {
+            assignmentId: assignment.id,
+            contentId: assignment.contentId,
+            status: assignment.status,
+            assignedAt: assignment.assignedAt,
+            dueDate: assignment.dueDate,
+            grade: assignment.grade,
+            content: content ? {
+              id: content.id,
+              title: content.title,
+              description: content.description,
+              contentType: content.contentType,
+              subject: content.subject,
+              gradeLevel: content.gradeLevel,
+              tags: content.tags,
+              fileUrl: content.fileUrl,
+              extractedText: content.extractedText, // Available for AI processing
+              htmlContent: content.htmlContent
+            } : null
+          };
+        })
+      );
+
+      res.json(materialsWithContent.filter(m => m.content)); // Only return materials with valid content
+    } catch (error) {
+      console.error("Failed to get revision materials:", error);
+      res.status(500).json({ error: "Failed to get revision materials" });
+    }
+  });
+
+  // Get specific revision material content
+  app.get("/api/revision/content/:contentId", authenticateToken, authorizeRoles('student'), async (req: AuthRequest, res) => {
+    try {
+      const contentId = parseInt(req.params.contentId);
+      
+      // Verify student has access to this content through an assignment
+      const assignments = await storage.getStudentAssignments(req.user!.id);
+      const hasAccess = assignments.some(assignment => assignment.contentId === contentId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "You don't have access to this content" });
+      }
+
+      const content = await storage.getContentSubmission(contentId);
+      if (!content) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+
+      // Increment view count - safely handle undefined/null values
+      const currentViewCount = Number(content.viewCount) || 0;
+      await storage.updateContentSubmission(contentId, { 
+        viewCount: currentViewCount + 1 
+      });
+
+      res.json(content);
+    } catch (error) {
+      console.error("Failed to get content:", error);
+      res.status(500).json({ error: "Failed to get content" });
+    }
+  });
+
+  // Start revision session
+  app.post("/api/revision/session/start", authenticateToken, authorizeRoles('student'), async (req: AuthRequest, res) => {
+    try {
+      const { contentId, subject, topic } = req.body;
+      
+      if (!contentId || !subject) {
+        return res.status(400).json({ error: "Content ID and subject are required" });
+      }
+
+      // Verify student has access to this content
+      const assignments = await storage.getStudentAssignments(req.user!.id);
+      const hasAccess = assignments.some(assignment => assignment.contentId === contentId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "You don't have access to this content" });
+      }
+
+      // For now, we'll create a simple session record
+      // In the future, this could be expanded to track detailed session data
+      const sessionData = {
+        contentId,
+        subject,
+        topic: topic || 'General Review',
+        startTime: new Date().toISOString(),
+        studentId: req.user!.id
+      };
+
+      res.json({
+        sessionId: `session_${Date.now()}_${req.user!.id}`,
+        ...sessionData,
+        message: "Revision session started successfully"
+      });
+    } catch (error) {
+      console.error("Failed to start revision session:", error);
+      res.status(500).json({ error: "Failed to start revision session" });
+    }
+  });
+
+  // AI-assisted revision help
+  app.post("/api/revision/ai-help", authenticateToken, authorizeRoles('student'), async (req: AuthRequest, res) => {
+    try {
+      const { contentId, question, sessionId } = req.body;
+      
+      if (!contentId || !question) {
+        return res.status(400).json({ error: "Content ID and question are required" });
+      }
+
+      // Verify student has access to this content
+      const assignments = await storage.getStudentAssignments(req.user!.id);
+      const hasAccess = assignments.some(assignment => assignment.contentId === contentId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: "You don't have access to this content" });
+      }
+
+      // Get content for AI context
+      const content = await storage.getContentSubmission(contentId);
+      if (!content) {
+        return res.status(404).json({ error: "Content not found" });
+      }
+
+      // Generate AI response using extracted text as context
+      const aiResponse = await AITutorService.generateTutorResponse(
+        'math_buddy', // Default tutor, could be dynamic based on subject
+        question,
+        content.subject,
+        1, // Beginner difficulty by default
+        [], // No session history for now
+        'en' // English by default
+      );
+
+      // Add content context to the response
+      const enhancedResponse = {
+        ...aiResponse,
+        contentContext: {
+          title: content.title,
+          subject: content.subject,
+          hasExtractedText: !!content.extractedText
+        },
+        sessionId
+      };
+
+      res.json(enhancedResponse);
+    } catch (error) {
+      console.error("Failed to get AI help:", error);
+      res.status(500).json({ error: "Failed to get AI assistance" });
+    }
+  });
+
+  // ==========================================
   // EXISTING ROUTES (Updated with Auth)
   // ==========================================
   // User routes

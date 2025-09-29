@@ -25,6 +25,7 @@ import AethosByte from "./pages/AethosByte";
 import MentorshipHub from "./pages/MentorshipHub";
 import AuthPage from "./pages/auth-page";
 import AdminDashboard from "./pages/admin-dashboard";
+import StudentRevision from "./pages/StudentRevision";
 import LandingPage from "./pages/landing-page";
 import NotFound from "@/pages/not-found";
 import { Redirect } from "./components/Redirect";
@@ -72,6 +73,7 @@ function Router() {
                   <Switch>
                     <ProtectedRoute path="/dashboard" component={Dashboard} />
                     <ProtectedRoute path="/studybuddy" component={StudyBuddy} />
+                    <ProtectedRoute path="/revision" component={StudentRevision} roles={['student']} />
                     <ProtectedRoute path="/budgetpal" component={EnhancedBudgetPal} />
                     <ProtectedRoute path="/blog" component={Blog} />
                     <ProtectedRoute path="/chat" component={Chat} />
