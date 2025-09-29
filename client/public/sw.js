@@ -12,11 +12,11 @@ const STATIC_CACHE_FILES = [
 ];
 
 // API endpoints to cache for offline use
+// NOTE: Authentication and user-specific data excluded for real-time updates
 const API_CACHE_PATTERNS = [
   /^\/api\/study\/notes/,
   /^\/api\/budget/,
   /^\/api\/games\/scores/,
-  /^\/api\/auth\/me/,
   /^\/api\/content/,
 ];
 
@@ -73,17 +73,33 @@ self.addEventListener('fetch', (event) => {
 // Network-first strategy for API requests (with offline fallback)
 async function handleApiRequest(request) {
   const cacheName = API_CACHE;
+  const url = new URL(request.url);
+  
+  // Critical endpoints that should NOT be cached
+  const noCacheEndpoints = [
+    '/api/auth/',
+    '/api/admin/',
+    '/api/users',
+    '/api/dashboard',
+    '/api/students/profile'
+  ];
+  
+  // Check if this is a critical endpoint
+  const shouldNotCache = noCacheEndpoints.some(endpoint => 
+    url.pathname.includes(endpoint)
+  );
   
   try {
     // Try network first
     const networkResponse = await fetch(request);
     
-    // If successful, cache the response for offline use
-    if (networkResponse.ok) {
+    // If successful, cache the response for offline use (but not critical endpoints)
+    if (networkResponse.ok && !shouldNotCache) {
       const cache = await caches.open(cacheName);
       
-      // Only cache GET requests
-      if (request.method === 'GET') {
+      // Only cache GET requests that match our patterns
+      if (request.method === 'GET' && 
+          API_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
         cache.put(request, networkResponse.clone());
       }
     }
