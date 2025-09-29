@@ -48,7 +48,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { offlineDb } from "@/lib/offline-storage";
 
 // Main Admin Dashboard Component
 export default function AdminDashboard() {
@@ -64,6 +63,8 @@ export default function AdminDashboard() {
         // Clear all admin-related queries from React Query cache
         queryClient.invalidateQueries({ queryKey: ['/api/admin'] });
         
+        // Dynamically import to avoid initialization issues
+        const { offlineDb } = await import('@/lib/offline-storage');
         // Clear cached content from IndexedDB for admin endpoints
         await offlineDb.contentCache.where('url').startsWithIgnoreCase('/api/admin').delete();
         
