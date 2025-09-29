@@ -299,8 +299,9 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="content-management">Content Management</TabsTrigger>
           <TabsTrigger value="study-buddy">Study Buddy</TabsTrigger>
           <TabsTrigger value="budget-analytics">Budget Analytics</TabsTrigger>
           <TabsTrigger value="chat-management">Chat Management</TabsTrigger>
@@ -370,6 +371,174 @@ export default function AdminDashboard() {
                 <p className="text-xs text-muted-foreground">
                   This month
                 </p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Content Management Tab */}
+        <TabsContent value="content-management" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Upload Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Upload Lesson Materials
+                </CardTitle>
+                <CardDescription>
+                  Upload PDFs, images, or documents for students to study with AI assistance
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form className="space-y-4" onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target as HTMLFormElement);
+                  console.log('Upload form submitted', formData);
+                  toast({ title: "Upload feature coming soon!" });
+                }}>
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input id="title" name="title" placeholder="Lesson title" required />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="subject">Subject</Label>
+                    <Select name="subject" required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select subject" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="math">Mathematics</SelectItem>
+                        <SelectItem value="science">Science</SelectItem>
+                        <SelectItem value="english">English</SelectItem>
+                        <SelectItem value="history">History</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="gradeLevel">Grade Level</Label>
+                    <Select name="gradeLevel">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select grade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="elementary">Elementary</SelectItem>
+                        <SelectItem value="middle">Middle School</SelectItem>
+                        <SelectItem value="high">High School</SelectItem>
+                        <SelectItem value="college">College</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="file">Upload File</Label>
+                    <Input id="file" name="file" type="file" 
+                           accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.txt,.html"
+                           className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
+                    />
+                    <p className="text-sm text-gray-500">
+                      Supported: PDF, Images, Documents (max 10MB)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea id="description" name="description" 
+                             placeholder="Brief description of the lesson content" 
+                             rows={3} />
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Material
+                  </Button>
+                  <p className="text-sm text-amber-600 text-center">
+                    ⚠️ Upload functionality will be connected to backend APIs
+                  </p>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Content Library */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  My Content Library
+                </CardTitle>
+                <CardDescription>
+                  Manage your uploaded lesson materials
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Sample content items */}
+                  <div className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Algebra Basics</h4>
+                      <Badge variant="secondary">Mathematics</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600">Introduction to algebraic expressions and equations</p>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <FileText className="h-4 w-4" />
+                      algebra-intro.pdf
+                      <span>•</span>
+                      <Eye className="h-4 w-4" />
+                      12 views
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline">
+                        <Eye className="w-4 h-4 mr-1" />
+                        Preview
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Users className="w-4 h-4 mr-1" />
+                        Assign
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Publish
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Cell Biology Diagram</h4>
+                      <Badge variant="secondary">Science</Badge>
+                    </div>
+                    <p className="text-sm text-gray-600">Detailed diagram of plant and animal cells</p>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <FileText className="h-4 w-4" />
+                      cell-diagram.png
+                      <span>•</span>
+                      <Eye className="h-4 w-4" />
+                      8 views
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline">
+                        <Eye className="w-4 h-4 mr-1" />
+                        Preview
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Users className="w-4 h-4 mr-1" />
+                        Assign
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Publish
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Upload your first lesson material to get started!</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
