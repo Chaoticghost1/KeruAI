@@ -9,6 +9,7 @@ import { OnboardingFlow } from "./components/OnboardingFlow";
 import { initializeOfflineStorage } from "./lib/offline-storage";
 import { useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { ProtectedRoute } from "./lib/protected-route";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
@@ -66,24 +67,26 @@ function Router() {
           {/* Main application routes with sidebar */}
           <Route>
             {() => (
-              <div className="flex min-h-screen">
-                <Sidebar />
-                <main className="flex-1 lg:ml-80 pt-16 lg:pt-0">
-                  <Switch>
-                    <ProtectedRoute path="/dashboard" component={Dashboard} />
-                    <ProtectedRoute path="/studybuddy" component={StudyBuddy} />
-                    <ProtectedRoute path="/revision" component={StudentRevision} roles={['student']} />
-                    <ProtectedRoute path="/budgetpal" component={EnhancedBudgetPal} />
-                    <ProtectedRoute path="/blog" component={Blog} />
-                    <ProtectedRoute path="/chat" component={Chat} />
-                    <ProtectedRoute path="/cruiseword" component={CruiseWord} />
-                    <ProtectedRoute path="/dao" component={EnhancedDAO} />
-                    <ProtectedRoute path="/mentorship-hub" component={MentorshipHub} />
-                    {/* <ProtectedRoute path="/aethosbyte" component={AethosByte} /> */} {/* Temporarily removed */}
-                    <Route component={NotFound} />
-                  </Switch>
-                </main>
-              </div>
+              <SidebarProvider>
+                <div className="flex min-h-screen">
+                  <Sidebar />
+                  <main className="flex-1 lg:ml-80 pt-16 lg:pt-0">
+                    <Switch>
+                      <ProtectedRoute path="/dashboard" component={Dashboard} />
+                      <ProtectedRoute path="/studybuddy" component={StudyBuddy} />
+                      <ProtectedRoute path="/revision" component={StudentRevision} roles={['student']} />
+                      <ProtectedRoute path="/budgetpal" component={EnhancedBudgetPal} />
+                      <ProtectedRoute path="/blog" component={Blog} />
+                      <ProtectedRoute path="/chat" component={Chat} />
+                      <ProtectedRoute path="/cruiseword" component={CruiseWord} />
+                      <ProtectedRoute path="/dao" component={EnhancedDAO} />
+                      <ProtectedRoute path="/mentorship-hub" component={MentorshipHub} />
+                      {/* <ProtectedRoute path="/aethosbyte" component={AethosByte} /> */} {/* Temporarily removed */}
+                      <Route component={NotFound} />
+                    </Switch>
+                  </main>
+                </div>
+              </SidebarProvider>
             )}
           </Route>
           
