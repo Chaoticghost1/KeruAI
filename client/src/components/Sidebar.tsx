@@ -13,12 +13,8 @@ export function Sidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
-  const baseNavItems = [
+  const navItems = [
     { href: '/dashboard', icon: 'fas fa-home', key: 'home' },
-    // Show Content Management prominently for teachers/superusers
-    ...(user?.role === 'teacher' || user?.role === 'superuser' ? [
-      { href: '/admin', icon: 'fas fa-upload', key: 'content-upload' }
-    ] : []),
     // Show Revision Materials for students
     ...(user?.role === 'student' ? [
       { href: '/revision', icon: 'fas fa-book-open', key: 'revision' }
@@ -34,16 +30,6 @@ export function Sidebar() {
     { href: '/cruiseword', icon: 'fas fa-ship', key: 'game' },
     // { href: '/aethosbyte', icon: 'fas fa-brain', key: 'cleanup' }, // Temporarily removed
   ];
-
-  // Add admin/teacher dashboard for authorized users
-  const navItems = [...baseNavItems];
-  if (user && (user.role === 'superuser' || user.role === 'teacher')) {
-    navItems.push({
-      href: '/admin',
-      icon: user.role === 'superuser' ? 'fas fa-shield-alt' : 'fas fa-chalkboard-teacher',
-      key: user.role === 'superuser' ? 'admin' : 'teacher'
-    });
-  }
 
   const isActive = (href: string) => {
     if (href === '/' && location === '/') return true;
