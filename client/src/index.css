@@ -36,6 +36,25 @@
   --sidebar-accent-foreground: hsl(210, 40%, 98%);
   --sidebar-border: hsl(216, 34%, 17%);
   --sidebar-ring: hsl(217, 33%, 64%);
+  
+  /* Admin-specific design tokens */
+  --admin-background: hsl(210, 100%, 98%);
+  --admin-surface: hsl(0, 0%, 100%);
+  --admin-surface-elevated: hsl(210, 40%, 98%);
+  --admin-border: hsl(214, 20%, 91%);
+  --admin-border-light: hsl(214, 20%, 95%);
+  --admin-primary: hsl(221, 83%, 53%);
+  --admin-primary-light: hsl(221, 83%, 96%);
+  --admin-secondary: hsl(210, 16%, 82%);
+  --admin-accent: hsl(142, 71%, 45%);
+  --admin-warning: hsl(38, 92%, 50%);
+  --admin-danger: hsl(0, 72%, 51%);
+  --admin-text: hsl(215, 25%, 27%);
+  --admin-text-light: hsl(215, 16%, 47%);
+  --admin-text-muted: hsl(215, 14%, 71%);
+  --admin-sidebar: hsl(220, 26%, 14%);
+  --admin-sidebar-text: hsl(210, 40%, 98%);
+  --admin-sidebar-active: hsl(221, 83%, 53%);
 }
 
 .dark {
@@ -87,5 +106,68 @@
   .card-hover:hover {
     transform: translateY(-8px);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Admin Panel Utilities */
+  .admin-layout {
+    min-height: 100vh;
+    background-color: var(--admin-background);
+  }
+
+  .admin-sidebar {
+    background-color: var(--admin-sidebar);
+    color: var(--admin-sidebar-text);
+    border-right: 1px solid var(--admin-border);
+  }
+
+  .admin-header {
+    background-color: var(--admin-surface);
+    border-bottom: 1px solid var(--admin-border-light);
+    backdrop-filter: blur(8px);
+  }
+
+  .admin-content {
+    background-color: transparent;
+    color: var(--admin-text);
+  }
+
+  .admin-card {
+    background-color: var(--admin-surface);
+    border: 1px solid var(--admin-border-light);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease-in-out;
+  }
+
+  .admin-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+  }
+
+  .admin-nav-item {
+    transition: all 0.2s ease-in-out;
+    border-radius: 8px;
+    margin: 2px 0;
+  }
+
+  .admin-nav-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .admin-nav-item.active {
+    background-color: var(--admin-sidebar-active);
+    color: white;
+  }
+
+  .admin-stat-card {
+    background: linear-gradient(135deg, var(--admin-surface) 0%, var(--admin-surface-elevated) 100%);
+    border: 1px solid var(--admin-border-light);
+    border-radius: 16px;
+    transition: all 0.3s ease;
+  }
+
+  .admin-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.15);
   }
 }
