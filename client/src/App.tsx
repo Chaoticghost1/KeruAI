@@ -43,7 +43,7 @@ function Router() {
   }, []);
 
   return (
-          <Switch>
+        <Switch>
           {/* Public routes */}
           <Route path="/auth" component={AuthPage} />
           
@@ -80,14 +80,21 @@ function Router() {
           </Route>
           
           <Route component={NotFound} />
-        </Switch>
+      </Switch>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
+      <LanguageProvider>
+        <AuthProvider>
+          <DataSaverProvider>
+            <Router />
+            <Toaster />
+          </DataSaverProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
