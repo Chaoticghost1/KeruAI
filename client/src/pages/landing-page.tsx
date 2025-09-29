@@ -3,13 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { 
-  BookOpen, 
-  GraduationCap, 
-  Users, 
-  Award, 
-  Brain, 
-  Shield, 
+import { useAuth } from "@/contexts/AuthContext"; // Assuming useAuth is available
+import { Redirect } from "wouter"; // Assuming Redirect component is available
+import {
+  BookOpen,
+  GraduationCap,
+  Users,
+  Award,
+  Brain,
+  Shield,
   Zap,
   FileText,
   MessageSquare,
@@ -22,6 +24,23 @@ import {
 
 export default function LandingPage() {
   const { language, setLanguage, t } = useLanguage();
+  const { user } = useAuth();
+
+  // Add loading state
+  if (!t) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Redirect to="/dashboard" />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -37,7 +56,7 @@ export default function LandingPage() {
                 {t.brand.name}
               </span>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               {/* Language Toggle */}
               <Button
@@ -49,7 +68,7 @@ export default function LandingPage() {
                 <Globe className="h-4 w-4" />
                 <span>{language === 'es' ? 'EN' : 'ES'}</span>
               </Button>
-              
+
               <Link href="/auth">
                 <Button variant="ghost">{t.auth.signIn}</Button>
               </Link>
@@ -70,18 +89,18 @@ export default function LandingPage() {
             <Badge variant="secondary" className="mb-4">
               {t.landing.aiTutoring}
             </Badge>
-            
+
             <h1 className="text-4xl sm:text-6xl font-bold text-gray-900 dark:text-white mb-6">
               {t?.landing?.heroTitle ? t.landing.heroTitle.split(' ').slice(0, 2).join(' ') : 'Transform Your'}
               <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 {t?.landing?.heroTitle ? t.landing.heroTitle.split(' ').slice(2).join(' ') : 'Learning Journey'}
               </span>
             </h1>
-            
+
             <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
               {t?.landing?.heroSubtitle || 'Experience personalized AI tutoring, gamified learning, and comprehensive educational tools designed for students in Honduras and beyond.'}
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/auth">
                 <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-8">
@@ -336,7 +355,7 @@ export default function LandingPage() {
             <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
               Native secure authentication with token verification ensures only verified users can access educational content.
             </p>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div className="flex flex-col items-center p-4">
                 <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-2">

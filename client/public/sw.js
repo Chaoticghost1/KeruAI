@@ -64,7 +64,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Skip caching in development mode
-  if (event.request.url.includes('localhost') || event.request.url.includes('127.0.0.1')) {
+  if (event.request.url.includes('localhost') || event.request.url.includes('127.0.0.1') || event.request.url.includes('vite')) {
     return;
   }
 

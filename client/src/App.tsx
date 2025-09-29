@@ -32,13 +32,15 @@ import { Redirect } from "./components/Redirect";
 
 function Router() {
   useEffect(() => {
-    // Initialize offline storage for Honduras-first strategy
+    // Initialize offline storage for Honduras-first strategy (non-blocking)
     initializeOfflineStorage().then((success) => {
       if (success) {
         console.log('Offline storage initialized for Honduras platform');
       } else {
         console.warn('Offline storage initialization failed');
       }
+    }).catch((error) => {
+      console.warn('Offline storage initialization error:', error);
     });
   }, []);
 

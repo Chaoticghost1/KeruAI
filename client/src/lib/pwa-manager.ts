@@ -38,6 +38,12 @@ class PWAManagerImpl implements PWAManager {
       return;
     }
 
+    // Skip service worker in development to avoid conflicts
+    if (import.meta.env.DEV) {
+      console.log('Skipping service worker registration in development');
+      return;
+    }
+
     // Register service worker
     this.wb = new Workbox('/sw.js');
 
