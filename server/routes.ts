@@ -16,6 +16,7 @@ import {
 } from "@shared/schema";
 import { getPersonaByKey, generatePersonaResponse } from "@shared/tutorPersonas";
 import { AITutorService } from "./ai-service.js";
+import { ContentProcessor } from "./content-processor.js";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -402,6 +403,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Title, content type, and subject are required" });
       }
 
+      // Process uploaded file to extract text for AI analysis
+      let extractedText = '';
+      if (req.file?.path) {
+        try {
+          console.log(`Processing uploaded file: ${req.file.filename}`);
+          const processedContent = await ContentProcessor.processFile(req.file.path, contentType);
+          extractedText = ContentProcessor.cleanExtractedText(processedContent.extractedText);
+          console.log(`Text extraction completed: ${extractedText.length} characters extracted`);
+        } catch (processingError) {
+          console.error("File processing error:", processingError);
+          // Continue without extracted text if processing fails
+        }
+      }
+
       const submission = await storage.createContentSubmission({
         teacherId: req.user!.id,
         title,
@@ -412,7 +427,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tags: tags ? JSON.parse(tags) : [],
         filePath: req.file?.path,
         fileUrl: req.file ? `/uploads/${req.file.filename}` : undefined,
-        htmlContent
+        htmlContent,
+        extractedText: extractedText || htmlContent || '' // Use extracted text or fall back to HTML content
       });
 
       res.status(201).json(submission);
