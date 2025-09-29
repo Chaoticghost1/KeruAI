@@ -27,11 +27,16 @@ export async function apiRequest(
   
   // Critical endpoints that should always fetch fresh data (not from cache)
   const criticalEndpoints = [
-    '/api/auth/me',
-    '/api/admin/',
+    '/api/auth',
+    '/api/admin',
     '/api/users',
     '/api/dashboard',
-    '/api/students/profile'
+    '/api/students/profile',
+    '/api/tutors',
+    '/api/badges',
+    '/api/revision',
+    '/api/assignments',
+    '/api/content'
   ];
   
   // Check if this is a critical endpoint that needs fresh data
