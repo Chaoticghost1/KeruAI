@@ -89,14 +89,8 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider>
-        <AuthProvider>
-          <DataSaverProvider>
-            <Router />
-            <Toaster />
-          </DataSaverProvider>
-        </AuthProvider>
-      </LanguageProvider>
+      <Router />
+      <Toaster />
     </QueryClientProvider>
   );
 }
