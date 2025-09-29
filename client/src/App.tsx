@@ -43,23 +43,12 @@ function Router() {
   }, []);
 
   return (
-    <LanguageProvider>
-      <DataSaverProvider>
-        <AuthProvider>
           <Switch>
           {/* Public routes */}
           <Route path="/auth" component={AuthPage} />
           
-          {/* Public landing page for unauthenticated users, redirect authenticated users */}
-          <Route path="/">
-            {() => {
-              const { user } = useAuth();
-              if (user) {
-                return <Redirect to="/dashboard" />;
-              }
-              return <LandingPage />;
-            }}
-          </Route>
+          {/* Public landing page */}
+          <Route path="/" component={LandingPage} />
           
           {/* Admin panel route - standalone without sidebar */}
           <ProtectedRoute path="/admin" component={AdminDashboard} roles={['teacher', 'superuser']} />
@@ -92,16 +81,12 @@ function Router() {
           
           <Route component={NotFound} />
         </Switch>
-        </AuthProvider>
-      </DataSaverProvider>
-    </LanguageProvider>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster />
       <Router />
     </QueryClientProvider>
   );
