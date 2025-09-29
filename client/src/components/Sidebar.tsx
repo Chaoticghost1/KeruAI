@@ -15,8 +15,15 @@ export function Sidebar() {
 
   const baseNavItems = [
     { href: '/dashboard', icon: 'fas fa-home', key: 'home' },
+    // Show Content Management prominently for teachers/superusers
+    ...(user?.role === 'teacher' || user?.role === 'superuser' ? [
+      { href: '/admin', icon: 'fas fa-upload', key: 'content-upload' }
+    ] : []),
+    // Show Revision Materials for students
+    ...(user?.role === 'student' ? [
+      { href: '/revision', icon: 'fas fa-book-open', key: 'revision' }
+    ] : []),
     { href: '/studybuddy', icon: 'fas fa-graduation-cap', key: 'study' },
-    ...(user?.role === 'student' ? [{ href: '/revision', icon: 'fas fa-book-open', key: 'revision' }] : []),
     { href: '/budgetpal', icon: 'fas fa-wallet', key: 'budget' },
     { href: '/blog', icon: 'fas fa-globe', key: 'travel' },
     { href: '/cruiseword', icon: 'fas fa-ship', key: 'game' },

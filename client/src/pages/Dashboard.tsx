@@ -9,14 +9,24 @@ export default function Dashboard() {
   const { t } = useLanguage();
 
   const tools = [
-    {
-      id: 'studybuddy',
-      title: t.studybuddy.title,
-      description: t.studybuddy.description,
-      href: '/studybuddy',
-      icon: 'fas fa-graduation-cap',
-      color: 'from-blue-500 to-blue-600'
+    // Admin/Teacher Content Management - SHOW PROMINENTLY FOR TEACHERS/SUPERUSERS
+    ...(user?.role === 'teacher' || user?.role === 'superuser' ? [{
+      id: 'content-management',
+      title: 'Content Management',
+      description: 'Upload lesson materials, PDFs, images for student AI-assisted learning',
+      href: '/admin',
+      icon: 'fas fa-upload',
+      color: 'from-purple-500 to-purple-600'
     },
+    {
+      id: 'admin-panel',
+      title: 'Admin Panel',
+      description: 'Manage users, content, analytics, and system settings',
+      href: '/admin',
+      icon: 'fas fa-shield-alt',
+      color: 'from-red-500 to-red-600'
+    }] : []),
+    // Student Revision Materials - SHOW FOR STUDENTS
     ...(user?.role === 'student' ? [{
       id: 'revision',
       title: 'Revision Materials',
@@ -25,6 +35,14 @@ export default function Dashboard() {
       icon: 'fas fa-book-open',
       color: 'from-indigo-500 to-indigo-600'
     }] : []),
+    {
+      id: 'studybuddy',
+      title: t.studybuddy.title,
+      description: t.studybuddy.description,
+      href: '/studybuddy',
+      icon: 'fas fa-graduation-cap',
+      color: 'from-blue-500 to-blue-600'
+    },
     {
       id: 'budgetpal',
       title: t.budgetpal.title,
@@ -95,6 +113,11 @@ export default function Dashboard() {
                 </p>
                 <p className="text-sm text-gray-500 capitalize">
                   {user?.role}
+                  {(user?.role === 'teacher' || user?.role === 'superuser') && (
+                    <span className="ml-2 text-purple-600 font-semibold">
+                      (Content Management Available)
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
