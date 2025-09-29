@@ -139,6 +139,56 @@ Changelog:
   - Fixed admin panel authentication and added comprehensive admin management interface
 ```
 
+## AI-Assisted Content Revision Implementation Plan
+
+### Implementation Approach for Teacher Upload + AI Revision System
+
+**Current Status Analysis:**
+- ✅ Teacher content upload system (PDFs, images, documents) - COMPLETE
+- ✅ Assignment system with student submissions - COMPLETE  
+- ✅ AI tutor integration (OpenAI GPT with personas) - COMPLETE
+- ❌ Direct AI analysis of uploaded content - MISSING
+- ❌ Student revision interface for uploaded materials - MISSING
+- ❌ Content processing pipeline (OCR, text extraction) - MISSING
+
+**Implementation Phases:**
+
+### Phase 1: Content Processing Pipeline
+**Goal:** Make uploaded content AI-accessible
+- Add PDF text extraction using `pdf-parse` library
+- Implement OCR for image-based content (screenshots, whiteboard photos)
+- Store extracted text in database for AI reference
+- Create content embeddings for semantic search
+- Update database schema to include extracted content text
+
+### Phase 2: Student Revision Interface  
+**Goal:** Build dedicated student pages for AI-assisted revision
+- Create student dashboard showing available revision materials
+- Build content viewer for PDFs/images with AI assistant sidebar
+- Implement interactive revision sessions where students can ask questions about uploaded content
+- Add progress tracking for each topic/material
+- Create student-specific protected routes
+
+### Phase 3: AI Integration with Content (Future)
+**Goal:** Connect AI tutors to teacher uploads
+- Modify AI service to include uploaded content context
+- Implement RAG (Retrieval Augmented Generation) to reference specific materials
+- Allow AI to cite specific pages/sections from uploads
+- Generate practice questions from uploaded content
+
+### Phase 4: Enhanced Features (Future)
+**Goal:** Add intelligent revision capabilities
+- Auto-generate summaries of uploaded lessons
+- Create flashcards and quizzes from content
+- Provide personalized study recommendations
+- Track which concepts students struggle with
+
+**Implementation Priority:**
+1. **Immediate** - Create student revision page with content viewer
+2. **Short-term** - Add text extraction from PDFs
+3. **Medium-term** - Integrate AI with extracted content
+4. **Long-term** - Advanced features like auto-quiz generation
+
 ## User Preferences
 
 ```

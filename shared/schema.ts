@@ -171,16 +171,20 @@ export const contentSubmissions = pgTable("content_submissions", {
   description: text("description"),
   contentType: text("content_type").notNull(), // 'image', 'pdf', 'whiteboard', 'diagram', 'html', 'video'
   filePath: text("file_path"),
-  fileUrl: text("file_url"),
-  htmlContent: text("html_content"),
+  contentData: text("content_data"), // existing field in database
   subject: text("subject").notNull(),
-  gradeLevel: text("grade_level"),
-  tags: text("tags").array().default([]).notNull(),
+  difficultyLevel: integer("difficulty_level"), // existing field in database
   isPublished: boolean("is_published").default(false).notNull(),
-  publishedAt: timestamp("published_at"),
-  viewCount: integer("view_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // New fields for Phase 1
+  fileUrl: text("file_url"),
+  htmlContent: text("html_content"),
+  extractedText: text("extracted_text"), // AI-accessible text content from PDFs and images
+  gradeLevel: text("grade_level"),
+  tags: text("tags").array().default([]).notNull(),
+  publishedAt: timestamp("published_at"),
+  viewCount: integer("view_count").default(0).notNull(),
 });
 
 // Student assignments table (for tracking student work on teacher content)
@@ -188,13 +192,21 @@ export const studentAssignments = pgTable("student_assignments", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").references(() => users.id).notNull(),
   contentId: integer("content_id").references(() => contentSubmissions.id).notNull(),
-  status: text("status").notNull().default("assigned"), // 'assigned', 'in_progress', 'completed', 'reviewed'
-  startedAt: timestamp("started_at"),
-  completedAt: timestamp("completed_at"),
+  assignedAt: timestamp("assigned_at"),
+  dueDate: timestamp("due_date"),
   submissionText: text("submission_text"),
   submissionFiles: text("submission_files").array().default([]).notNull(),
+  submittedAt: timestamp("submitted_at"),
+  grade: decimal("grade", { precision: 5, scale: 2 }),
+  maxGrade: decimal("max_grade", { precision: 5, scale: 2 }),
+  feedback: text("feedback"),
+  gradedAt: timestamp("graded_at"),
+  gradedBy: integer("graded_by").references(() => users.id),
+  status: text("status").notNull().default("assigned"), // 'assigned', 'in_progress', 'completed', 'reviewed'
+  // New fields for Phase 2
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
   teacherFeedback: text("teacher_feedback"),
-  grade: integer("grade"), // 0-100
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
