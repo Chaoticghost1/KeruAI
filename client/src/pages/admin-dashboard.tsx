@@ -219,7 +219,7 @@ export default function AdminDashboard() {
   const handlePersonaSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedPersona) {
-      updatePersonaMutation.mutate({ id: selectedPersona.id, data: personaForm });
+      updatePersonaMutation.mutate({ id: (selectedPersona as any)?.id, data: personaForm });
     } else {
       createPersonaMutation.mutate(personaForm);
     }
@@ -228,7 +228,7 @@ export default function AdminDashboard() {
   const handleBlogSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedPost) {
-      updateBlogMutation.mutate({ id: selectedPost.id, data: blogForm });
+      updateBlogMutation.mutate({ id: (selectedPost as any)?.id, data: blogForm });
     } else {
       createBlogMutation.mutate(blogForm);
     }
@@ -321,10 +321,10 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {analyticsData?.totalUsers || 0}
+                  {(analyticsData as any)?.totalUsers || '0'}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  +{analyticsData?.newUsersThisMonth || 0} this month
+                  +{(analyticsData as any)?.newUsersThisMonth || '0'} this month
                 </p>
               </CardContent>
             </Card>
@@ -336,7 +336,7 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {analyticsData?.activeSessions || 0}
+                  {(analyticsData as any)?.activeSessions || '0'}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Currently active
@@ -351,7 +351,7 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {budgetAnalytics?.totalTransactions || 0}
+                  {(budgetAnalytics as any)?.totalTransactions || '0'}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   All time
@@ -366,7 +366,7 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {chatAnalytics?.totalRequests || 0}
+                  {(chatAnalytics as any)?.totalRequests || '0'}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   This month
@@ -567,7 +567,7 @@ export default function AdminDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {personas?.map((persona) => (
+                      {((personas as any) || []).map((persona: any) => (
                         <Card key={persona.id} className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
@@ -703,7 +703,7 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        {budgetAnalytics?.registeredUsers || 0}
+                        {(budgetAnalytics as any)?.registeredUsers || '0'}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Total users using BudgetPal
@@ -717,7 +717,7 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        {budgetAnalytics?.monthlyAvgTransactions || 0}
+                        {(budgetAnalytics as any)?.monthlyAvgTransactions || '0'}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Per user average
@@ -731,7 +731,7 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        ${budgetAnalytics?.avgMonthlyExpense || 0}
+                        ${(budgetAnalytics as any)?.avgMonthlyExpense || '0'}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Anonymous average
@@ -745,7 +745,7 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        ${budgetAnalytics?.avgMonthlyIncome || 0}
+                        ${(budgetAnalytics as any)?.avgMonthlyIncome || '0'}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Anonymous average
@@ -759,7 +759,7 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        {budgetAnalytics?.totalTransactions || 0}
+                        {(budgetAnalytics as any)?.totalTransactions || '0'}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         All time
@@ -773,7 +773,7 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-lg font-bold">
-                        {budgetAnalytics?.popularCategory || 'N/A'}
+                        {(budgetAnalytics as any)?.popularCategory || 'N/A'}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Most used expense category
@@ -812,7 +812,7 @@ export default function AdminDashboard() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">
-                          {chatAnalytics?.totalRequests || 0}
+                          {(chatAnalytics as any)?.totalRequests || '0'}
                         </div>
                       </CardContent>
                     </Card>
@@ -823,7 +823,7 @@ export default function AdminDashboard() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">
-                          {chatAnalytics?.thisMonth || 0}
+                          {(chatAnalytics as any)?.thisMonth || '0'}
                         </div>
                       </CardContent>
                     </Card>
@@ -834,7 +834,7 @@ export default function AdminDashboard() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">
-                          {chatAnalytics?.avgPerDay || 0}
+                          {(chatAnalytics as any)?.avgPerDay || '0'}
                         </div>
                       </CardContent>
                     </Card>
@@ -843,7 +843,7 @@ export default function AdminDashboard() {
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Most Frequent Questions</h3>
                     <div className="space-y-2">
-                      {chatAnalytics?.frequentQuestions?.map((question, index) => (
+                      {((chatAnalytics as any)?.frequentQuestions || []).map((question: any, index: number) => (
                         <Card key={index} className="p-4">
                           <div className="flex items-center justify-between">
                             <p className="font-medium">{question.text}</p>
@@ -888,7 +888,7 @@ export default function AdminDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {posts?.map((post) => (
+                      {((posts as any) || []).map((post: any) => (
                         <Card key={post.id} className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
