@@ -25,11 +25,36 @@ export async function apiRequest(
   const settings = await OfflineManager.getSettings();
   const dataSaverEnabled = settings?.dataSaverMode || false;
   
+  // Critical endpoints that should always fetch fresh data (not from cache)
+  const criticalEndpoints = [
+    '/api/auth/me',
+    '/api/admin/',
+    '/api/users',
+    '/api/dashboard',
+    '/api/students/profile'
+  ];
+  
+  // Check if this is a critical endpoint that needs fresh data
+  const isCriticalEndpoint = criticalEndpoints.some(endpoint => url.includes(endpoint));
+  
   // For GET requests, try cache first if offline or data saver enabled
-  if (method === 'GET' && (!navigator.onLine || dataSaverEnabled)) {
+  // BUT skip cache for critical endpoints unless we're actually offline
+  if (method === 'GET' && !isCriticalEndpoint && (!navigator.onLine || dataSaverEnabled)) {
     const cachedData = await OfflineManager.getCachedContent(fullUrl);
     if (cachedData) {
       console.log('Serving from cache (Honduras data saver/offline):', fullUrl);
+      return new Response(JSON.stringify(cachedData), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+  
+  // For critical endpoints, only use cache if truly offline
+  if (method === 'GET' && isCriticalEndpoint && !navigator.onLine) {
+    const cachedData = await OfflineManager.getCachedContent(fullUrl);
+    if (cachedData) {
+      console.log('Network offline - serving critical endpoint from cache:', fullUrl);
       return new Response(JSON.stringify(cachedData), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
