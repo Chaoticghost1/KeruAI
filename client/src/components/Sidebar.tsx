@@ -25,9 +25,13 @@ export function Sidebar() {
     ] : []),
     { href: '/studybuddy', icon: 'fas fa-graduation-cap', key: 'study' },
     { href: '/budgetpal', icon: 'fas fa-wallet', key: 'budget' },
-    { href: '/blog', icon: 'fas fa-globe', key: 'travel' },
+    // Blog and DAO only for teachers/superusers - NOT for students
+    ...(user?.role === 'teacher' || user?.role === 'superuser' ? [
+      { href: '/blog', icon: 'fas fa-globe', key: 'travel' },
+      { href: '/dao', icon: 'fas fa-bus', key: 'dao' }
+    ] : []),
+    // Games available for all users
     { href: '/cruiseword', icon: 'fas fa-ship', key: 'game' },
-    { href: '/dao', icon: 'fas fa-bus', key: 'dao' },
     // { href: '/aethosbyte', icon: 'fas fa-brain', key: 'cleanup' }, // Temporarily removed
   ];
 

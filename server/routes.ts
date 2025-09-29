@@ -373,6 +373,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete user (superuser only)
+  app.delete("/api/admin/users/:id", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      
+      // Prevent self-deletion
+      if (userId === req.user!.id) {
+        return res.status(400).json({ error: 'Cannot delete your own account' });
+      }
+      
+      await storage.deleteUser(userId);
+      res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      res.status(500).json({ error: 'Failed to delete user' });
+    }
+  });
+
   // System feature controls
   app.patch("/api/admin/system/features", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
     try {

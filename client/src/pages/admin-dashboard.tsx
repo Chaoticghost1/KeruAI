@@ -42,6 +42,285 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
+// User Management Panel Component
+function UserManagementPanel() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Fetch all users
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['/api/admin/users'],
+    enabled: true
+  });
+
+  // Mutations for user management
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update user role');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: "Success", description: "User role updated successfully" });
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update user role", variant: "destructive" });
+    }
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ userId, isActive }: { userId: number; isActive: boolean }) => {
+      const response = await fetch(`/api/admin/users/${userId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive })
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update user status');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: "Success", description: "User status updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update user status", variant: "destructive" });
+    }
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete user');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: "Success", description: "User deleted successfully" });
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete user", variant: "destructive" });
+    }
+  });
+
+  // Filter users based on search
+  const filteredUsers = (users as any[]).filter((user: any) => 
+    user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleRoleChange = (userId: number, newRole: string) => {
+    updateRoleMutation.mutate({ userId, role: newRole });
+  };
+
+  const handleStatusToggle = (userId: number, currentStatus: boolean) => {
+    updateStatusMutation.mutate({ userId, isActive: !currentStatus });
+  };
+
+  const handleDeleteUser = (userId: number) => {
+    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      deleteUserMutation.mutate(userId);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Search and Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Input
+            placeholder="Search users..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-64"
+          />
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] })}
+            data-testid="refresh-users"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+        <Badge variant="secondary">{filteredUsers.length} users found</Badge>
+      </div>
+
+      {/* Users Table */}
+      {usersLoading ? (
+        <div className="text-center py-4">Loading users...</div>
+      ) : (
+        <div className="border rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="text-left p-3 font-medium">User</th>
+                  <th className="text-left p-3 font-medium">Role</th>
+                  <th className="text-left p-3 font-medium">Status</th>
+                  <th className="text-left p-3 font-medium">Created</th>
+                  <th className="text-left p-3 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((user: any) => (
+                  <tr key={user.id} className="border-t">
+                    <td className="p-3">
+                      <div>
+                        <div className="font-medium">{user.firstName} {user.lastName}</div>
+                        <div className="text-sm text-muted-foreground">@{user.username}</div>
+                        <div className="text-sm text-muted-foreground">{user.email}</div>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <Select
+                        value={user.role}
+                        onValueChange={(newRole) => handleRoleChange(user.id, newRole)}
+                        disabled={updateRoleMutation.isPending}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="student">Student</SelectItem>
+                          <SelectItem value="teacher">Teacher</SelectItem>
+                          <SelectItem value="superuser">Super User</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center space-x-2">
+                        <Badge variant={user.isActive ? "default" : "secondary"}>
+                          {user.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleStatusToggle(user.id, user.isActive)}
+                          disabled={updateStatusMutation.isPending}
+                          data-testid={`toggle-user-status-${user.id}`}
+                        >
+                          {user.isActive ? "Deactivate" : "Activate"}
+                        </Button>
+                      </div>
+                    </td>
+                    <td className="p-3 text-sm text-muted-foreground">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedUser(user)}
+                          data-testid={`edit-user-${user.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={deleteUserMutation.isPending}
+                          className="text-red-600 hover:text-red-800"
+                          data-testid={`delete-user-${user.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Feature Toggles Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Feature Toggles
+          </CardTitle>
+          <CardDescription>
+            Control which features are available to different user roles
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-3">
+              <h4 className="font-medium">Student Features</h4>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Revision Materials</span>
+                  <Badge variant="default">Enabled</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">StudyBuddy AI</span>
+                  <Badge variant="default">Enabled</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Budget Tracker</span>
+                  <Badge variant="default">Enabled</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Games</span>
+                  <Badge variant="default">Enabled</Badge>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <h4 className="font-medium">Teacher/Admin Features</h4>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Content Management</span>
+                  <Badge variant="default">Enabled</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Travel Blog</span>
+                  <Badge variant="default">Enabled</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">DAO Access</span>
+                  <Badge variant="default">Enabled</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Admin Panel</span>
+                  <Badge variant="default">Enabled</Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -1067,6 +1346,22 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* User Management Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  User Management
+                </CardTitle>
+                <CardDescription>
+                  Manage users, roles, and permissions across the platform
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <UserManagementPanel />
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
