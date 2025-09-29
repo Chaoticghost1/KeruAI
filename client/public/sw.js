@@ -58,14 +58,48 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - implement cache-first strategy for static assets, network-first for API
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  
-  // Handle API requests with network-first strategy
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(handleApiRequest(event.request));
+  // Only handle GET requests
+  if (event.request.method !== 'GET') {
     return;
   }
-  
+
+  // Skip caching in development mode
+  if (event.request.url.includes('localhost') || event.request.url.includes('127.0.0.1')) {
+    return;
+  }
+
+  // Handle API requests with network-first strategy
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Clone the response before caching
+          const responseClone = response.clone();
+
+          if (response.status === 200) {
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseClone);
+            });
+          }
+
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request).then(response => {
+            return response || new Response(
+              JSON.stringify({ error: 'No cached data available' }),
+              {
+                status: 503,
+                statusText: 'Service Unavailable - Offline',
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+          });
+        })
+    );
+    return;
+  }
+
   // Handle static assets with cache-first strategy
   event.respondWith(handleStaticRequest(event.request));
 });
@@ -74,7 +108,7 @@ self.addEventListener('fetch', (event) => {
 async function handleApiRequest(request) {
   const cacheName = API_CACHE;
   const url = new URL(request.url);
-  
+
   // Critical endpoints that should NOT be cached
   const noCacheEndpoints = [
     '/api/auth/',
@@ -83,37 +117,37 @@ async function handleApiRequest(request) {
     '/api/dashboard',
     '/api/students/profile'
   ];
-  
+
   // Check if this is a critical endpoint
   const shouldNotCache = noCacheEndpoints.some(endpoint => 
     url.pathname.includes(endpoint)
   );
-  
+
   try {
     // Try network first
     const networkResponse = await fetch(request);
-    
+
     // If successful, cache the response for offline use (but not critical endpoints)
     if (networkResponse.ok && !shouldNotCache) {
       const cache = await caches.open(cacheName);
-      
+
       // Only cache GET requests that match our patterns
       if (request.method === 'GET' && 
           API_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
         cache.put(request, networkResponse.clone());
       }
     }
-    
+
     return networkResponse;
   } catch (error) {
     // Network failed, try cache
     console.log('Network failed, trying cache for:', request.url);
     const cachedResponse = await caches.match(request);
-    
+
     if (cachedResponse) {
       return cachedResponse;
     }
-    
+
     // Return offline message for API requests
     return new Response(
       JSON.stringify({ 
@@ -132,20 +166,20 @@ async function handleApiRequest(request) {
 // Cache-first strategy for static assets
 async function handleStaticRequest(request) {
   const cachedResponse = await caches.match(request);
-  
+
   if (cachedResponse) {
     return cachedResponse;
   }
-  
+
   try {
     const networkResponse = await fetch(request);
-    
+
     // Cache successful responses
     if (networkResponse.ok) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, networkResponse.clone());
     }
-    
+
     return networkResponse;
   } catch (error) {
     // Return offline page for navigation requests
@@ -155,7 +189,7 @@ async function handleStaticRequest(request) {
         return offlineResponse;
       }
     }
-    
+
     throw error;
   }
 }

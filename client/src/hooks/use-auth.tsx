@@ -33,7 +33,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const {
     data: user,
     error,
@@ -68,10 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Store tokens in localStorage
       localStorage.setItem('accessToken', data.tokens.accessToken);
       localStorage.setItem('refreshToken', data.tokens.refreshToken);
-      
+
       // Update user data in cache
       queryClient.setQueryData(["/api/auth/me"], data.user);
-      
+
       toast({
         title: "Welcome back!",
         description: `Logged in as ${data.user.firstName} ${data.user.lastName}`,
@@ -99,10 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Store tokens in localStorage
       localStorage.setItem('accessToken', data.tokens.accessToken);
       localStorage.setItem('refreshToken', data.tokens.refreshToken);
-      
+
       // Update user data in cache
       queryClient.setQueryData(["/api/auth/me"], data.user);
-      
+
       toast({
         title: "Welcome to Keru.ai!",
         description: "Your account has been created successfully.",
@@ -119,28 +119,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/auth/logout");
-    },
-    onSuccess: () => {
-      // Clear tokens from localStorage
+      const token = localStorage.getItem("accessToken"); // Changed from "token" to "accessToken"
+      if (!token) return { message: "Already logged out" };
+
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      // Clear tokens regardless of response status
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      
-      // Clear cache
+
+      if (!response.ok && response.status !== 401) {
+        throw new Error("Logout failed");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
-      
+      // Cancel any ongoing queries
+      queryClient.cancelQueries();
+
       toast({
         title: "Logged out",
         description: "You have been successfully logged out.",
       });
     },
     onError: (error: Error) => {
-      // Even if logout fails on server, clear local tokens
+      // Even if logout fails on server, clear local tokens and user data
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       queryClient.setQueryData(["/api/auth/me"], null);
-      
+      queryClient.clear();
+      queryClient.cancelQueries();
+
       toast({
         title: "Logout failed",
         description: error.message,
