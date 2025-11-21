@@ -1082,6 +1082,7 @@ function StudyBuddySection({ user }: { user: any }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/bot-personas'] });
+      queryClient.invalidateQueries({ queryKey: ['tutors'] });
       toast({ title: "Bot persona created successfully" });
       resetPersonaForm();
     },
@@ -1097,6 +1098,7 @@ function StudyBuddySection({ user }: { user: any }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/bot-personas'] });
+      queryClient.invalidateQueries({ queryKey: ['tutors'] });
       toast({ title: "Bot persona updated successfully" });
       resetPersonaForm();
     },
@@ -1112,6 +1114,7 @@ function StudyBuddySection({ user }: { user: any }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/bot-personas'] });
+      queryClient.invalidateQueries({ queryKey: ['tutors'] });
       toast({ title: "Bot persona deleted successfully" });
     },
     onError: (error) => {
