@@ -1269,8 +1269,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Blog Post Management Routes
   app.get("/api/admin/blog-posts", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
     try {
-      const posts = await storage.getBlogPosts();
-      res.json(posts);
+      const limitParam = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offsetParam = req.query.offset ? parseInt(req.query.offset as string) : undefined;
+      
+      // If pagination params are provided, use paginated endpoint
+      if (limitParam !== undefined || offsetParam !== undefined) {
+        // Validate pagination parameters
+        if ((limitParam !== undefined && (isNaN(limitParam) || limitParam < 0)) || 
+            (offsetParam !== undefined && (isNaN(offsetParam) || offsetParam < 0))) {
+          return res.status(400).json({ error: "Invalid pagination parameters: limit and offset must be non-negative integers" });
+        }
+        
+        const limit = Math.min(Math.max(limitParam || 10, 0), 100);
+        const offset = Math.max(offsetParam || 0, 0);
+        const result = await storage.getBlogPostsPaginated(limit, offset);
+        res.json(result);
+      } else {
+        // Backwards compatibility: return all posts if no pagination params
+        const posts = await storage.getBlogPosts();
+        res.json(posts);
+      }
     } catch (error) {
       res.status(500).json({ error: "Failed to get blog posts" });
     }
@@ -1318,6 +1336,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete blog post" });
+    }
+  });
+
+  // Admin Personas Endpoint (paginated bot personas list)
+  app.get("/api/admin/personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const limitParam = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offsetParam = req.query.offset ? parseInt(req.query.offset as string) : undefined;
+      
+      // If pagination params are provided, use paginated endpoint
+      if (limitParam !== undefined || offsetParam !== undefined) {
+        // Validate pagination parameters
+        if ((limitParam !== undefined && (isNaN(limitParam) || limitParam < 0)) || 
+            (offsetParam !== undefined && (isNaN(offsetParam) || offsetParam < 0))) {
+          return res.status(400).json({ error: "Invalid pagination parameters: limit and offset must be non-negative integers" });
+        }
+        
+        const limit = Math.min(Math.max(limitParam || 10, 0), 100);
+        const offset = Math.max(offsetParam || 0, 0);
+        const result = await storage.getBotPersonasPaginated(limit, offset);
+        res.json(result);
+      } else {
+        // Backwards compatibility: return all personas if no pagination params
+        const personas = await storage.getBotPersonas();
+        res.json(personas);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get personas" });
+    }
+  });
+
+  // Admin Content Submissions Endpoint (paginated)
+  app.get("/api/admin/submissions", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const limitParam = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offsetParam = req.query.offset ? parseInt(req.query.offset as string) : undefined;
+      const publishedParam = req.query.published as string;
+      
+      let published: boolean | undefined;
+      if (publishedParam === 'true') published = true;
+      else if (publishedParam === 'false') published = false;
+      
+      // If pagination params are provided, use paginated endpoint
+      if (limitParam !== undefined || offsetParam !== undefined) {
+        // Validate pagination parameters
+        if ((limitParam !== undefined && (isNaN(limitParam) || limitParam < 0)) || 
+            (offsetParam !== undefined && (isNaN(offsetParam) || offsetParam < 0))) {
+          return res.status(400).json({ error: "Invalid pagination parameters: limit and offset must be non-negative integers" });
+        }
+        
+        const limit = Math.min(Math.max(limitParam || 10, 0), 100);
+        const offset = Math.max(offsetParam || 0, 0);
+        const result = await storage.getAllContentSubmissionsPaginated(published, limit, offset);
+        res.json(result);
+      } else {
+        // Backwards compatibility: return all submissions if no pagination params
+        const submissions = await storage.getAllContentSubmissions(published);
+        res.json(submissions);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get submissions" });
+    }
+  });
+
+  // Admin Student Assignments Endpoint (paginated)
+  app.get("/api/admin/assignments", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+    try {
+      const limitParam = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offsetParam = req.query.offset ? parseInt(req.query.offset as string) : undefined;
+      
+      // If pagination params are provided, use paginated endpoint
+      if (limitParam !== undefined || offsetParam !== undefined) {
+        // Validate pagination parameters
+        if ((limitParam !== undefined && (isNaN(limitParam) || limitParam < 0)) || 
+            (offsetParam !== undefined && (isNaN(offsetParam) || offsetParam < 0))) {
+          return res.status(400).json({ error: "Invalid pagination parameters: limit and offset must be non-negative integers" });
+        }
+        
+        const limit = Math.min(Math.max(limitParam || 10, 0), 100);
+        const offset = Math.max(offsetParam || 0, 0);
+        const result = await storage.getAllStudentAssignmentsPaginated(limit, offset);
+        res.json(result);
+      } else {
+        // Backwards compatibility: return all assignments if no pagination params
+        const allAssignments = await storage.getAllStudentAssignments();
+        res.json(allAssignments);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get assignments" });
     }
   });
 

@@ -180,6 +180,7 @@ export interface IStorage {
   createStudentAssignment(assignment: InsertStudentAssignment): Promise<StudentAssignment>;
   getStudentAssignment(id: number): Promise<StudentAssignment | undefined>;
   getStudentAssignments(studentId: number): Promise<StudentAssignment[]>;
+  getAllStudentAssignments(): Promise<StudentAssignment[]>;
   getContentAssignments(contentId: number): Promise<StudentAssignment[]>;
   updateStudentAssignment(id: number, updates: Partial<StudentAssignment>): Promise<StudentAssignment>;
   submitAssignment(assignmentId: number, submissionData: { submissionText?: string; submissionFiles?: string[] }): Promise<StudentAssignment>;
@@ -228,6 +229,7 @@ export interface IStorage {
   createBlogPost(post: InsertBlogPost): Promise<BlogPost>;
   getBlogPost(id: number): Promise<BlogPost | undefined>;
   getBlogPosts(): Promise<BlogPost[]>;
+  getBlogPostsPaginated(limit?: number, offset?: number): Promise<{ data: BlogPost[], total: number }>;
   updateBlogPost(id: number, updates: Partial<BlogPost>): Promise<BlogPost>;
   deleteBlogPost(id: number): Promise<void>;
   
@@ -235,8 +237,15 @@ export interface IStorage {
   createBotPersona(persona: InsertBotPersona): Promise<BotPersona>;
   getBotPersona(id: number): Promise<BotPersona | undefined>;
   getBotPersonas(): Promise<BotPersona[]>;
+  getBotPersonasPaginated(limit?: number, offset?: number): Promise<{ data: BotPersona[], total: number }>;
   updateBotPersona(id: number, updates: Partial<BotPersona>): Promise<BotPersona>;
   deleteBotPersona(id: number): Promise<void>;
+
+  // Content submission paginated methods for admin
+  getAllContentSubmissionsPaginated(published?: boolean, limit?: number, offset?: number): Promise<{ data: ContentSubmission[], total: number }>;
+  
+  // Student assignment paginated methods for admin
+  getAllStudentAssignmentsPaginated(limit?: number, offset?: number): Promise<{ data: StudentAssignment[], total: number }>;
 
   //Super Admin methods
   getAllUsers(): Promise<User[]>;
@@ -830,6 +839,10 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
     return await db.select().from(studentAssignments).where(eq(studentAssignments.studentId, studentId));
   }
 
+  async getAllStudentAssignments(): Promise<StudentAssignment[]> {
+    return await db.select().from(studentAssignments).orderBy(desc(studentAssignments.createdAt));
+  }
+
   async getContentAssignments(contentId: number): Promise<StudentAssignment[]> {
     return await db.select().from(studentAssignments).where(eq(studentAssignments.contentId, contentId));
   }
@@ -1004,6 +1017,83 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
 
   async deleteBlogPost(id: number): Promise<void> {
     await db.delete(blogPosts).where(eq(blogPosts.id, id));
+  }
+
+  async getBlogPostsPaginated(limit: number = 10, offset: number = 0): Promise<{ data: BlogPost[], total: number }> {
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(blogPosts);
+    
+    const data = await db
+      .select()
+      .from(blogPosts)
+      .orderBy(desc(blogPosts.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    return { data, total: count };
+  }
+
+  async getBotPersonasPaginated(limit: number = 10, offset: number = 0): Promise<{ data: BotPersona[], total: number }> {
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(botPersonas);
+    
+    const data = await db
+      .select()
+      .from(botPersonas)
+      .orderBy(desc(botPersonas.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    return { data, total: count };
+  }
+
+  async getAllContentSubmissionsPaginated(published?: boolean, limit: number = 10, offset: number = 0): Promise<{ data: ContentSubmission[], total: number }> {
+    if (published !== undefined) {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(contentSubmissions)
+        .where(eq(contentSubmissions.isPublished, published));
+      
+      const data = await db
+        .select()
+        .from(contentSubmissions)
+        .where(eq(contentSubmissions.isPublished, published))
+        .orderBy(desc(contentSubmissions.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      return { data, total: count };
+    } else {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(contentSubmissions);
+      
+      const data = await db
+        .select()
+        .from(contentSubmissions)
+        .orderBy(desc(contentSubmissions.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      return { data, total: count };
+    }
+  }
+
+  async getAllStudentAssignmentsPaginated(limit: number = 10, offset: number = 0): Promise<{ data: StudentAssignment[], total: number }> {
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(studentAssignments);
+    
+    const data = await db
+      .select()
+      .from(studentAssignments)
+      .orderBy(desc(studentAssignments.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    return { data, total: count };
   }
 }
 
