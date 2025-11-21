@@ -236,9 +236,19 @@ export const botPersonas = pgTable("bot_personas", {
   systemPrompt: text("system_prompt").notNull(),
   subjects: text("subjects").array(),
   isActive: boolean("is_active").default(true).notNull(),
+  createdById: integer("created_by_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const insertBotPersonaSchema = createInsertSchema(botPersonas).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BotPersona = typeof botPersonas.$inferSelect;
+export type InsertBotPersona = z.infer<typeof insertBotPersonaSchema>;
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
@@ -462,12 +472,6 @@ export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
   updatedAt: true,
 });
 
-export const insertBotPersonaSchema = createInsertSchema(botPersonas).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 // Peer Mentorship System for Honduras Community Learning
 export const mentorProfiles = pgTable("mentor_profiles", {
   id: serial("id").primaryKey(),
@@ -620,8 +624,6 @@ export type InsertStudentAssignment = z.infer<typeof insertStudentAssignmentSche
 export type StudentAssignment = typeof studentAssignments.$inferSelect;
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 export type BlogPost = typeof blogPosts.$inferSelect;
-export type InsertBotPersona = z.infer<typeof insertBotPersonaSchema>;
-export type BotPersona = typeof botPersonas.$inferSelect;
 
 // Peer mentorship types for Honduras community learning
 export type InsertMentorProfile = z.infer<typeof insertMentorProfileSchema>;

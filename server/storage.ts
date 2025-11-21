@@ -387,7 +387,21 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
 
   // Tutor agent methods
   async getTutorAgents(): Promise<TutorAgent[]> {
-    return await db.select().from(tutorAgents).where(eq(tutorAgents.isActive, true));
+    const agents = await db.select().from(tutorAgents).where(eq(tutorAgents.isActive, true));
+    // Convert bot personas to TutorAgent format for unified interface
+    const botPersonasData = await db.select().from(botPersonas).where(eq(botPersonas.isActive, true));
+    const convertedPersonas: TutorAgent[] = botPersonasData.map(persona => ({
+      id: persona.id,
+      agentKey: persona.key,
+      name: persona.name,
+      title: persona.description || '',
+      avatar: '🤖',
+      subjects: persona.subjects || [],
+      description: persona.description || '',
+      isActive: persona.isActive,
+      createdAt: persona.createdAt,
+    }));
+    return [...agents, ...convertedPersonas];
   }
 
   async getTutorAgent(id: number): Promise<TutorAgent | undefined> {
@@ -398,6 +412,29 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
   async getTutorAgentByKey(agentKey: string): Promise<TutorAgent | undefined> {
     const [agent] = await db.select().from(tutorAgents).where(eq(tutorAgents.agentKey, agentKey));
     return agent || undefined;
+  }
+
+  // Bot persona methods
+  async getBotPersonas(): Promise<BotPersona[]> {
+    return await db.select().from(botPersonas).where(eq(botPersonas.isActive, true));
+  }
+
+  async createBotPersona(persona: InsertBotPersona): Promise<BotPersona> {
+    const [newPersona] = await db.insert(botPersonas).values(persona).returning();
+    return newPersona;
+  }
+
+  async updateBotPersona(id: number, updates: Partial<BotPersona>): Promise<BotPersona> {
+    const [updatedPersona] = await db
+      .update(botPersonas)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(botPersonas.id, id))
+      .returning();
+    return updatedPersona;
+  }
+
+  async deleteBotPersona(id: number): Promise<void> {
+    await db.delete(botPersonas).where(eq(botPersonas.id, id));
   }
 
   // Tutor session methods
@@ -956,37 +993,6 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
 
   async deleteBlogPost(id: number): Promise<void> {
     await db.delete(blogPosts).where(eq(blogPosts.id, id));
-  }
-
-  // Bot persona methods
-  async createBotPersona(persona: InsertBotPersona): Promise<BotPersona> {
-    const [created] = await db
-      .insert(botPersonas)
-      .values(persona)
-      .returning();
-    return created;
-  }
-
-  async getBotPersona(id: number): Promise<BotPersona | undefined> {
-    const [persona] = await db.select().from(botPersonas).where(eq(botPersonas.id, id));
-    return persona || undefined;
-  }
-
-  async getBotPersonas(): Promise<BotPersona[]> {
-    return await db.select().from(botPersonas).orderBy(botPersonas.name);
-  }
-
-  async updateBotPersona(id: number, updates: Partial<BotPersona>): Promise<BotPersona> {
-    const [updated] = await db
-      .update(botPersonas)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(botPersonas.id, id))
-      .returning();
-    return updated;
-  }
-
-  async deleteBotPersona(id: number): Promise<void> {
-    await db.delete(botPersonas).where(eq(botPersonas.id, id));
   }
 }
 

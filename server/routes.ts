@@ -12,6 +12,7 @@ import {
   insertStudentProfileSchema,
   insertContentSubmissionSchema,
   insertStudentAssignmentSchema,
+  insertBotPersonaSchema,
   User
 } from "@shared/schema";
 import { getPersonaByKey, generatePersonaResponse } from "@shared/tutorPersonas";
@@ -905,6 +906,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(agents);
     } catch (error) {
       res.status(400).json({ error: "Error fetching tutor agents" });
+    }
+  });
+
+  // Bot persona management routes (teacher/superuser only)
+  app.post("/api/admin/personas", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+    try {
+      const validatedPersona = insertBotPersonaSchema.parse(req.body);
+      const persona = await storage.createBotPersona({
+        ...validatedPersona,
+        createdById: req.user!.id
+      });
+      res.status(201).json(persona);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: errorMessage });
+    }
+  });
+
+  app.get("/api/admin/personas", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+    try {
+      const personas = await storage.getBotPersonas();
+      res.json(personas);
+    } catch (error) {
+      res.status(400).json({ error: "Error fetching personas" });
+    }
+  });
+
+  app.patch("/api/admin/personas/:id", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+    try {
+      const personaId = parseInt(req.params.id);
+      const updates = insertBotPersonaSchema.partial().parse(req.body);
+      const persona = await storage.updateBotPersona(personaId, updates);
+      res.json(persona);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(400).json({ error: errorMessage });
+    }
+  });
+
+  app.delete("/api/admin/personas/:id", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+    try {
+      const personaId = parseInt(req.params.id);
+      await storage.deleteBotPersona(personaId);
+      res.json({ message: 'Persona deleted successfully' });
+    } catch (error) {
+      res.status(400).json({ error: "Error deleting persona" });
     }
   });
 
