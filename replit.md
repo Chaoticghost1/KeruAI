@@ -137,6 +137,30 @@ Changelog:
   - Implemented privacy-focused analytics showing transaction patterns without personal data
   - Built API endpoints for all admin features with proper authentication and authorization
   - Fixed admin panel authentication and added comprehensive admin management interface
+- November 21, 2025. Comprehensive Architectural Refactoring and Security Hardening
+  - **Route Modularization**: Split monolithic 1400-line routes.ts into 9 domain-based routers
+    - Created separate routers: auth, budget, study, games, tutors, progress, content, assignments, admin
+    - Established clean domain separation with orchestrator pattern in server/routes/index.ts
+    - All routers properly mounted at /api/* paths with consistent structure
+  - **Critical Security Fixes**:
+    - Added authentication middleware to budget, study, and games routers (prevented unauthorized access)
+    - Secured PWA offline sync with JWT validation before replaying queued mutations
+    - Enforced JWT_SECRET and JWT_REFRESH_SECRET environment variables in production (fails fast if missing)
+    - Fixed API contract between frontend StudyBuddy and backend /api/progress routes
+  - **Query Client Enhancements**:
+    - Fixed hierarchical query key handling in default fetcher (properly joins array segments with '/')
+    - Enabled proper cache invalidation with TanStack Query best practices
+    - Supports both string URLs and hierarchical array keys: ['/api/progress', 'profile', userId]
+  - **Code Quality Improvements**:
+    - Created shared persona hooks (useTutors, useAdminPersonas) eliminating duplicate logic
+    - Added pagination to 4 admin endpoints: blog-posts, personas, submissions, assignments
+    - Removed broken AethosByte navigation references from Dashboard and Home pages
+    - Standardized all query keys to array format across frontend components
+  - **Architectural Verification**: All 11 identified issues resolved with architect approval
+    - Zero authentication bypass vulnerabilities
+    - Clean router architecture with domain isolation
+    - No code duplication across components
+    - Consistent API contracts between frontend and backend
 ```
 
 ## AI-Assisted Content Revision Implementation Plan
