@@ -600,21 +600,21 @@ function ContentManagementSection({ user }: { user: any }) {
     title: "",
     description: "",
     subject: "",
-    fileType: "pdf",
-    isPublic: true
+    contentType: "pdf",
+    gradeLevel: ""
   });
   const [searchTerm, setSearchTerm] = useState("");
 
   // Content Query
   const { data: contents = [], isLoading: contentsLoading } = useQuery({
-    queryKey: ['/api/admin/content'],
+    queryKey: ['/api/content/my'],
     enabled: !!user?.role && ['superuser', 'teacher'].includes(user.role)
   });
 
   // Upload Mutation
   const uploadMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const response = await fetch('/api/admin/content/upload', {
+      const response = await fetch('/api/content', {
         method: 'POST',
         body: data
       });
@@ -625,7 +625,7 @@ function ContentManagementSection({ user }: { user: any }) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/content'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/content/my'] });
       toast({ title: "Content uploaded successfully" });
       resetUploadForm();
     },
@@ -637,7 +637,7 @@ function ContentManagementSection({ user }: { user: any }) {
   // Update Mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      const response = await fetch(`/api/admin/content/${id}`, {
+      const response = await fetch(`/api/content/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -649,7 +649,7 @@ function ContentManagementSection({ user }: { user: any }) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/content'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/content/my'] });
       toast({ title: "Content updated successfully" });
       resetUploadForm();
     },
@@ -661,7 +661,7 @@ function ContentManagementSection({ user }: { user: any }) {
   // Delete Mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/admin/content/${id}`, {
+      const response = await fetch(`/api/content/${id}`, {
         method: 'DELETE'
       });
       if (!response.ok) {
@@ -671,10 +671,10 @@ function ContentManagementSection({ user }: { user: any }) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/content'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/content/my'] });
       toast({ title: "Content deleted successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: any) {
       toast({ title: "Failed to delete content", description: error.message, variant: "destructive" });
     }
   });
@@ -684,8 +684,8 @@ function ContentManagementSection({ user }: { user: any }) {
       title: "",
       description: "",
       subject: "",
-      fileType: "pdf",
-      isPublic: true
+      contentType: "pdf",
+      gradeLevel: ""
     });
     setSelectedFile(null);
     setEditingContent(null);
@@ -697,8 +697,8 @@ function ContentManagementSection({ user }: { user: any }) {
       title: content.title,
       description: content.description,
       subject: content.subject || '',
-      fileType: content.fileType,
-      isPublic: content.isPublic
+      contentType: content.contentType || 'pdf',
+      gradeLevel: content.gradeLevel || ''
     });
     setSelectedFile(null);
   };
@@ -707,13 +707,13 @@ function ContentManagementSection({ user }: { user: any }) {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      // Auto-detect file type
+      // Auto-detect content type
       const extension = file.name.split('.').pop()?.toLowerCase();
       if (extension) {
-        if (['pdf'].includes(extension)) setUploadForm({...uploadForm, fileType: 'pdf'});
-        else if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) setUploadForm({...uploadForm, fileType: 'image'});
-        else if (['doc', 'docx'].includes(extension)) setUploadForm({...uploadForm, fileType: 'document'});
-        else setUploadForm({...uploadForm, fileType: 'other'});
+        if (['pdf'].includes(extension)) setUploadForm({...uploadForm, contentType: 'pdf'});
+        else if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) setUploadForm({...uploadForm, contentType: 'image'});
+        else if (['doc', 'docx'].includes(extension)) setUploadForm({...uploadForm, contentType: 'document'});
+        else setUploadForm({...uploadForm, contentType: 'other'});
       }
     }
   };
@@ -728,9 +728,7 @@ function ContentManagementSection({ user }: { user: any }) {
         data: {
           title: uploadForm.title,
           description: uploadForm.description,
-          subject: uploadForm.subject,
-          fileType: uploadForm.fileType,
-          isPublic: uploadForm.isPublic
+          subject: uploadForm.subject
         }
       });
     } else {
@@ -745,8 +743,8 @@ function ContentManagementSection({ user }: { user: any }) {
       formData.append('title', uploadForm.title);
       formData.append('description', uploadForm.description);
       formData.append('subject', uploadForm.subject);
-      formData.append('fileType', uploadForm.fileType);
-      formData.append('isPublic', uploadForm.isPublic.toString());
+      formData.append('contentType', uploadForm.contentType);
+      formData.append('gradeLevel', uploadForm.gradeLevel);
 
       uploadMutation.mutate(formData);
     }
@@ -838,10 +836,10 @@ function ContentManagementSection({ user }: { user: any }) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="content-type">File Type</Label>
+                  <Label htmlFor="content-type">Content Type</Label>
                   <Select
-                    value={uploadForm.fileType}
-                    onValueChange={(value) => setUploadForm({...uploadForm, fileType: value})}
+                    value={uploadForm.contentType}
+                    onValueChange={(value) => setUploadForm({...uploadForm, contentType: value})}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -850,6 +848,8 @@ function ContentManagementSection({ user }: { user: any }) {
                       <SelectItem value="pdf">PDF Document</SelectItem>
                       <SelectItem value="image">Image</SelectItem>
                       <SelectItem value="document">Word Document</SelectItem>
+                      <SelectItem value="whiteboard">Whiteboard</SelectItem>
+                      <SelectItem value="html">HTML Content</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -867,15 +867,14 @@ function ContentManagementSection({ user }: { user: any }) {
                 />
               </div>
               
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="content-public"
-                  checked={uploadForm.isPublic}
-                  onChange={(e) => setUploadForm({...uploadForm, isPublic: e.target.checked})}
-                  className="rounded"
+              <div>
+                <Label htmlFor="content-grade">Grade Level (optional)</Label>
+                <Input
+                  id="content-grade"
+                  value={uploadForm.gradeLevel}
+                  onChange={(e) => setUploadForm({...uploadForm, gradeLevel: e.target.value})}
+                  placeholder="e.g. 8th Grade, High School"
                 />
-                <Label htmlFor="content-public">Make available to all students</Label>
               </div>
               
               <div className="flex space-x-2">
@@ -965,7 +964,7 @@ function ContentManagementSection({ user }: { user: any }) {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/content'] })}
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/content/my'] })}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
@@ -1014,13 +1013,13 @@ function ContentManagementSection({ user }: { user: any }) {
                     </td>
                     <td className="p-4">
                       <Badge variant="outline" className="capitalize">
-                        {content.fileType}
+                        {content.contentType}
                       </Badge>
                     </td>
                     <td className="p-4 text-gray-600">{content.subject || 'General'}</td>
                     <td className="p-4">
-                      <Badge variant={content.isPublic ? "default" : "secondary"}>
-                        {content.isPublic ? "Public" : "Private"}
+                      <Badge variant={content.isPublished ? "default" : "secondary"}>
+                        {content.isPublished ? "Published" : "Draft"}
                       </Badge>
                     </td>
                     <td className="p-4 text-sm text-gray-500">

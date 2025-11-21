@@ -106,6 +106,53 @@ contentRouter.get("/", authenticateToken, requireVerification, async (req: AuthR
   }
 });
 
+contentRouter.patch("/:id", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+  try {
+    const contentId = parseInt(req.params.id);
+    const content = await storage.getContentSubmission(contentId);
+    
+    if (!content) {
+      return res.status(404).json({ error: "Content not found" });
+    }
+
+    if (req.user!.role === 'teacher' && content.teacherId !== req.user!.id) {
+      return res.status(403).json({ error: "You can only edit your own content" });
+    }
+
+    const { title, description, subject } = req.body;
+    const updated = await storage.updateContentSubmission(contentId, {
+      title,
+      description,
+      subject
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error("Content update error:", error);
+    res.status(500).json({ error: "Failed to update content" });
+  }
+});
+
+contentRouter.delete("/:id", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+  try {
+    const contentId = parseInt(req.params.id);
+    const content = await storage.getContentSubmission(contentId);
+    
+    if (!content) {
+      return res.status(404).json({ error: "Content not found" });
+    }
+
+    if (req.user!.role === 'teacher' && content.teacherId !== req.user!.id) {
+      return res.status(403).json({ error: "You can only delete your own content" });
+    }
+
+    await storage.deleteContentSubmission(contentId);
+    res.json({ message: "Content deleted successfully" });
+  } catch (error) {
+    console.error("Content deletion error:", error);
+    res.status(500).json({ error: "Failed to delete content" });
+  }
+});
+
 contentRouter.post("/:id/publish", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
   try {
     const contentId = parseInt(req.params.id);
