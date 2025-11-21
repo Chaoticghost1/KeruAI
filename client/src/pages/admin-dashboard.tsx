@@ -194,6 +194,11 @@ export default function AdminDashboard() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto p-4 lg:p-6 admin-content">
+          {/* DEBUG: Current section indicator */}
+          <div className="mb-4 p-2 bg-yellow-100 border border-yellow-400 rounded text-sm">
+            <strong>DEBUG:</strong> Active Section = "{activeSection}"
+          </div>
+          
           {activeSection === "overview" && <OverviewSection user={user} setActiveSection={setActiveSection} />}
           {activeSection === "content" && <ContentManagementSection user={user} />}
           {activeSection === "users" && <UserManagementSection user={user} />}
