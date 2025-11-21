@@ -387,21 +387,32 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
 
   // Tutor agent methods
   async getTutorAgents(): Promise<TutorAgent[]> {
-    const agents = await db.select().from(tutorAgents).where(eq(tutorAgents.isActive, true));
-    // Convert bot personas to TutorAgent format for unified interface
-    const botPersonasData = await db.select().from(botPersonas).where(eq(botPersonas.isActive, true));
-    const convertedPersonas: TutorAgent[] = botPersonasData.map(persona => ({
-      id: persona.id,
-      agentKey: persona.key,
-      name: persona.name,
-      title: persona.description || '',
-      avatar: '🤖',
-      subjects: persona.subjects || [],
-      description: persona.description || '',
-      isActive: persona.isActive,
-      createdAt: persona.createdAt,
-    }));
-    return [...agents, ...convertedPersonas];
+    try {
+      const agents = await db.select().from(tutorAgents).where(eq(tutorAgents.isActive, true));
+      // Try to fetch bot personas, but don't fail if table doesn't exist yet
+      try {
+        const botPersonasData = await db.select().from(botPersonas).where(eq(botPersonas.isActive, true));
+        const convertedPersonas: TutorAgent[] = botPersonasData.map(persona => ({
+          id: persona.id,
+          agentKey: persona.key,
+          name: persona.name,
+          title: persona.description || '',
+          avatar: '🤖',
+          subjects: persona.subjects || [],
+          description: persona.description || '',
+          isActive: persona.isActive,
+          createdAt: persona.createdAt,
+        }));
+        return [...agents, ...convertedPersonas];
+      } catch (personaError) {
+        // If bot personas query fails, just return tutor agents
+        console.warn('Bot personas query failed:', personaError);
+        return agents;
+      }
+    } catch (error) {
+      console.error('getTutorAgents error:', error);
+      throw error;
+    }
   }
 
   async getTutorAgent(id: number): Promise<TutorAgent | undefined> {
