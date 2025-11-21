@@ -294,7 +294,11 @@ function OverviewSection({ user, setActiveSection }: { user: any; setActiveSecti
           <Button 
             className="w-full justify-start" 
             variant="outline"
-            onClick={() => setActiveSection("content")}
+            onClick={() => {
+              console.log('Quick Action clicked: content');
+              setActiveSection("content");
+            }}
+            data-testid="quick-action-content"
           >
             <PlusCircle className="w-4 h-4 mr-3" />
             Create New Content
@@ -303,7 +307,11 @@ function OverviewSection({ user, setActiveSection }: { user: any; setActiveSecti
             <Button 
               className="w-full justify-start" 
               variant="outline"
-              onClick={() => setActiveSection("users")}
+              onClick={() => {
+                console.log('Quick Action clicked: users');
+                setActiveSection("users");
+              }}
+              data-testid="quick-action-users"
             >
               <Users className="w-4 h-4 mr-3" />
               Manage Users
@@ -313,7 +321,11 @@ function OverviewSection({ user, setActiveSection }: { user: any; setActiveSecti
             <Button 
               className="w-full justify-start" 
               variant="outline"
-              onClick={() => setActiveSection("analytics")}
+              onClick={() => {
+                console.log('Quick Action clicked: analytics');
+                setActiveSection("analytics");
+              }}
+              data-testid="quick-action-analytics"
             >
               <BarChart3 className="w-4 h-4 mr-3" />
               View Analytics
@@ -323,7 +335,11 @@ function OverviewSection({ user, setActiveSection }: { user: any; setActiveSecti
             <Button 
               className="w-full justify-start" 
               variant="outline"
-              onClick={() => setActiveSection("settings")}
+              onClick={() => {
+                console.log('Quick Action clicked: settings');
+                setActiveSection("settings");
+              }}
+              data-testid="quick-action-settings"
             >
               <Settings className="w-4 h-4 mr-3" />
               System Settings
