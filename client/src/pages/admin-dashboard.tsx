@@ -209,6 +209,13 @@ export default function AdminDashboard() {
 
 // Overview Section Component
 function OverviewSection({ user, setActiveSection }: { user: any; setActiveSection: (section: string) => void }) {
+  const { toast } = useToast();
+  
+  const handleNavigate = (section: string, label: string) => {
+    setActiveSection(section);
+    toast({ title: `Navigating to ${label}...` });
+  };
+
   const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
     queryKey: ['/api/admin/analytics'],
     enabled: !!user?.role && ['superuser', 'teacher'].includes(user.role)
