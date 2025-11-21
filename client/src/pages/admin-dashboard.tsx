@@ -294,10 +294,7 @@ function OverviewSection({ user, setActiveSection }: { user: any; setActiveSecti
           <Button 
             className="w-full justify-start" 
             variant="outline"
-            onClick={() => {
-              console.log('Quick Action clicked: content');
-              setActiveSection("content");
-            }}
+            onClick={() => setActiveSection("content")}
             data-testid="quick-action-content"
           >
             <PlusCircle className="w-4 h-4 mr-3" />
@@ -307,10 +304,7 @@ function OverviewSection({ user, setActiveSection }: { user: any; setActiveSecti
             <Button 
               className="w-full justify-start" 
               variant="outline"
-              onClick={() => {
-                console.log('Quick Action clicked: users');
-                setActiveSection("users");
-              }}
+              onClick={() => setActiveSection("users")}
               data-testid="quick-action-users"
             >
               <Users className="w-4 h-4 mr-3" />
@@ -321,10 +315,7 @@ function OverviewSection({ user, setActiveSection }: { user: any; setActiveSecti
             <Button 
               className="w-full justify-start" 
               variant="outline"
-              onClick={() => {
-                console.log('Quick Action clicked: analytics');
-                setActiveSection("analytics");
-              }}
+              onClick={() => setActiveSection("analytics")}
               data-testid="quick-action-analytics"
             >
               <BarChart3 className="w-4 h-4 mr-3" />
@@ -335,10 +326,7 @@ function OverviewSection({ user, setActiveSection }: { user: any; setActiveSecti
             <Button 
               className="w-full justify-start" 
               variant="outline"
-              onClick={() => {
-                console.log('Quick Action clicked: settings');
-                setActiveSection("settings");
-              }}
+              onClick={() => setActiveSection("settings")}
               data-testid="quick-action-settings"
             >
               <Settings className="w-4 h-4 mr-3" />
@@ -674,7 +662,7 @@ function ContentManagementSection({ user }: { user: any }) {
       queryClient.invalidateQueries({ queryKey: ['/api/content/my'] });
       toast({ title: "Content deleted successfully" });
     },
-    onError: (error: any) {
+    onError: (error: any) => {
       toast({ title: "Failed to delete content", description: error.message, variant: "destructive" });
     }
   });
