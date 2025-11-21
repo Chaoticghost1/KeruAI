@@ -6,8 +6,23 @@ import { storage } from './storage';
 import { User, AuthToken, InsertAuthToken } from '@shared/schema';
 
 // JWT Configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-super-secret-refresh-key-change-in-production';
+// SECURITY: JWT secrets must be cryptographically secure in production
+// - Secrets should be at least 32 characters long
+// - Use cryptographically random values (not dictionary words)
+// - Generate secure secrets using: openssl rand -base64 32
+// - Set JWT_SECRET and JWT_REFRESH_SECRET in your environment variables
+const isDev = process.env.NODE_ENV !== 'production';
+const JWT_SECRET = process.env.JWT_SECRET || (isDev ? 'dev-secret-key-change-in-production' : '');
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || (isDev ? 'dev-refresh-secret-change-in-production' : '');
+
+// Validate that secrets are set in production
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error(
+    'CRITICAL SECURITY ERROR: JWT_SECRET and JWT_REFRESH_SECRET must be set in production. ' +
+    'Generate secure secrets using: openssl rand -base64 32'
+  );
+}
+
 const ACCESS_TOKEN_EXPIRES = '15m';
 const REFRESH_TOKEN_EXPIRES = '7d';
 
