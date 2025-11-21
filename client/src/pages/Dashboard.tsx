@@ -75,15 +75,8 @@ export default function Dashboard() {
       href: '/dao',
       icon: 'fas fa-bus',
       color: 'from-orange-500 to-orange-600'
-    },
-    {
-      id: 'aethosbyte',
-      title: t.nav.cleanup,
-      description: 'AI-powered file organization and cleanup',
-      href: '/aethosbyte',
-      icon: 'fas fa-brain',
-      color: 'from-pink-500 to-pink-600'
     }
+    // AethosByte temporarily disabled - route not active
   ];
 
   return (

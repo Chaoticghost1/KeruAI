@@ -95,30 +95,6 @@ export default function Home() {
           buttonColor="bg-cyan-600 hover:bg-cyan-700"
         />
 
-        {/* Santa Rita DAO */}
-        <ToolCard
-          id="santarita"
-          title={t.santarita.title}
-          description={t.santarita.description}
-          cta={t.santarita.cta}
-          href="/dao"
-          imageSrc="https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600"
-          imageAlt="Modern electric bus representing sustainable transport"
-          reverse={true}
-          buttonColor="bg-orange-600 hover:bg-orange-700"
-        />
-
-        {/* AethosByte */}
-        <ToolCard
-          id="aethosbyte"
-          title={t.aethosbyte.title}
-          description={t.aethosbyte.description}
-          cta={t.aethosbyte.cta}
-          href="/aethosbyte"
-          imageSrc="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600"
-          imageAlt="Clean workspace with computer showing file organization"
-          buttonColor="bg-indigo-600 hover:bg-indigo-700"
-        />
       </div>
     </div>
   );
