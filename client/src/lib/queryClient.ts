@@ -148,7 +148,12 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const url = queryKey[0] as string;
+    // Handle both string URLs and hierarchical array keys
+    // Array: ['/api/progress', 'profile', userId] → '/api/progress/profile/123'
+    // String: '/api/users' → '/api/users'
+    const url = Array.isArray(queryKey) && queryKey.length > 1
+      ? queryKey.filter(segment => segment !== undefined && segment !== null).join('/')
+      : queryKey[0] as string;
     
     try {
       const res = await apiRequest('GET', url);

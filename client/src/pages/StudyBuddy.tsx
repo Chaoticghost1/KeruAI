@@ -80,15 +80,15 @@ function ProgressDashboard({ userId }: { userId: number }) {
   const { t } = useLanguage();
   
   const { data: profile } = useQuery<StudentProfile>({
-    queryKey: ['/api/students/profile', userId],
+    queryKey: ['/api/progress', 'profile', userId],
   });
   
   const { data: userBadges } = useQuery<UserBadge[]>({
-    queryKey: ['/api/users', userId, 'badges'],
+    queryKey: ['/api/progress', 'user-badges', userId],
   });
   
   const { data: allBadges } = useQuery<Badge[]>({
-    queryKey: ['/api/badges'],
+    queryKey: ['/api/progress', 'badges'],
   });
   
   const earnedBadgeIds = new Set(userBadges?.map(ub => ub.badgeId) || []);
