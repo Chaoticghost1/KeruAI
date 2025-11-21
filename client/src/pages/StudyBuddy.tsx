@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { apiRequest } from '@/lib/queryClient';
+import { useTutors } from '../hooks/use-personas';
 
 interface Badge {
   id: number;
@@ -220,15 +221,8 @@ export default function StudyBuddy() {
   // Get authenticated user ID
   const userId = user?.id;
 
-  // Fetch available tutor agents
-  const { data: agents = [], isLoading: agentsLoading } = useQuery<TutorAgent[]>({
-    queryKey: ['tutors'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/tutors');
-      return await response.json();
-    },
-    enabled: true
-  });
+  // Fetch available tutor agents using shared hook
+  const { data: agents = [], isLoading: agentsLoading } = useTutors();
 
   // Fetch session messages
   const { data: messages = [], isLoading: messagesLoading } = useQuery<TutorMessage[]>({

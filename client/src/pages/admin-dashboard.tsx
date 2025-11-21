@@ -48,6 +48,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAdminPersonas } from "@/hooks/use-personas";
 
 // Main Admin Dashboard Component
 export default function AdminDashboard() {
@@ -1056,8 +1057,6 @@ function ContentManagementSection({ user }: { user: any }) {
 }
 
 function StudyBuddySection({ user }: { user: any }) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [selectedPersona, setSelectedPersona] = useState<any>(null);
   const [personaForm, setPersonaForm] = useState({
     name: "",
@@ -1068,59 +1067,14 @@ function StudyBuddySection({ user }: { user: any }) {
     isActive: true
   });
 
-  // Bot Personas Query
-  const { data: personas = [], isLoading: personasLoading } = useQuery({
-    queryKey: ['/api/admin/bot-personas'],
-    enabled: !!user?.role && ['superuser', 'teacher'].includes(user.role)
-  });
-
-  // Bot Persona Mutations
-  const createPersonaMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/admin/bot-personas", data);
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/bot-personas'] });
-      queryClient.invalidateQueries({ queryKey: ['tutors'] });
-      toast({ title: "Bot persona created successfully" });
-      resetPersonaForm();
-    },
-    onError: (error) => {
-      toast({ title: "Failed to create persona", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const updatePersonaMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      const response = await apiRequest("PUT", `/api/admin/bot-personas/${id}`, data);
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/bot-personas'] });
-      queryClient.invalidateQueries({ queryKey: ['tutors'] });
-      toast({ title: "Bot persona updated successfully" });
-      resetPersonaForm();
-    },
-    onError: (error) => {
-      toast({ title: "Failed to update persona", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const deletePersonaMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiRequest("DELETE", `/api/admin/bot-personas/${id}`);
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/bot-personas'] });
-      queryClient.invalidateQueries({ queryKey: ['tutors'] });
-      toast({ title: "Bot persona deleted successfully" });
-    },
-    onError: (error) => {
-      toast({ title: "Failed to delete persona", description: error.message, variant: "destructive" });
-    }
-  });
+  // Use shared persona management hook
+  const { 
+    personas, 
+    isLoading: personasLoading, 
+    createPersona, 
+    updatePersona, 
+    deletePersona 
+  } = useAdminPersonas(user?.role);
 
   const resetPersonaForm = () => {
     setPersonaForm({
@@ -1137,9 +1091,13 @@ function StudyBuddySection({ user }: { user: any }) {
   const handlePersonaSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedPersona) {
-      updatePersonaMutation.mutate({ id: selectedPersona.id, data: personaForm });
+      updatePersona.mutate({ id: selectedPersona.id, data: personaForm }, {
+        onSuccess: () => resetPersonaForm()
+      });
     } else {
-      createPersonaMutation.mutate(personaForm);
+      createPersona.mutate(personaForm, {
+        onSuccess: () => resetPersonaForm()
+      });
     }
   };
 
@@ -1231,7 +1189,7 @@ function StudyBuddySection({ user }: { user: any }) {
               </div>
               
               <div className="flex space-x-2">
-                <Button type="submit" disabled={createPersonaMutation.isPending || updatePersonaMutation.isPending}>
+                <Button type="submit" disabled={createPersona.isPending || updatePersona.isPending}>
                   <Save className="w-4 h-4 mr-2" />
                   {selectedPersona ? 'Update' : 'Create'} Persona
                 </Button>
@@ -1265,7 +1223,7 @@ function StudyBuddySection({ user }: { user: any }) {
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          onClick={() => deletePersonaMutation.mutate(persona.id)}
+                          onClick={() => deletePersona.mutate(persona.id)}
                           className="text-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
