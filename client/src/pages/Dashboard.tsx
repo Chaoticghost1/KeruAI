@@ -9,16 +9,17 @@ export default function Dashboard() {
   const { t } = useLanguage();
 
   const tools = [
-    // Admin/Teacher Content Management - SHOW PROMINENTLY FOR TEACHERS/SUPERUSERS
-    ...(user?.role === 'teacher' || user?.role === 'superuser' ? [{
-      id: 'content-management',
-      title: 'Content Management',
-      description: 'Upload lesson materials, PDFs, images for student AI-assisted learning',
+    // Teacher Panel - Content Management for teachers
+    ...(user?.role === 'teacher' ? [{
+      id: 'teacher-panel',
+      title: 'Teacher Panel',
+      description: 'Manage content, student assignments, and analytics',
       href: '/admin',
-      icon: 'fas fa-upload',
+      icon: 'fas fa-chalkboard-teacher',
       color: 'from-purple-500 to-purple-600'
-    },
-    {
+    }] : []),
+    // Admin Panel - Full system management for superusers
+    ...(user?.role === 'superuser' ? [{
       id: 'admin-panel',
       title: 'Admin Panel',
       description: 'Manage users, content, analytics, and system settings',

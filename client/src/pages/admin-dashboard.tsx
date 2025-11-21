@@ -74,9 +74,9 @@ export default function AdminDashboard() {
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "content", label: "Content Management", icon: FileText },
     { id: "users", label: "User Management", icon: Users, superuserOnly: true },
-    { id: "study-buddy", label: "Study Buddy AI", icon: Bot },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "travel-blog", label: "Travel Blog", icon: Globe },
+    { id: "study-buddy", label: "Study Buddy AI", icon: Bot, superuserOnly: true },
+    { id: "analytics", label: "Analytics", icon: BarChart3, superuserOnly: true },
+    { id: "travel-blog", label: "Travel Blog", icon: Globe, superuserOnly: true },
     { id: "settings", label: "System Settings", icon: Settings, superuserOnly: true },
   ];
 
