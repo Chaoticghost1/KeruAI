@@ -427,7 +427,7 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
 
   // Bot persona methods
   async getBotPersonas(): Promise<BotPersona[]> {
-    return await db.select().from(botPersonas).where(eq(botPersonas.isActive, true));
+    return await db.select().from(botPersonas).orderBy(desc(botPersonas.createdAt));
   }
 
   async createBotPersona(persona: InsertBotPersona): Promise<BotPersona> {

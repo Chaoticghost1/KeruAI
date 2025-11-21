@@ -1231,9 +1231,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (personaData.subjects && typeof personaData.subjects === 'string') {
         personaData.subjects = personaData.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       }
+      // Set the creator ID from the authenticated user
+      personaData.createdById = req.user!.id;
       const persona = await storage.createBotPersona(personaData);
       res.json(persona);
     } catch (error) {
+      console.error('Error creating bot persona:', error);
       res.status(500).json({ error: "Failed to create bot persona" });
     }
   });
