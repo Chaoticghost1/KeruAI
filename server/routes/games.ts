@@ -1,15 +1,15 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { insertGameScoreSchema } from "@shared/schema";
+import { authenticateToken, AuthRequest } from "../auth";
 
 export const gamesRouter = Router();
 
 // Get game scores
-gamesRouter.get("/scores/:userId", async (req, res) => {
+gamesRouter.get("/scores", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = parseInt(req.params.userId);
     const gameName = req.query.game as string;
-    const scores = await storage.getGameScores(userId, gameName);
+    const scores = await storage.getGameScores(req.user!.id, gameName);
     res.json(scores);
   } catch (error) {
     res.status(400).json({ error: "Error fetching game scores" });
@@ -17,9 +17,10 @@ gamesRouter.get("/scores/:userId", async (req, res) => {
 });
 
 // Create game score
-gamesRouter.post("/scores", async (req, res) => {
+gamesRouter.post("/scores", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const validatedScore = insertGameScoreSchema.parse(req.body);
+    const scoreData = { ...req.body, userId: req.user!.id };
+    const validatedScore = insertGameScoreSchema.parse(scoreData);
     const score = await storage.createGameScore(validatedScore);
     res.json(score);
   } catch (error) {
@@ -27,7 +28,7 @@ gamesRouter.post("/scores", async (req, res) => {
   }
 });
 
-// Get leaderboard
+// Get leaderboard (public - no authentication required)
 gamesRouter.get("/leaderboard/:gameName", async (req, res) => {
   try {
     const gameName = req.params.gameName;

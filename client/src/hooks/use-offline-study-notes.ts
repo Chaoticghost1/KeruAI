@@ -44,7 +44,7 @@ export function useOfflineStudyNotes() {
       
       try {
         // Try to get online data first
-        const response = await apiRequest('GET', `/api/study/notes/${user.id}`);
+        const response = await apiRequest('GET', '/api/study/notes');
         const onlineNotes = await response.json();
         
         // Get offline notes
@@ -95,12 +95,13 @@ export function useOfflineStudyNotes() {
       }
 
       try {
-        // Try online creation
-        const response = await apiRequest('POST', '/api/study/notes', newNote);
+        // Try online creation (userId will be extracted from auth token)
+        const { userId, ...noteDataWithoutUserId } = newNote;
+        const response = await apiRequest('POST', '/api/study/notes', noteDataWithoutUserId);
         const serverNote = await response.json();
         
         // Cache the successful response
-        await OfflineManager.cacheContent(`/api/study/notes/${user.id}`, null, 0.5); // Invalidate cache
+        await OfflineManager.cacheContent('/api/study/notes', null, 0.5); // Invalidate cache
         
         return serverNote;
       } catch (error) {
@@ -142,12 +143,12 @@ export function useOfflineStudyNotes() {
           const serverNote = await response.json();
           
           // Invalidate cache
-          await OfflineManager.cacheContent(`/api/study/notes/${user.id}`, null, 0.5);
+          await OfflineManager.cacheContent('/api/study/notes', null, 0.5);
           
           return serverNote;
         } else if (localId) {
-          // Convert offline note to online
-          const response = await apiRequest('POST', '/api/study/notes', { ...updatedNote, userId: user.id });
+          // Convert offline note to online (userId will be extracted from auth token)
+          const response = await apiRequest('POST', '/api/study/notes', updatedNote);
           const serverNote = await response.json();
           
           // Mark offline note as synced
@@ -195,7 +196,7 @@ export function useOfflineStudyNotes() {
         const result = await response.json();
         
         // Invalidate cache
-        await OfflineManager.cacheContent(`/api/study/notes/${user.id}`, null, 0.5);
+        await OfflineManager.cacheContent('/api/study/notes', null, 0.5);
         
         return result;
       }
@@ -216,8 +217,8 @@ export function useOfflineStudyNotes() {
       
       for (const note of unsyncedData.studyNotes) {
         try {
+          // userId will be extracted from auth token
           const response = await apiRequest('POST', '/api/study/notes', {
-            userId: note.userId,
             title: note.title,
             content: note.content,
             subject: note.subject,

@@ -1,14 +1,14 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { insertStudyNoteSchema } from "@shared/schema";
+import { authenticateToken, AuthRequest } from "../auth";
 
 export const studyRouter = Router();
 
 // Get study notes
-studyRouter.get("/notes/:userId", async (req, res) => {
+studyRouter.get("/notes", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const userId = parseInt(req.params.userId);
-    const notes = await storage.getStudyNotes(userId);
+    const notes = await storage.getStudyNotes(req.user!.id);
     res.json(notes);
   } catch (error) {
     res.status(400).json({ error: "Error fetching study notes" });
@@ -16,9 +16,10 @@ studyRouter.get("/notes/:userId", async (req, res) => {
 });
 
 // Create study note
-studyRouter.post("/notes", async (req, res) => {
+studyRouter.post("/notes", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const validatedNote = insertStudyNoteSchema.parse(req.body);
+    const noteData = { ...req.body, userId: req.user!.id };
+    const validatedNote = insertStudyNoteSchema.parse(noteData);
     const note = await storage.createStudyNote(validatedNote);
     res.json(note);
   } catch (error) {
@@ -27,9 +28,19 @@ studyRouter.post("/notes", async (req, res) => {
 });
 
 // Update study note
-studyRouter.put("/notes/:id", async (req, res) => {
+studyRouter.put("/notes/:id", authenticateToken, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
+    
+    // First verify ownership
+    const existingNote = await storage.getStudyNoteById(id);
+    if (!existingNote) {
+      return res.status(404).json({ error: "Note not found" });
+    }
+    if (existingNote.userId !== req.user!.id) {
+      return res.status(403).json({ error: "Not authorized to update this note" });
+    }
+    
     const updates = req.body;
     const updatedNote = await storage.updateStudyNote(id, updates);
     res.json(updatedNote);
@@ -39,9 +50,19 @@ studyRouter.put("/notes/:id", async (req, res) => {
 });
 
 // Delete study note
-studyRouter.delete("/notes/:id", async (req, res) => {
+studyRouter.delete("/notes/:id", authenticateToken, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
+    
+    // First verify ownership
+    const existingNote = await storage.getStudyNoteById(id);
+    if (!existingNote) {
+      return res.status(404).json({ error: "Note not found" });
+    }
+    if (existingNote.userId !== req.user!.id) {
+      return res.status(403).json({ error: "Not authorized to delete this note" });
+    }
+    
     await storage.deleteStudyNote(id);
     res.json({ success: true });
   } catch (error) {

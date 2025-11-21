@@ -99,6 +99,7 @@ export interface IStorage {
 
   // Study notes methods
   getStudyNotes(userId: number): Promise<StudyNote[]>;
+  getStudyNoteById(id: number): Promise<StudyNote | undefined>;
   createStudyNote(note: InsertStudyNote): Promise<StudyNote>;
   updateStudyNote(id: number, updates: Partial<StudyNote>): Promise<StudyNote>;
   deleteStudyNote(id: number): Promise<void>;
@@ -344,6 +345,11 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
   // Study notes methods
   async getStudyNotes(userId: number): Promise<StudyNote[]> {
     return await db.select().from(studyNotes).where(eq(studyNotes.userId, userId));
+  }
+
+  async getStudyNoteById(id: number): Promise<StudyNote | undefined> {
+    const [note] = await db.select().from(studyNotes).where(eq(studyNotes.id, id));
+    return note;
   }
 
   async createStudyNote(note: InsertStudyNote): Promise<StudyNote> {

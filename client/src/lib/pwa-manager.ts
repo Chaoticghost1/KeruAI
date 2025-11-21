@@ -127,12 +127,27 @@ class PWAManagerImpl implements PWAManager {
       const { OfflineManager } = await import('./offline-storage');
       const unsyncedData = await OfflineManager.getUnsyncedData();
       
+      // Get auth token for authenticated requests
+      const token = localStorage.getItem('accessToken');
+      
+      // CRITICAL SECURITY: Abort sync if no valid authentication token
+      // Data remains queued for sync after user logs in
+      if (!token) {
+        console.warn('Cannot sync offline data: User is not authenticated. Your data is safely stored and will sync after you log in.');
+        return;
+      }
+      
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+      
       // Sync study notes
       for (const note of unsyncedData.studyNotes) {
         try {
           const response = await fetch('/api/study/notes', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders,
             body: JSON.stringify({
               title: note.title,
               content: note.content,
@@ -156,9 +171,8 @@ class PWAManagerImpl implements PWAManager {
         try {
           const response = await fetch('/api/budget/transactions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders,
             body: JSON.stringify({
-              userId: transaction.userId,
               categoryId: transaction.categoryId,
               description: transaction.description,
               amount: transaction.amount,
@@ -181,9 +195,8 @@ class PWAManagerImpl implements PWAManager {
         try {
           const response = await fetch('/api/games/scores', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders,
             body: JSON.stringify({
-              userId: score.userId,
               gameName: score.gameName,
               score: score.score,
               level: score.level,
