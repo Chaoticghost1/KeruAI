@@ -17,12 +17,7 @@ import StudyBuddy from "./pages/StudyBuddy";
 import BudgetPal from "./pages/BudgetPal";
 import EnhancedBudgetPal from "./pages/EnhancedBudgetPal";
 import Blog from "./pages/Blog";
-import Chat from "./pages/Chat";
 import CruiseWord from "./pages/CruiseWord";
-import DAO from "./pages/DAO";
-import EnhancedDAO from "./pages/EnhancedDAO";
-import AethosByte from "./pages/AethosByte";
-import MentorshipHub from "./pages/MentorshipHub";
 import AuthPage from "./pages/auth-page";
 import AdminDashboard from "./pages/admin-dashboard";
 import StudentRevision from "./pages/StudentRevision";
@@ -76,11 +71,7 @@ function Router() {
                     <ProtectedRoute path="/revision" component={StudentRevision} roles={['student']} />
                     <ProtectedRoute path="/budgetpal" component={EnhancedBudgetPal} />
                     <ProtectedRoute path="/blog" component={Blog} />
-                    <ProtectedRoute path="/chat" component={Chat} />
                     <ProtectedRoute path="/cruiseword" component={CruiseWord} />
-                    <ProtectedRoute path="/dao" component={EnhancedDAO} />
-                    <ProtectedRoute path="/mentorship-hub" component={MentorshipHub} />
-                    {/* <ProtectedRoute path="/aethosbyte" component={AethosByte} /> */} {/* Temporarily removed */}
                     <Route component={NotFound} />
                   </Switch>
                 </main>

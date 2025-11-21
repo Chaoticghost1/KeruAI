@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BudgetPal Pro • Tu Mejor App de Presupuesto en Honduras</title>
+  <meta name="description" content="La app de presupuesto #1 en Honduras: seguimiento automático, metas de ahorro, alertas y más. ¡Gratis y offline!"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💸</text></svg>"/>
+  <style>
+    :root {
+      --hnl: #00ba6c;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --green: #10b981;
+      --gray: #6b7280;
+      --dark: #1f2937;
+      --light: #f9fafb;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      color: var(--dark);
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header {
+      text-align: center;
+      padding: 2rem 1rem;
+      background: white;
+      border-radius: 1.5rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+    h1 {
+      font-size: 2.8rem;
+      background: linear-gradient(90deg, var(--hnl), #007a4d);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--hnl);
+      color: white;
+      padding: 0.4rem 1rem;
+      border-radius: 2rem;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+    .grid {
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      margin-top: 2rem;
+    }
+    .card {
+      background: white;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+    .card h3 {
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+      color: var(--dark);
+    }
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 1rem 0;
+      font-size: 1.1rem;
+    }
+    .feature span { font-size: 2rem; }
+    .btn {
+      display: inline-block;
+      background: var(--hnl);
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 3rem;
+      font-weight: bold;
+      text-decoration: none;
+      margin-top: 2rem;
+      box-shadow: 0 8px 20px rgba(0,186,108,0.3);
+      transition: all 0.3s;
+    }
+    .btn:hover { transform: scale(1.05); background: #009953; }
+    .footer {
+      text-align: center;
+      margin-top: 4rem;
+      padding: 2rem;
+      color: var(--gray);
+      font-size: 0.9rem;
+    }
+    .mock-dashboard {
+      background: var(--dark);
+      color: white;
+      border-radius: 1rem;
+      overflow: hidden;
+      margin: 2rem 0;
+    }
+    .mock-header {
+      background: var(--hnl);
+      padding: 1.5rem;
+      text-align: center;
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      padding: 1.5rem;
+    }
+    .stat {
+      background: rgba(255,255,255,0.1);
+      padding: 1rem;
+      border-radius: 0.8rem;
+      text-align: center;
+    }
+    .stat big { font-size: 1.8rem; font-weight: bold; display: block; }
+    @media (max-width: 640px) {
+      h1 { font-size: 2.2rem; }
+      .stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <header>
+      <h1>BudgetPal Pro</h1>
+      <p style="font-size:1.4rem;margin:1rem 0;">La app de presupuesto más completa de Honduras</p>
+      <div class="badge">100% Gratis • Funciona sin Internet • Hecha en Honduras</div>
+    </header>
+
+    <!-- Mock Dashboard Preview -->
+    <div class="mock-dashboard">
+      <div class="mock-header">Tu Resumen Hoy • 21 Nov 2025</div>
+      <div class="stats">
+        <div class="stat">
+          <small>Ingresos del Mes</small>
+          <big>L 28,500.00</big>
+          <span style="color:var(--green)">+12%</span>
+        </div>
+        <div class="stat">
+          <small>Gastos</small>
+          <big>L 19,820.50</big>
+          <span style="color:var(--red)">-8%</span>
+        </div>
+        <div class="stat">
+          <small>Disponible</small>
+          <big style="color:#60a5fa">L 8,679.50</big>
+        </div>
+        <div class="stat">
+          <small>Ahorro Meta (Casa)</small>
+          <big>L 45,000 / L 120,000</big>
+          <div style="background:#10b981;height:8px;border-radius:4px;margin-top:8px;width:38%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Conexión Automática con Bancos</h3>
+        <div class="feature"><span>🏦</span> BAC, Ficohsa, Atlántida, Banco de Occidente</div>
+        <div class="feature"><span>✅</span> Tus transacciones se importan solas</div>
+        <div class="feature"><span>🧠</span> Categorización inteligente con IA</div>
+      </div>
+
+      <div class="card">
+        <h3>Metas de Ahorro Potentes</h3>
+        <div class="feature"><span>🏠</span> Fondo para casa, carro, viaje o emergencia</div>
+        <div class="feature"><span>📈</span> Progreso visual y alertas automáticas</div>
+        <div class="feature"><span>🎯</span> Sugerencias personalizadas para llegar más rápido</div>
+      </div>
+
+      <div class="card">
+        <h3>Alertas y Recordatorios</h3>
+        <div class="feature"><span>🔔</span> Pago de luz, agua, teléfono, tarjeta</div>
+        <div class="feature"><span>💳</span> Detecta suscripciones olvidadas (Netflix, Spotify)</div>
+        <div class="feature"><span>📱</span> Notificaciones + SMS (funciona sin datos)</div>
+      </div>
+
+      <div class="card">
+        <h3>Funciona 100% Offline</h3>
+        <div class="feature"><span>✈️</span> Registra gastos en el mercado o en el bus</div>
+        <div class="feature"><span>☁️</span> Se sincroniza automáticamente al tener internet</div>
+        <div class="feature"><span>🔒</span> Tus datos están encriptados en tu celular</div>
+      </div>
+
+      <div class="card">
+        <h3>Escanea Recibos y Facturas</h3>
+        <div class="feature"><span>📸</span> Toma foto al recibo del supermercado o gasolinera</div>
+        <div class="feature"><span>✨</span> Extrae monto y categoría automáticamente</div>
+        <div class="feature"><span>🧾</span> Guarda comprobantes digitales</div>
+      </div>
+
+      <div class="card">
+        <h3>Remesas y Dólares</h3>
+        <div class="feature"><span>🇺🇸</span> Registra remesas en dólares automáticamente</div>
+        <div class="feature"><span>💱</span> Conversión en tiempo real (tipo de cambio real)</div>
+        <div class="feature"><span>🌍</span> Ideal para familias que reciben dinero del exterior</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="#" class="btn" style="font-size:1.4rem;padding:1.2rem 3rem;">
+        Descargar BudgetPal Pro Gratis
+      </a>
+      <p style="margin-top:1rem;color:var(--gray);">Disponible en Android, iOS y Web • Instala como app</p>
+    </div>
+
+    <div class="footer">
+      <p>❤️ Hecha con amor en Honduras • Más de 87,000 hondureños ya controlan su dinero con BudgetPal</p>
+      <p>2025 © BudgetPal Pro • Tu dinero, tu futuro.</p>
+    </div>
+  </div>
+</body>
+</html>
