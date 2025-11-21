@@ -194,7 +194,7 @@ export default function AdminDashboard() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto p-4 lg:p-6 admin-content">
-          {activeSection === "overview" && <OverviewSection user={user} />}
+          {activeSection === "overview" && <OverviewSection user={user} setActiveSection={setActiveSection} />}
           {activeSection === "content" && <ContentManagementSection user={user} />}
           {activeSection === "users" && <UserManagementSection user={user} />}
           {activeSection === "study-buddy" && <StudyBuddySection user={user} />}
@@ -208,7 +208,7 @@ export default function AdminDashboard() {
 }
 
 // Overview Section Component
-function OverviewSection({ user }: { user: any }) {
+function OverviewSection({ user, setActiveSection }: { user: any; setActiveSection: (section: string) => void }) {
   const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
     queryKey: ['/api/admin/analytics'],
     enabled: !!user?.role && ['superuser', 'teacher'].includes(user.role)
@@ -288,54 +288,47 @@ function OverviewSection({ user }: { user: any }) {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="admin-card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <Button className="w-full justify-start" variant="ghost">
-              <PlusCircle className="w-4 h-4 mr-3" />
-              Create New Content
-            </Button>
-            <Button className="w-full justify-start" variant="ghost">
+      <div className="admin-card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Button 
+            className="w-full justify-start" 
+            variant="outline"
+            onClick={() => setActiveSection("content")}
+          >
+            <PlusCircle className="w-4 h-4 mr-3" />
+            Create New Content
+          </Button>
+          {user.role === 'superuser' && (
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => setActiveSection("users")}
+            >
               <Users className="w-4 h-4 mr-3" />
               Manage Users
             </Button>
-            <Button className="w-full justify-start" variant="ghost">
+          )}
+          {user.role === 'superuser' && (
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => setActiveSection("analytics")}
+            >
               <BarChart3 className="w-4 h-4 mr-3" />
               View Analytics
             </Button>
-            <Button className="w-full justify-start" variant="ghost">
+          )}
+          {user.role === 'superuser' && (
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => setActiveSection("settings")}
+            >
               <Settings className="w-4 h-4 mr-3" />
               System Settings
             </Button>
-          </div>
-        </div>
-
-        <div className="admin-card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-          <div className="space-y-3">
-            <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">New user registration</p>
-                <p className="text-xs text-gray-500">2 minutes ago</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Content uploaded</p>
-                <p className="text-xs text-gray-500">15 minutes ago</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">System backup completed</p>
-                <p className="text-xs text-gray-500">1 hour ago</p>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
