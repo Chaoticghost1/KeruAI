@@ -138,9 +138,15 @@ adminRouter.get("/bot-personas", authenticateToken, authorizeRoles('superuser', 
 adminRouter.post("/bot-personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
   try {
     const personaData = req.body;
-    if (personaData.subjects && typeof personaData.subjects === 'string') {
-      personaData.subjects = personaData.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+    
+    // Convert subjects from comma-separated string to array
+    if (typeof personaData.subjects === 'string') {
+      const subjectsArray = personaData.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+      personaData.subjects = subjectsArray.length > 0 ? subjectsArray : null;
+    } else if (!personaData.subjects) {
+      personaData.subjects = null;
     }
+    
     personaData.createdById = req.user!.id;
     const persona = await storage.createBotPersona(personaData);
     res.json(persona);
@@ -154,9 +160,15 @@ adminRouter.put("/bot-personas/:id", authenticateToken, authorizeRoles('superuse
   try {
     const id = parseInt(req.params.id);
     const updates = req.body;
-    if (updates.subjects && typeof updates.subjects === 'string') {
-      updates.subjects = updates.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+    
+    // Convert subjects from comma-separated string to array
+    if (typeof updates.subjects === 'string') {
+      const subjectsArray = updates.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+      updates.subjects = subjectsArray.length > 0 ? subjectsArray : null;
+    } else if (!updates.subjects) {
+      updates.subjects = null;
     }
+    
     const persona = await storage.updateBotPersona(id, updates);
     res.json(persona);
   } catch (error) {

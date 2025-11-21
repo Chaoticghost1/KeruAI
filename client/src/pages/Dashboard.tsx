@@ -267,12 +267,12 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Games & Community Section */}
+        {/* Games Section */}
         <div className="mb-12">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6" data-testid="heading-games-community">
-            Games & Community
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6" data-testid="heading-games">
+            Games & Engagement
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Link href="/cruiseword">
               <Card 
                 className="h-full hover:shadow-lg transition-all duration-200 cursor-pointer bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800"
@@ -292,31 +292,6 @@ export default function Dashboard() {
                 <CardContent>
                   <Button variant="outline" className="w-full" data-testid="button-play-game">
                     Play Now
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/dao">
-              <Card 
-                className="h-full hover:shadow-lg transition-all duration-200 cursor-pointer bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800"
-                data-testid="card-dao"
-              >
-                <CardHeader className="pb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 dark:from-orange-600 dark:to-orange-700 rounded-lg flex items-center justify-center mb-4">
-                    <Bus className="h-6 w-6 text-white" />
-                  </div>
-                  <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Community DAO
-                  </CardTitle>
-                  <CardDescription className="text-gray-600 dark:text-gray-400">
-                    Participate in decentralized governance
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full" data-testid="button-join-dao">
-                    Join Community
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </CardContent>
