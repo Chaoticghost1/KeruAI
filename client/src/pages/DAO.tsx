@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, MessageSquare, Calendar, Sun, Moon, GitBranch, Activity } from 'lucide-react';
 import { motion, useAnimation, useInView } from 'framer-motion';
-import { useTheme } from 'next-themes';
 
 function AnimatedCounter({ end, duration = 2000 }: { end: number; duration?: number }) {
   const [count, setCount] = useState(0);
@@ -28,7 +27,7 @@ function AnimatedCounter({ end, duration = 2000 }: { end: number; duration?: num
 
 export default function EnhancedDAO() {
   const { t } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const controls = useAnimation();
   const ref = useRef(null);
@@ -58,8 +57,8 @@ export default function EnhancedDAO() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-100 dark:from-gray-900 dark:to-gray-800 p-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto" ref={ref}>
         <div className="flex justify-end mb-4">
-          <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="rounded-full">
-            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          <Button variant="ghost" size="icon" onClick={() => setIsDarkMode(!isDarkMode)} className="rounded-full">
+            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
         </div>
 
