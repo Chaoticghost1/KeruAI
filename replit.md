@@ -1,5 +1,7 @@
 # Replit MD
 
+> **Full Documentation Available:** See `DOCUMENTATION.md` for comprehensive technical documentation including architecture diagrams, API reference, database schema, hooks, routes, code quality analysis, and roadmap.
+
 ## Overview
 
 This is a full-stack web application built with React and Express.js, designed as a multi-tool suite called "Keru.ai Suite". The application provides various educational and productivity tools including an AI study assistant, budget management, travel information, and more. The application is structured as a modern single-page application with a clean, responsive design using Tailwind CSS and shadcn/ui components.
