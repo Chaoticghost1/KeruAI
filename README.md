@@ -1,54 +1,130 @@
 # Keru.ai Suite
 
-A comprehensive multi-language educational and productivity suite featuring AI tutors, budget management, and interactive tools.
+A comprehensive multi-language educational and productivity platform designed for Honduras and Central America.
+
+> **Full Documentation:** See [DOCUMENTATION.md](./DOCUMENTATION.md) for complete technical documentation including architecture, API reference, and project health report.
+
+---
+
+## Overview
+
+Keru.ai Suite combines AI-powered tutoring, personal finance management, travel information, and gamified learning into a unified platform optimized for low-bandwidth environments.
+
+### Target Audience
+- **Students** - AI tutoring aligned with Honduran curriculum
+- **Teachers** - Content management and student progress tracking
+- **Administrators** - User management and analytics
+- **Young Adults** - Budget tracking and career resources
+
+---
 
 ## Features
 
-- **AI Study Buddy**: Interactive tutoring with 3 specialized AI personas
-  - Math Buddy: Mathematics tutor with step-by-step explanations
-  - Dr. Nova: Science explorer for biology, chemistry, and physics
-  - Professor Quill: Language arts mentor for literature and writing
-- **Budget Tracker**: Personal finance management with categories and transactions
-- **Travel Content**: Information and tools for travelers
-- **Games**: Interactive educational games with scoring
-- **Multi-language Support**: Spanish and English interfaces
+### Core Features (Working)
+- **AI Study Buddy** - 3 specialized AI tutors (Math Buddy, Dr. Nova, Professor Quill)
+- **BudgetPal** - Personal finance with Lempiras currency support
+- **CruiseWord Game** - Vocabulary learning with cruise ship terminology
+- **Travel Blog** - Cruise and travel content
+- **Admin Panel** - User, content, and blog management
+- **Gamification** - Badges, levels, streaks, and XP
 
-## Architecture
+### Additional Features
+- Multi-language support (Spanish/English)
+- Role-based access control (student, teacher, superuser)
+- Offline-first PWA design
+- JWT authentication
 
-- **Frontend**: React + TypeScript + Tailwind CSS
-- **Backend**: Express.js + TypeScript  
-- **Database**: PostgreSQL with Drizzle ORM
-- **AI System**: Persona-based responses with extensible GPT integration
+---
 
-## Deployment
+## Tech Stack
 
-### Frontend (Vercel)
-1. Deploy to Vercel with these settings:
-   - Build Command: `npm run build`
-   - Output Directory: `dist/public`
-   - Environment Variables: `VITE_API_URL=your-backend-url`
+| Layer | Technology |
+|-------|------------|
+| Frontend | React, TypeScript, Tailwind CSS, Shadcn/UI |
+| Backend | Express.js, TypeScript |
+| Database | PostgreSQL (Neon), Drizzle ORM |
+| AI | OpenAI GPT-4, Perplexity fallback |
+| Offline | IndexedDB, Service Worker, Workbox |
 
-### Backend (Railway/Render)
-1. Deploy Express server separately
-2. Set environment variables: `DATABASE_URL`, `NODE_ENV=production`
-3. Run `npm run db:push` to initialize database
+---
 
-## Development
+## Quick Start
 
 ```bash
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
 ```
 
-Visit http://localhost:5000 to see the application.
+Visit `http://localhost:5000`
 
-## Database Setup
+---
 
-The application uses PostgreSQL with the following main tables:
-- Users and authentication
-- Tutor agents and sessions
-- Budget categories and transactions
-- Study notes and game scores
-- Student profiles and preferences
+## Project Status
 
-Run `npm run db:push` to apply the schema to your database.
+| Category | Count |
+|----------|-------|
+| Working Features | 20+ |
+| Broken/Issues | 5 |
+| Conflicting Code | 5 |
+| Unused Files | 12 |
+| Incomplete Features | 18 |
+
+See the **Project Health Report** in [DOCUMENTATION.md](./DOCUMENTATION.md#project-health-report) for full details.
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `DOCUMENTATION.md` | Complete technical documentation |
+| `replit.md` | Replit-specific project notes |
+| `shared/schema.ts` | Database models and types |
+| `server/routes/` | API endpoints |
+| `client/src/pages/` | Frontend pages |
+
+---
+
+## Database
+
+Main tables:
+- `users` - Authentication and profiles
+- `botPersonas` - AI tutor configurations
+- `tutorSessions` / `tutorMessages` - Chat history
+- `budgetCategories` / `budgetTransactions` - Finance tracking
+- `studentProfiles` / `userProgress` - Gamification data
+
+```bash
+# Push schema to database
+npm run db:push
+```
+
+---
+
+## Environment Variables
+
+Required:
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - JWT signing secret
+- `OPENAI_API_KEY` - OpenAI API key
+
+Optional:
+- `PERPLEXITY_API_KEY` - Fallback AI provider
+- `GITHUB_TOKEN` - GitHub integration
+
+---
+
+## Documentation
+
+- [Full Technical Documentation](./DOCUMENTATION.md)
+- [Telegram Bot Deployment](./TELEGRAM_DEPLOYMENT.md)
+- [Deployment Conflicts Resolved](./DEPLOYMENT_CONFLICTS_RESOLVED.md)
+
+---
+
+## License
+
+MIT
