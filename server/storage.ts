@@ -441,6 +441,11 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
   }
 
   // Bot persona methods
+  async getBotPersona(id: number): Promise<BotPersona | undefined> {
+    const [persona] = await db.select().from(botPersonas).where(eq(botPersonas.id, id));
+    return persona || undefined;
+  }
+
   async getBotPersonas(): Promise<BotPersona[]> {
     return await db.select().from(botPersonas).orderBy(desc(botPersonas.createdAt));
   }
