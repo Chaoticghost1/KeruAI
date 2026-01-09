@@ -64,15 +64,34 @@ Visit `http://localhost:5000`
 
 ## Project Status
 
-| Category | Count |
-|----------|-------|
-| Working Features | 20+ |
-| Broken/Issues | 5 |
-| Conflicting Code | 5 |
-| Unused Files | 12 |
-| Incomplete Features | 18 |
+| Category | Status |
+|----------|--------|
+| Working Features | 20+ core features |
+| Authentication | JWT with role-based access |
+| Database | PostgreSQL with Drizzle ORM |
+| PWA | Offline-first with service worker |
+| Internationalization | Spanish/English via shared context |
 
 See the **Project Health Report** in [DOCUMENTATION.md](./DOCUMENTATION.md#project-health-report) for full details.
+
+## Recent Updates (January 2026)
+
+- **Icon Migration**: All components now use lucide-react + react-icons/fa
+- **Language Context**: Consolidated to shared LanguageContext across all pages
+- **Service Worker**: Cache version v5 for stale asset cleanup
+- **CSS Fixes**: Removed global border-border override
+
+## Troubleshooting
+
+### Vite Cache Errors
+If you see "chunk-XXXX.js not found" errors:
+```bash
+rm -rf node_modules/.vite && npm run dev
+```
+Then hard refresh: `Ctrl+Shift+R` (Windows) or `Cmd+Shift+R` (Mac)
+
+### Service Worker Issues
+Unregister via DevTools → Application → Service Workers → Unregister
 
 ---
 

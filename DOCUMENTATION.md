@@ -1645,5 +1645,79 @@ Keru.ai Suite is a comprehensive educational platform with strong foundations in
 
 ---
 
+## Recent Updates (January 2026)
+
+### Icon Library Migration
+All React components have been migrated from FontAwesome to modern icon libraries:
+- **UI Icons**: Use `lucide-react` (`import { Home, Settings } from 'lucide-react'`)
+- **Social Icons**: Use `react-icons/fa` (`import { FaFacebook, FaTwitter } from 'react-icons/fa'`)
+- **Legacy**: FontAwesome CDN in index.html is retained but NOT used in components
+
+### Language Context Consolidation
+All pages now use the shared LanguageContext instead of local state:
+```typescript
+// Import in every page that needs language toggle
+import { useLanguage } from '../contexts/LanguageContext';
+
+// Use in component
+const { language, setLanguage } = useLanguage();
+```
+
+Updated pages: CruiseWord.tsx, BudgetPal.tsx, MentorshipHub.tsx
+
+### CSS Styling Fixes
+- Removed global `* { @apply border-border; }` that was overriding custom component styles
+- Restored default shadcn/ui theme classes in Card and Tabs components
+
+### Service Worker Cache
+- Cache version bumped to v5 in `client/public/sw.js`
+- On update, users need to refresh twice for new service worker to activate
+
+---
+
+## Known Issues
+
+| Issue | Description | Workaround |
+|-------|-------------|------------|
+| Vite chunk errors | Browser requests old cached chunk files | Hard refresh (Ctrl+Shift+R) or unregister service worker |
+| Service worker cache | PWA aggressively caches old content | Bump cache version in sw.js, refresh twice |
+| Dark mode | NOT implemented | User declined; do not add |
+| vite.config.ts | READ-ONLY | Do not modify; breaks environment |
+| Some API stubs | Some backend methods may be placeholder | Check server/storage.ts for implementations |
+
+---
+
+## Troubleshooting
+
+### Vite Cache Issues
+```bash
+# Clear Vite dependency cache
+rm -rf node_modules/.vite
+
+# Restart dev server
+npm run dev
+
+# Hard refresh browser
+Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)
+```
+
+### Service Worker Issues
+1. Open DevTools → Application → Service Workers
+2. Click "Unregister"
+3. Hard refresh the page
+4. If deploying updates, bump version in `client/public/sw.js`
+
+### Language Toggle Not Working
+Ensure pages use shared context:
+```typescript
+// WRONG - local state breaks global toggle
+const [language, setLanguage] = useState('es');
+
+// CORRECT - shared context
+const { language, setLanguage } = useLanguage();
+```
+
+---
+
 **Document maintained by:** Keru.ai Development Team  
 **Last review date:** January 09, 2026

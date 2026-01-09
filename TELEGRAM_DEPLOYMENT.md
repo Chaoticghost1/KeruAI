@@ -162,3 +162,35 @@ docker-compose exec postgres psql -U keru_user -d keru_ai
 - **Database**: Included in hosting or ~$5/month
 
 Your Telegram bot is now ready for deployment! 🚀
+
+---
+
+## Current Status (January 2026)
+
+### Bot Dependencies
+- `node-telegram-bot-api` - Telegram API wrapper
+- `openai` - GPT integration for AI responses
+- `@neondatabase/serverless` - PostgreSQL connection
+- `drizzle-orm` - Database ORM
+
+### Web Interface Status
+The web interface runs independently with:
+- **React + Vite** frontend on port 5000
+- **Express.js** backend API
+- **Service Worker** v5 for PWA caching
+
+### Known Constraints
+| Constraint | Description |
+|------------|-------------|
+| vite.config.ts | READ-ONLY - do not modify |
+| Dark mode | NOT implemented (user declined) |
+| Icons | lucide-react (UI), react-icons/fa (social) |
+| Language | Shared LanguageContext required |
+
+### Troubleshooting Vite Issues
+If you see chunk file errors after updates:
+```bash
+rm -rf node_modules/.vite
+npm run dev
+```
+Then hard refresh (`Ctrl+Shift+R` or `Cmd+Shift+R`)

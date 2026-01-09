@@ -43,11 +43,33 @@ keru-ai-suite/
 ✅ **Database**: Shared PostgreSQL schema works for both
 ✅ **Environment**: Separate env vars prevent conflicts
 
+## Current Constraints (January 2026)
+
+| Constraint | Reason |
+|------------|--------|
+| `vite.config.ts` is READ-ONLY | Modifying breaks the Replit environment |
+| No dark mode | User explicitly declined this feature |
+| Service worker cache v5 | Bump version if deploying new assets |
+| lucide-react icons | FontAwesome removed from React components |
+
 ## Next Steps
 
 You can now safely:
 1. **Test locally**: `npm run dev` for web interface
 2. **Deploy bot**: `docker-compose up -d` for Telegram bot
 3. **Use both**: Web interface for development, Telegram for production
+
+## Troubleshooting
+
+### Vite Cache Issues
+```bash
+rm -rf node_modules/.vite
+npm run dev
+```
+Then hard refresh browser (`Ctrl+Shift+R` or `Cmd+Shift+R`)
+
+### Service Worker Stale Cache
+1. Bump cache version in `client/public/sw.js`
+2. Or unregister via DevTools → Application → Service Workers
 
 All Vercel conflicts have been resolved. The system is clean and ready for Telegram bot deployment.

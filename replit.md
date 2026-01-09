@@ -1,242 +1,200 @@
 # Replit MD
 
-> **Full Documentation Available:** See `DOCUMENTATION.md` for comprehensive technical documentation including architecture diagrams, API reference, database schema, hooks, routes, code quality analysis, and roadmap.
-
 ## Overview
 
-This is a full-stack web application built with React and Express.js, designed as a multi-tool suite called "Keru.ai Suite". The application provides various educational and productivity tools including an AI study assistant, budget management, travel information, and more. The application is structured as a modern single-page application with a clean, responsive design using Tailwind CSS and shadcn/ui components.
-
-## System Architecture
-
-The application follows a monorepo structure with clear separation between client and server code:
-
-- **Frontend**: React-based SPA with TypeScript, using Vite as the build tool
-- **Backend**: Express.js server with TypeScript
-- **Database**: PostgreSQL with Drizzle ORM (configured but not fully implemented)
-- **Styling**: Tailwind CSS with shadcn/ui component library
-- **State Management**: React Query for server state management
-- **Routing**: Wouter for client-side routing
-
-## Key Components
-
-### Frontend Architecture
-- **Component Library**: Uses shadcn/ui components for consistent UI patterns
-- **Routing**: Wouter provides lightweight client-side routing
-- **Internationalization**: Custom language context supporting Spanish and English
-- **State Management**: React Query handles API interactions and caching
-- **Build System**: Vite with TypeScript support and hot module replacement
-
-### Backend Architecture
-- **Server Framework**: Express.js with TypeScript
-- **Database Layer**: Drizzle ORM configured for PostgreSQL
-- **Storage Interface**: Abstracted storage layer with PostgreSQL database implementation
-- **Development Setup**: Hot reload with tsx and middleware logging
-
-### Database Schema
-- **Users Table**: User management with id, username, password, email, and timestamps
-- **Budget Categories**: Financial tracking categories with budget limits and spending totals
-- **Budget Transactions**: Individual financial transactions linked to categories
-- **Study Notes**: Educational content storage with tags and subject organization
-- **Game Scores**: Gaming achievement tracking with scores, levels, and completion status
-- **Relations**: Fully modeled relationships between all entities using Drizzle ORM
-- **Migration Support**: Drizzle Kit configured for schema migrations
-- **Connection**: Uses Neon Database serverless PostgreSQL
-
-## Data Flow
-
-1. **Client Requests**: React components make API calls through React Query
-2. **API Layer**: Express routes handle requests and interact with storage layer
-3. **Storage Layer**: Abstracted interface allows switching between memory and database storage
-4. **Response**: JSON responses are cached by React Query for optimal performance
-
-The application now uses PostgreSQL database with full CRUD operations for all data entities including users, budget tracking, study notes, and game scores.
-
-## External Dependencies
-
-### Frontend Dependencies
-- **UI Components**: Radix UI primitives via shadcn/ui
-- **Styling**: Tailwind CSS with custom design tokens
-- **Icons**: Font Awesome and Lucide icons
-- **Forms**: React Hook Form with Zod validation
-- **Date Handling**: date-fns library
-
-### Backend Dependencies
-- **Database**: @neondatabase/serverless for PostgreSQL connection
-- **ORM**: Drizzle ORM for type-safe database operations
-- **Session Management**: connect-pg-simple for PostgreSQL session store
-- **Validation**: Zod for runtime type validation
-
-### Development Tools
-- **Build Tool**: Vite with React plugin
-- **TypeScript**: Full TypeScript support across the stack
-- **Linting**: ESLint configuration
-- **Development Server**: Hot reload with error overlay
-
-## Deployment Strategy
-
-The application is configured for deployment with the following approach:
-
-1. **Build Process**: 
-   - Frontend: Vite builds React app to `dist/public`
-   - Backend: esbuild bundles server code to `dist/index.js`
-
-2. **Production Setup**:
-   - Static files served from built React app
-   - Express server handles API routes and serves the SPA
-   - Database migrations can be run via `npm run db:push`
-
-3. **Environment Configuration**:
-   - DATABASE_URL required for PostgreSQL connection
-   - NODE_ENV determines development vs production behavior
-
-4. **Replit Integration**:
-   - Configured with Replit-specific development tools
-   - Runtime error overlay for better debugging experience
-
-## Changelog
-
-```
-Changelog:
-- July 02, 2025. Initial setup - React/Express app with multi-language support
-- July 02, 2025. Added comprehensive PostgreSQL database with Drizzle ORM
-  - Created users, budget_categories, budget_transactions, study_notes, game_scores tables
-  - Implemented full CRUD API endpoints for all entities
-  - Database relations properly modeled with foreign keys
-  - Replaced in-memory storage with database storage layer
-- July 02, 2025. Transformed into Telegram Bot with LLM Integration
-  - Built complete Telegram bot interface with persona-driven AI tutors
-  - Integrated OpenAI GPT-4 for intelligent responses with fallback system
-  - Created Docker containerization with PostgreSQL for production deployment
-  - Added comprehensive bot commands and session management
-  - Configured for deployment via Docker Compose with health monitoring
-- July 02, 2025. Implemented Comprehensive Badge & Reward System
-  - Created complete gamification system with badges, levels, streaks, and experience points
-  - Added 16 predefined badges across categories: milestone, streak, subject, achievement
-  - Implemented automatic reward calculation and badge awarding after sessions
-  - Built level progression system with XP requirements and progress tracking
-  - Added Telegram bot commands for progress viewing (/progress, /end)
-  - Created web interface progress dashboard showing badges, level, and achievements
-  - Integrated session completion tracking with difficulty and engagement metrics
-- July 02, 2025. Built Complete Role-Based Admin Panel with Secure Authentication
-  - Implemented native JWT-based authentication system with access/refresh tokens
-  - Added support for multiple login methods: username, email, phone, Google, Facebook
-  - Created role-based access control: superuser, teacher, student permissions
-  - Built comprehensive admin dashboard for content management and user administration
-  - Developed teacher content submission system (PDFs, images, whiteboards, HTML)
-  - Added student assignment system with submissions and grading functionality
-  - Created public landing page with marketing content and clickable login/signup
-  - Implemented protected routes with role-based permissions and verification requirements
-  - Fixed all database schema mismatches and authentication API endpoints
-  - Verified complete authentication flow: registration, login, protected access working
-- July 02, 2025. Enhanced Admin Panel with Advanced Management Features
-  - Created comprehensive admin dashboard with 6 specialized sections
-  - Implemented Study Buddy bot persona management for Telegram integration
-  - Added BudgetPal analytics with privacy-compliant anonymous user statistics
-  - Built chat analytics dashboard with request frequency tracking
-  - Developed complete blog post management system for Viajes y Cruceros section
-  - Added super admin controls for CruiseWord, DAO, and AethosByte management
-  - Created new database tables: blog_posts and bot_personas with full CRUD operations
-  - Implemented privacy-focused analytics showing transaction patterns without personal data
-  - Built API endpoints for all admin features with proper authentication and authorization
-  - Fixed admin panel authentication and added comprehensive admin management interface
-- November 21, 2025. Comprehensive Architectural Refactoring and Security Hardening
-  - **Route Modularization**: Split monolithic 1400-line routes.ts into 9 domain-based routers
-    - Created separate routers: auth, budget, study, games, tutors, progress, content, assignments, admin
-    - Established clean domain separation with orchestrator pattern in server/routes/index.ts
-    - All routers properly mounted at /api/* paths with consistent structure
-  - **Critical Security Fixes**:
-    - Added authentication middleware to budget, study, and games routers (prevented unauthorized access)
-    - Secured PWA offline sync with JWT validation before replaying queued mutations
-    - Enforced JWT_SECRET and JWT_REFRESH_SECRET environment variables in production (fails fast if missing)
-    - Fixed API contract between frontend StudyBuddy and backend /api/progress routes
-  - **Query Client Enhancements**:
-    - Fixed hierarchical query key handling in default fetcher (properly joins array segments with '/')
-    - Enabled proper cache invalidation with TanStack Query best practices
-    - Supports both string URLs and hierarchical array keys: ['/api/progress', 'profile', userId]
-  - **Code Quality Improvements**:
-    - Created shared persona hooks (useTutors, useAdminPersonas) eliminating duplicate logic
-    - Added pagination to 4 admin endpoints: blog-posts, personas, submissions, assignments
-    - Removed broken AethosByte navigation references from Dashboard and Home pages
-    - Standardized all query keys to array format across frontend components
-  - **Architectural Verification**: All 11 identified issues resolved with architect approval
-    - Zero authentication bypass vulnerabilities
-    - Clean router architecture with domain isolation
-    - No code duplication across components
-    - Consistent API contracts between frontend and backend
-- January 09, 2026. Removed Hardcoded Mock Data and Navigation Improvements
-  - **Data Integrity Fixes**:
-    - Removed all hardcoded mock data from BudgetPal - now fetches real data from /api/budget/* endpoints
-    - Removed hardcoded projects, proposals, events from DAO.tsx - shows empty state until API data available
-    - Removed hardcoded blog posts from Blog.tsx - shows empty state pending backend API
-    - Removed hardcoded mentors from MentorshipHub.tsx - shows empty state with functional forms
-    - Fixed admin-dashboard.tsx to use real API data instead of hardcoded stats
-  - **Authentication Improvements**:
-    - Fixed logout mutation to properly redirect to homepage after logout
-    - Improved error handling in logout - gracefully handles server errors
-    - Clears tokens and user state correctly on logout
-  - **Navigation Enhancements**:
-    - Added MentorshipHub route at /mentorship
-    - Added DAO and MentorshipHub to sidebar navigation
-    - Added translation keys for new nav items (mentorship, revision) in Spanish and English
-  - **Code Quality Fixes**:
-    - Fixed sync-service.ts import (db -> offlineDb)
-    - Fixed TypeScript errors in sync-service.ts (error handling, IndexableType)
-    - Removed unused imports and variables (Badge from MentorshipHub, unused icons from DAO)
-    - Removed unused ProgressRing component from DAO.tsx
-```
-
-## AI-Assisted Content Revision Implementation Plan
-
-### Implementation Approach for Teacher Upload + AI Revision System
-
-**Current Status Analysis:**
-- ✅ Teacher content upload system (PDFs, images, documents) - COMPLETE
-- ✅ Assignment system with student submissions - COMPLETE  
-- ✅ AI tutor integration (OpenAI GPT with personas) - COMPLETE
-- ❌ Direct AI analysis of uploaded content - MISSING
-- ❌ Student revision interface for uploaded materials - MISSING
-- ❌ Content processing pipeline (OCR, text extraction) - MISSING
-
-**Implementation Phases:**
-
-### Phase 1: Content Processing Pipeline
-**Goal:** Make uploaded content AI-accessible
-- Add PDF text extraction using `pdf-parse` library
-- Implement OCR for image-based content (screenshots, whiteboard photos)
-- Store extracted text in database for AI reference
-- Create content embeddings for semantic search
-- Update database schema to include extracted content text
-
-### Phase 2: Student Revision Interface  
-**Goal:** Build dedicated student pages for AI-assisted revision
-- Create student dashboard showing available revision materials
-- Build content viewer for PDFs/images with AI assistant sidebar
-- Implement interactive revision sessions where students can ask questions about uploaded content
-- Add progress tracking for each topic/material
-- Create student-specific protected routes
-
-### Phase 3: AI Integration with Content (Future)
-**Goal:** Connect AI tutors to teacher uploads
-- Modify AI service to include uploaded content context
-- Implement RAG (Retrieval Augmented Generation) to reference specific materials
-- Allow AI to cite specific pages/sections from uploads
-- Generate practice questions from uploaded content
-
-### Phase 4: Enhanced Features (Future)
-**Goal:** Add intelligent revision capabilities
-- Auto-generate summaries of uploaded lessons
-- Create flashcards and quizzes from content
-- Provide personalized study recommendations
-- Track which concepts students struggle with
-
-**Implementation Priority:**
-1. **Immediate** - Create student revision page with content viewer
-2. **Short-term** - Add text extraction from PDFs
-3. **Medium-term** - Integrate AI with extracted content
-4. **Long-term** - Advanced features like auto-quiz generation
+This is a full-stack web application, "Keru.ai Suite", built with React and Express.js. It offers a multi-tool suite for educational and productivity purposes, including an AI study assistant, budget management, and travel information. The application aims to provide a modern single-page experience with a clean, responsive design.
 
 ## User Preferences
 
-```
 Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+The application uses a monorepo structure separating client and server code.
+
+**Key Architectural Decisions:**
+
+*   **Frontend**: React (TypeScript, Vite, Wouter for routing)
+*   **Backend**: Express.js (TypeScript)
+*   **Database**: PostgreSQL with Drizzle ORM
+*   **Styling**: Tailwind CSS with shadcn/ui components
+*   **State Management**: React Query for server state
+*   **Internationalization**: Custom LanguageContext for multi-language support (Spanish and English)
+*   **Authentication**: JWT-based with access/refresh tokens and role-based access control.
+*   **Data Flow**: Client requests via React Query -> Express API -> Storage Layer (PostgreSQL) -> JSON response cached by React Query.
+*   **Admin Panel**: Role-based access for content management, user administration, and analytics.
+*   **PWA**: Offline sync with JWT validation for queued mutations.
+
+**UI/UX Decisions:**
+
+*   Consistent UI patterns using shadcn/ui components.
+*   Lucide React for UI icons, react-icons/fa for social media icons.
+*   Clean, responsive design.
+
+**Feature Specifications:**
+
+*   **User Management**: CRUD operations for user entities.
+*   **Budget Tracking**: Categories and transactions with CRUD.
+*   **Study Notes**: Educational content storage with tags.
+*   **Game Scores**: Tracking scores and achievements.
+*   **AI Study Assistant**: Integration with AI for tutoring and content revision.
+*   **Content Management**: Teachers can upload PDFs, images, documents; assignments with student submissions.
+*   **Gamification**: Badges, levels, streaks, XP for student engagement.
+*   **Analytics**: Privacy-compliant, anonymous user statistics for BudgetPal and chat analytics.
+*   **Blog Management**: For the "Viajes y Cruceros" section.
+
+## External Dependencies
+
+**Frontend:**
+
+*   **UI Components**: Radix UI primitives via shadcn/ui
+*   **Styling**: Tailwind CSS
+*   **Icons**: Lucide React, react-icons/fa
+*   **Forms**: React Hook Form with Zod validation
+*   **Date Handling**: date-fns
+*   **Internationalization**: Shared LanguageContext
+
+**Backend:**
+
+*   **Database**: @neondatabase/serverless for PostgreSQL
+*   **ORM**: Drizzle ORM
+*   **Session Management**: connect-pg-simple for PostgreSQL session store
+*   **Validation**: Zod
+
+**Development Tools:**
+
+*   **Build Tool**: Vite
+*   **TypeScript**: Full-stack support
+*   **Linting**: ESLint
+*   **Development Server**: Hot reload with error overlay
+
+## Frontend Routes
+
+| Path | Component | Access |
+|------|-----------|--------|
+| `/` | LandingPage (unauthenticated) / Redirect to /dashboard (authenticated) | Public |
+| `/auth` | AuthPage | Public |
+| `/dashboard` | Dashboard | Protected |
+| `/studybuddy` | StudyBuddy | Protected |
+| `/revision` | StudentRevision | Protected (student only) |
+| `/budgetpal` | BudgetPal | Protected |
+| `/blog` | Blog | Protected |
+| `/cruiseword` | CruiseWord | Protected |
+| `/dao` | DAO | Protected |
+| `/mentorship` | MentorshipHub | Protected |
+| `/admin` | AdminDashboard | Protected (teacher/superuser) |
+
+## Backend API Routes
+
+| Prefix | Router | Purpose |
+|--------|--------|---------|
+| `/api/auth` | authRouter | Login, register, logout, token refresh, password reset |
+| `/api/budget` | budgetRouter | Categories, transactions CRUD |
+| `/api/study` | studyRouter | Study notes CRUD |
+| `/api/games` | gamesRouter | Game scores |
+| `/api/tutors` | tutorsRouter | AI tutor sessions, messages |
+| `/api/progress` | progressRouter | Student progress, badges, streaks |
+| `/api/content` | contentRouter | Teacher content submissions |
+| `/api/assignments` | assignmentsRouter | Student assignments |
+| `/api/admin` | adminRouter | Admin management, analytics |
+| `/api/users` | (inline in index.ts) | User CRUD |
+
+## Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `users` | User accounts with roles (student, teacher, superuser) |
+| `budgetCategories` | Budget category definitions per user |
+| `budgetTransactions` | Individual budget transactions |
+| `studyNotes` | Educational notes with tags |
+| `gameScores` | Game scores and achievements |
+| `tutorAgents` | AI tutor persona configurations |
+| `tutorSessions` | AI tutoring session tracking |
+| `tutorMessages` | Messages within tutor sessions |
+| `studentProfiles` | Extended student data (XP, level, streaks) |
+| `badges` | Badge definitions |
+| `userBadges` | Earned badges per user |
+| `studyStreaks` | Daily study streak tracking |
+| `authTokens` | JWT tokens (access, refresh) |
+| `contentSubmissions` | Teacher-uploaded content (PDFs, images) |
+| `studentAssignments` | Assignments and submissions |
+| `blogPosts` | Travel blog content |
+| `mentorProfiles` | Mentor data for MentorshipHub |
+| `communityPosts` | DAO community posts |
+
+## Recent Changes (January 2026)
+
+### Icon Library Migration
+- **BEFORE**: FontAwesome classes (`fas fa-home`, `fab fa-facebook`)
+- **AFTER**: lucide-react for UI icons, react-icons/fa for social icons
+- FontAwesome CDN remains in index.html but is NOT used in React components
+
+### Language Context Consolidation
+All pages now use the shared LanguageContext:
+```typescript
+import { useLanguage } from '../contexts/LanguageContext';
+const { language, setLanguage } = useLanguage();
 ```
+
+Pages updated:
+- CruiseWord.tsx
+- BudgetPal.tsx  
+- MentorshipHub.tsx
+
+### CSS Fixes
+- Removed `* { @apply border-border; }` that overrode custom styles
+- Restored shadcn/ui default theme classes in Card and Tabs components
+
+### Service Worker
+- Cache version bumped to v5 in `client/public/sw.js`
+- Forces browser to clear stale cached assets
+
+## Troubleshooting
+
+### Vite Cache Issues (Missing Chunk Files)
+If you see errors like `The file does not exist at ".../chunk-XXXXX.js"`:
+
+1. Clear Vite cache:
+   ```bash
+   rm -rf node_modules/.vite
+   ```
+
+2. Restart development server
+
+3. Hard refresh browser: `Ctrl+Shift+R` (Windows) or `Cmd+Shift+R` (Mac)
+
+4. If issues persist, unregister service worker:
+   - DevTools → Application → Service Workers → Unregister
+
+### Service Worker Cache Issues
+The PWA uses aggressive caching. To force refresh:
+1. Bump cache version in `client/public/sw.js`
+2. Users need to refresh twice for new service worker
+
+### Language Toggle Not Working Globally
+Ensure the page uses shared LanguageContext, not local state:
+```typescript
+// WRONG
+const [language, setLanguage] = useState('es');
+
+// CORRECT
+const { language, setLanguage } = useLanguage();
+```
+
+## Known Issues & Constraints
+
+1. **Dark mode**: NOT implemented (user explicitly declined)
+2. **vite.config.ts**: READ-ONLY - do not modify
+3. **Some storage methods may be stubbed**: Check `server/storage.ts`
+4. **Vite cache warnings**: Cosmetic, resolve after hard refresh
+
+## Important Files
+
+| File | Purpose |
+|------|---------|
+| `DOCUMENTATION.md` | Complete technical documentation |
+| `shared/schema.ts` | Database schema (Drizzle) |
+| `server/storage.ts` | Storage layer interface |
+| `client/src/contexts/LanguageContext.tsx` | Shared language state |
+| `client/public/sw.js` | Service worker (PWA caching) |
+| `server/routes/index.ts` | API route registration |
