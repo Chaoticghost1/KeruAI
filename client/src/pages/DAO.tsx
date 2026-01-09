@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExternalLink, Users, MessageSquare, Bookmark, Calendar, MapPin, Clock, BarChart2, PieChart, Sun, Moon, GitBranch, Activity, CheckCircle2 } from 'lucide-react';
+import { ExternalLink, Users, MessageSquare, Bookmark, Calendar, MapPin, Clock, BarChart2, PieChart, Sun, Moon, GitBranch, Activity, CheckCircle2, Bus, MessageCircle } from 'lucide-react';
 import { formatAsHondurasCurrency } from '@/lib/currency-formatter';
 import { motion, AnimatePresence, useAnimation, useInView } from 'framer-motion';
 import { useTheme } from 'next-themes';
@@ -91,7 +91,7 @@ export default function EnhancedDAO() {
       },
       status: t.language === 'es' ? 'En desarrollo' : 'In development',
       category: t.language === 'es' ? 'Transporte' : 'Transport',
-      icon: <i className="fas fa-bus text-4xl" />,
+      icon: <Bus className="w-10 h-10" />,
       progress: 65,
       contributors: 8,
       fundingUSD: 12500,
@@ -103,7 +103,7 @@ export default function EnhancedDAO() {
   const communityLinks = [
     {
       name: 'Discord',
-      icon: <i className="fab fa-discord text-2xl" />,
+      icon: <MessageCircle className="w-6 h-6" />,
       url: 'https://discord.gg/santarita-dao',
       description: t.language === 'es'
         ? 'Únete a nuestras discusiones diarias y propuestas comunitarias'
@@ -239,7 +239,7 @@ export default function EnhancedDAO() {
                   <div className="flex flex-col lg:flex-row items-center">
                     <div className="lg:w-2/3 lg:pr-8 mb-6 lg:mb-0">
                       <div className="flex items-center mb-4">
-                        <i className="fas fa-bus text-4xl mr-4" />
+                        <Bus className="w-10 h-10 mr-4" />
                         <h2 className="text-3xl font-bold">Santa Rush</h2>
                       </div>
                       <p className="text-lg mb-6 opacity-90">

@@ -1,7 +1,7 @@
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText } from 'lucide-react';
+import { FileText, Rss, Tag } from 'lucide-react';
 
 export default function Blog() {
   const { t } = useLanguage();
@@ -38,7 +38,7 @@ export default function Blog() {
           <Card className="card-hover">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <i className="fas fa-rss mr-3 text-orange-600"></i>
+                <Rss className="w-5 h-5 mr-3 text-orange-600" />
                 {t.language === 'es' ? 'Suscríbete al Blog' : 'Subscribe to Blog'}
               </CardTitle>
             </CardHeader>
@@ -65,7 +65,7 @@ export default function Blog() {
           <Card className="card-hover">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <i className="fas fa-tags mr-3 text-green-600"></i>
+                <Tag className="w-5 h-5 mr-3 text-green-600" />
                 {t.language === 'es' ? 'Categorías Populares' : 'Popular Categories'}
               </CardTitle>
             </CardHeader>

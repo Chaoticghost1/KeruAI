@@ -4,8 +4,36 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
 import { DataSaverToggle } from './DataSaverMode';
 import { OnboardingFlow } from './OnboardingFlow';
-import { socialLinks } from '../data/content';
 import { useAuth } from '../hooks/use-auth';
+import { 
+  Home, BookOpen, GraduationCap, Wallet, Globe, Ship, Users, 
+  Handshake, Menu, Brain, X, Shield, School, User, Settings, 
+  LogOut, LogIn, UserPlus
+} from 'lucide-react';
+import { FaTwitter, FaYoutube, FaGithub } from 'react-icons/fa';
+
+const iconMap: Record<string, React.ReactNode> = {
+  home: <Home className="w-5 h-5" />,
+  revision: <BookOpen className="w-5 h-5" />,
+  study: <GraduationCap className="w-5 h-5" />,
+  budget: <Wallet className="w-5 h-5" />,
+  travel: <Globe className="w-5 h-5" />,
+  game: <Ship className="w-5 h-5" />,
+  dao: <Users className="w-5 h-5" />,
+  mentorship: <Handshake className="w-5 h-5" />,
+};
+
+const socialIcons: Record<string, React.ReactNode> = {
+  Twitter: <FaTwitter className="text-lg" />,
+  YouTube: <FaYoutube className="text-lg" />,
+  GitHub: <FaGithub className="text-lg" />,
+};
+
+const socialLinks = [
+  { platform: "Twitter", url: "https://twitter.com/keruai" },
+  { platform: "YouTube", url: "https://youtube.com/@keruai" },
+  { platform: "GitHub", url: "https://github.com/keruai" }
+];
 
 export function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -14,21 +42,16 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   const navItems = [
-    { href: '/dashboard', icon: 'fas fa-home', key: 'home' },
-    // Show Revision Materials for students
+    { href: '/dashboard', key: 'home' },
     ...(user?.role === 'student' ? [
-      { href: '/revision', icon: 'fas fa-book-open', key: 'revision' }
+      { href: '/revision', key: 'revision' }
     ] : []),
-    { href: '/studybuddy', icon: 'fas fa-graduation-cap', key: 'study' },
-    { href: '/budgetpal', icon: 'fas fa-wallet', key: 'budget' },
-    // Travel Blog available for all users
-    { href: '/blog', icon: 'fas fa-globe', key: 'travel' },
-    // Games available for all users
-    { href: '/cruiseword', icon: 'fas fa-ship', key: 'game' },
-    // DAO Community
-    { href: '/dao', icon: 'fas fa-users', key: 'dao' },
-    // Mentorship Hub
-    { href: '/mentorship', icon: 'fas fa-hands-helping', key: 'mentorship' }
+    { href: '/studybuddy', key: 'study' },
+    { href: '/budgetpal', key: 'budget' },
+    { href: '/blog', key: 'travel' },
+    { href: '/cruiseword', key: 'game' },
+    { href: '/dao', key: 'dao' },
+    { href: '/mentorship', key: 'mentorship' }
   ];
 
   const isActive = (href: string) => {
@@ -47,9 +70,14 @@ export function Sidebar() {
     setIsMobileOpen(false);
   };
 
+  const getRoleIcon = () => {
+    if (user?.role === 'superuser') return <Shield className="w-4 h-4 text-white" />;
+    if (user?.role === 'teacher') return <School className="w-4 h-4 text-white" />;
+    return <User className="w-4 h-4 text-white" />;
+  };
+
   return (
     <>
-      {/* Mobile Overlay */}
       {isMobileOpen && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -57,65 +85,54 @@ export function Sidebar() {
         />
       )}
 
-      {/* Mobile Header */}
       <header className="lg:hidden bg-white shadow-sm p-4 flex items-center justify-between fixed top-0 left-0 right-0 z-50">
         <button 
           onClick={() => setIsMobileOpen(true)}
           className="text-slate-600 hover:text-slate-900"
         >
-          <i className="fas fa-bars text-xl"></i>
+          <Menu className="w-6 h-6" />
         </button>
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <i className="fas fa-brain text-white text-sm"></i>
+            <Brain className="w-4 h-4 text-white" />
           </div>
           <span className="font-bold text-slate-900">{t.brand.name}</span>
         </div>
         <div className="w-8"></div>
       </header>
 
-      {/* Sidebar */}
       <aside className={`fixed left-0 top-0 h-full w-80 bg-slate-800 text-white transform transition-transform duration-300 ease-in-out z-50 flex flex-col ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0`}>
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-6">
-            {/* Logo/Brand */}
             <div className="flex items-center justify-between mb-8">
               <Link href="/" className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <i className="fas fa-brain text-white text-xl"></i>
+                  <Brain className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold">{t.brand.name}</h1>
                   <p className="text-slate-400 text-sm">{t.brand.tagline}</p>
                 </div>
               </Link>
-              {/* Mobile Close Button */}
               <button 
                 onClick={() => setIsMobileOpen(false)}
                 className="lg:hidden text-slate-400 hover:text-white"
               >
-                <i className="fas fa-times text-xl"></i>
+                <X className="w-6 h-6" />
               </button>
             </div>
 
-            {/* Language Toggle */}
             <div className="mb-8">
               <LanguageToggle />
             </div>
 
-            {/* User Menu - Show if logged in */}
             {user && (
               <div className="mb-6 p-4 bg-slate-700 rounded-lg">
                 <div className="flex items-center space-x-3 mb-3">
                   <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center">
-                    <i className={`fas ${
-                      user.role === 'superuser' ? 'fa-shield-alt' : 
-                      user.role === 'teacher' ? 'fa-chalkboard-teacher' : 
-                      'fa-user'
-                    } text-white text-sm`}></i>
+                    {getRoleIcon()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white truncate">
@@ -134,7 +151,7 @@ export function Sidebar() {
                       onClick={() => setIsMobileOpen(false)}
                       className="flex items-center space-x-2 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-600 rounded transition-colors"
                     >
-                      <i className={`fas ${user.role === 'superuser' ? 'fa-cogs' : 'fa-chalkboard'} w-4`}></i>
+                      {user.role === 'superuser' ? <Settings className="w-4 h-4" /> : <School className="w-4 h-4" />}
                       <span>{user.role === 'superuser' ? 'Admin Panel' : 'Teacher Panel'}</span>
                     </Link>
                   )}
@@ -146,14 +163,13 @@ export function Sidebar() {
                     }}
                     className="flex items-center space-x-2 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-red-600 rounded transition-colors w-full text-left"
                   >
-                    <i className="fas fa-sign-out-alt w-4"></i>
+                    <LogOut className="w-4 h-4" />
                     <span>Logout</span>
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Navigation Menu */}
             <nav className="space-y-2">
               {navItems.map((item) => (
                 <Link
@@ -171,19 +187,15 @@ export function Sidebar() {
                   }`}
                   data-testid={`nav-${item.key}`}
                 >
-                  <i className={`${item.icon} w-5`}></i>
+                  {iconMap[item.key]}
                   <span>{t.nav[item.key as keyof typeof t.nav]}</span>
                 </Link>
               ))}
             </nav>
 
-            {/* Honduras-First Features */}
             {user && (
               <div className="mt-6 space-y-4 px-4">
-                {/* Data Saver Toggle for Honduras low-bandwidth */}
                 <DataSaverToggle />
-                
-                {/* Onboarding Flow for Digital Literacy */}
                 <div className="mt-4">
                   <OnboardingFlow />
                 </div>
@@ -192,9 +204,7 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* Footer in Sidebar */}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-slate-900">
-          {/* Auth Links - Show if not logged in */}
           {!user && (
             <div className="mb-4 space-y-2">
               <Link
@@ -202,7 +212,7 @@ export function Sidebar() {
                 onClick={() => setIsMobileOpen(false)}
                 className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
-                <i className="fas fa-sign-in-alt"></i>
+                <LogIn className="w-4 h-4" />
                 <span>Sign In</span>
               </Link>
               <Link
@@ -210,7 +220,7 @@ export function Sidebar() {
                 onClick={() => setIsMobileOpen(false)}
                 className="flex items-center justify-center space-x-2 px-4 py-2 border border-slate-600 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
               >
-                <i className="fas fa-user-plus"></i>
+                <UserPlus className="w-4 h-4" />
                 <span>Sign Up</span>
               </Link>
             </div>
@@ -230,7 +240,7 @@ export function Sidebar() {
                 rel="noopener noreferrer"
                 className="text-slate-400 hover:text-white transition-colors"
               >
-                <i className={`${link.icon} text-lg`}></i>
+                {socialIcons[link.platform]}
               </a>
             ))}
           </div>

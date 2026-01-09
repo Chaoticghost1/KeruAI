@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Flag } from 'lucide-react';
 
 export function LanguageToggle() {
   const { language, setLanguage } = useLanguage();
@@ -14,7 +15,7 @@ export function LanguageToggle() {
             : 'text-slate-400 hover:text-white'
         }`}
       >
-        <i className="fas fa-flag mr-2"></i>
+        <Flag className="w-4 h-4 mr-2" />
         Español
       </button>
       <button
@@ -25,7 +26,7 @@ export function LanguageToggle() {
             : 'text-slate-400 hover:text-white'
         }`}
       >
-        <i className="fas fa-flag mr-2"></i>
+        <Flag className="w-4 h-4 mr-2" />
         English
       </button>
     </div>
