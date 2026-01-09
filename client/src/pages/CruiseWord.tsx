@@ -4,29 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, Compass, Users, Shield, UtensilsCrossed, Settings, Calendar, Ship, Trophy, Zap, Target, Brain, Mic, Volume2, Award } from 'lucide-react';
 
-type Language = 'en' | 'es';
-
-interface MemoryCard {
-  id: number;
-  type: 'word' | 'definition';
-  content: string;
-  matchId: number;
-}
-
-interface SpeedOption {
-  text: string;
-  correct: boolean;
-}
-
-interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  delay: number;
-}
-
 const useLanguage = () => {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState('en');
 
   const translations = {
     en: {
@@ -96,15 +75,15 @@ export default function CruiseWord() {
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [quizAnswer, setQuizAnswer] = useState('');
-  const [quizResult, setQuizResult] = useState<boolean | null>(null);
-  const [memoryCards, setMemoryCards] = useState<MemoryCard[]>([]);
-  const [flippedMemory, setFlippedMemory] = useState<number[]>([]);
-  const [matchedPairs, setMatchedPairs] = useState<number[]>([]);
+  const [quizResult, setQuizResult] = useState(null);
+  const [memoryCards, setMemoryCards] = useState([]);
+  const [flippedMemory, setFlippedMemory] = useState([]);
+  const [matchedPairs, setMatchedPairs] = useState([]);
   const [speedTimer, setSpeedTimer] = useState(30);
   const [speedScore, setSpeedScore] = useState(0);
   const [speedActive, setSpeedActive] = useState(false);
-  const [speedOptions, setSpeedOptions] = useState<SpeedOption[]>([]);
-  const [particles, setParticles] = useState<Particle[]>([]);
+  const [speedOptions, setSpeedOptions] = useState([]);
+  const [particles, setParticles] = useState([]);
 
   const cruiseWords = [
     {
@@ -199,11 +178,11 @@ export default function CruiseWord() {
 
   // Inicializar Memory Game
   const initMemoryGame = () => {
-    const cards: MemoryCard[] = [];
+    const cards = [];
     const selectedWords = cruiseWords.slice(0, 6);
     selectedWords.forEach((word, idx) => {
-      cards.push({ id: idx * 2, content: word.word, type: 'word', matchId: idx });
-      cards.push({ id: idx * 2 + 1, content: word.definition[language], type: 'definition', matchId: idx });
+      cards.push({ id: `word-${idx}`, content: word.word, type: 'word', matchId: idx });
+      cards.push({ id: `def-${idx}`, content: word.definition[language], type: 'definition', matchId: idx });
     });
     setMemoryCards(cards.sort(() => Math.random() - 0.5));
     setFlippedMemory([]);
@@ -266,7 +245,7 @@ export default function CruiseWord() {
     }
   };
 
-  const handleMemoryClick = (card: MemoryCard) => {
+  const handleMemoryClick = (card) => {
     if (flippedMemory.length === 2 || matchedPairs.includes(card.matchId) || flippedMemory.includes(card.id)) return;
 
     const newFlipped = [...flippedMemory, card.id];
@@ -274,7 +253,7 @@ export default function CruiseWord() {
 
     if (newFlipped.length === 2) {
       const [first, second] = newFlipped.map(id => memoryCards.find(c => c.id === id));
-      if (first && second && first.matchId === second.matchId) {
+      if (first.matchId === second.matchId) {
         setTimeout(() => {
           setMatchedPairs([...matchedPairs, first.matchId]);
           setFlippedMemory([]);
@@ -287,7 +266,7 @@ export default function CruiseWord() {
     }
   };
 
-  const handleSpeedAnswer = (correct: boolean) => {
+  const handleSpeedAnswer = (correct) => {
     if (correct) {
       setSpeedScore(speedScore + 1);
       setScore(score + 2);
@@ -604,7 +583,7 @@ export default function CruiseWord() {
                 className={`h-20 flex-col gap-2 ${mode === modeOption.id ? `bg-${modeOption.color}-600` : ''}`}
               >
                 <Icon className="w-6 h-6" />
-                <span className="text-xs">{t.modes[modeOption.id as keyof typeof t.modes]}</span>
+                <span className="text-xs">{t.modes[modeOption.id]}</span>
               </Button>
             );
           })}
