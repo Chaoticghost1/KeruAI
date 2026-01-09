@@ -1232,9 +1232,11 @@ function useMobile(): boolean; // true if screen < 768px
 | `/dashboard` | Dashboard | Yes | All |
 | `/studybuddy` | StudyBuddy | Yes | All |
 | `/revision` | StudentRevision | Yes | student |
-| `/budgetpal` | EnhancedBudgetPal | Yes | All |
+| `/budgetpal` | BudgetPal | Yes | All |
 | `/blog` | Blog | Yes | All |
 | `/cruiseword` | CruiseWord | Yes | All |
+| `/dao` | DAO | Yes | All |
+| `/mentorship` | MentorshipHub | Yes | All |
 | `/admin` | AdminDashboard | Yes | teacher, superuser |
 | `*` | NotFound | No | All |
 
@@ -1247,7 +1249,9 @@ const navItems = [
   { href: '/studybuddy', icon: 'fas fa-graduation-cap', key: 'study' },
   { href: '/budgetpal', icon: 'fas fa-wallet', key: 'budget' },
   { href: '/blog', icon: 'fas fa-globe', key: 'travel' },
-  { href: '/cruiseword', icon: 'fas fa-ship', key: 'game' }
+  { href: '/cruiseword', icon: 'fas fa-ship', key: 'game' },
+  { href: '/dao', icon: 'fas fa-users', key: 'dao' },
+  { href: '/mentorship', icon: 'fas fa-hands-helping', key: 'mentorship' }
 ];
 ```
 

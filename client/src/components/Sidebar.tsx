@@ -24,7 +24,11 @@ export function Sidebar() {
     // Travel Blog available for all users
     { href: '/blog', icon: 'fas fa-globe', key: 'travel' },
     // Games available for all users
-    { href: '/cruiseword', icon: 'fas fa-ship', key: 'game' }
+    { href: '/cruiseword', icon: 'fas fa-ship', key: 'game' },
+    // DAO Community
+    { href: '/dao', icon: 'fas fa-users', key: 'dao' },
+    // Mentorship Hub
+    { href: '/mentorship', icon: 'fas fa-hands-helping', key: 'mentorship' }
   ];
 
   const isActive = (href: string) => {

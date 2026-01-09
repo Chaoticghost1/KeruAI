@@ -163,6 +163,26 @@ Changelog:
     - Clean router architecture with domain isolation
     - No code duplication across components
     - Consistent API contracts between frontend and backend
+- January 09, 2026. Removed Hardcoded Mock Data and Navigation Improvements
+  - **Data Integrity Fixes**:
+    - Removed all hardcoded mock data from BudgetPal - now fetches real data from /api/budget/* endpoints
+    - Removed hardcoded projects, proposals, events from DAO.tsx - shows empty state until API data available
+    - Removed hardcoded blog posts from Blog.tsx - shows empty state pending backend API
+    - Removed hardcoded mentors from MentorshipHub.tsx - shows empty state with functional forms
+    - Fixed admin-dashboard.tsx to use real API data instead of hardcoded stats
+  - **Authentication Improvements**:
+    - Fixed logout mutation to properly redirect to homepage after logout
+    - Improved error handling in logout - gracefully handles server errors
+    - Clears tokens and user state correctly on logout
+  - **Navigation Enhancements**:
+    - Added MentorshipHub route at /mentorship
+    - Added DAO and MentorshipHub to sidebar navigation
+    - Added translation keys for new nav items (mentorship, revision) in Spanish and English
+  - **Code Quality Fixes**:
+    - Fixed sync-service.ts import (db -> offlineDb)
+    - Fixed TypeScript errors in sync-service.ts (error handling, IndexableType)
+    - Removed unused imports and variables (Badge from MentorshipHub, unused icons from DAO)
+    - Removed unused ProgressRing component from DAO.tsx
 ```
 
 ## AI-Assisted Content Revision Implementation Plan

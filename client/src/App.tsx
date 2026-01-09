@@ -21,6 +21,7 @@ import AuthPage from "./pages/auth-page";
 import AdminDashboard from "./pages/admin-dashboard";
 import StudentRevision from "./pages/StudentRevision";
 import DAO from "./pages/DAO";
+import MentorshipHub from "./pages/MentorshipHub";
 import LandingPage from "./pages/landing-page";
 import NotFound from "@/pages/not-found";
 import { Redirect } from "./components/Redirect";
@@ -73,6 +74,7 @@ function Router() {
                     <ProtectedRoute path="/blog" component={Blog} />
                     <ProtectedRoute path="/cruiseword" component={CruiseWord} />
                     <ProtectedRoute path="/dao" component={DAO} />
+                    <ProtectedRoute path="/mentorship" component={MentorshipHub} />
                     <Route component={NotFound} />
                   </Switch>
                 </main>
