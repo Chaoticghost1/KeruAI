@@ -1,69 +1,89 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, Compass, Users, Shield, UtensilsCrossed, Settings, Calendar, Ship, Trophy, Zap, Target, Brain, Mic, Volume2, Award } from 'lucide-react';
+import { Star, Compass, Users, Shield, UtensilsCrossed, Calendar, Ship, Trophy, Zap, Target, Brain, Award } from 'lucide-react';
+
+type Language = 'en' | 'es';
+
+interface MemoryCard {
+  id: string;
+  content: string;
+  type: 'word' | 'definition';
+  matchId: number;
+}
+
+interface SpeedOption {
+  text: string;
+  correct: boolean;
+}
+
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  delay: number;
+}
+
+const translations = {
+  en: {
+    title: "Cruise Vocabulary Trainer",
+    modes: {
+      flashcard: "Flashcard",
+      quiz: "Quick Quiz",
+      memory: "Memory Game",
+      challenge: "Speed Challenge"
+    } as Record<string, string>,
+    startQuiz: "Start Quiz",
+    checkAnswer: "Check Answer",
+    nextQuestion: "Next Question",
+    correct: "Correct!",
+    incorrect: "Incorrect",
+    yourAnswer: "Your answer",
+    correctAnswer: "Correct answer",
+    score: "Score",
+    timeLeft: "Time Left",
+    streak: "Streak",
+    clickToReveal: "Click to reveal",
+    matchPairs: "Match the pairs",
+    speedRound: "Speed Round!",
+    selectCorrect: "Select the correct definition",
+    congrats: "Congratulations!",
+    perfectScore: "Perfect Score!",
+    tryAgain: "Try Again",
+    playAgain: "Play Again"
+  },
+  es: {
+    title: "Entrenador de Vocabulario de Crucero",
+    modes: {
+      flashcard: "Tarjetas",
+      quiz: "Quiz Rápido",
+      memory: "Juego de Memoria",
+      challenge: "Desafío de Velocidad"
+    } as Record<string, string>,
+    startQuiz: "Iniciar Quiz",
+    checkAnswer: "Verificar",
+    nextQuestion: "Siguiente",
+    correct: "¡Correcto!",
+    incorrect: "Incorrecto",
+    yourAnswer: "Tu respuesta",
+    correctAnswer: "Respuesta correcta",
+    score: "Puntuación",
+    timeLeft: "Tiempo",
+    streak: "Racha",
+    clickToReveal: "Clic para revelar",
+    matchPairs: "Empareja los pares",
+    speedRound: "¡Ronda Rápida!",
+    selectCorrect: "Selecciona la definición correcta",
+    congrats: "¡Felicitaciones!",
+    perfectScore: "¡Puntuación Perfecta!",
+    tryAgain: "Intentar de Nuevo",
+    playAgain: "Jugar de Nuevo"
+  }
+};
 
 const useLanguage = () => {
-  const [language, setLanguage] = useState('en');
-
-  const translations = {
-    en: {
-      title: "Cruise Vocabulary Trainer",
-      modes: {
-        flashcard: "Flashcard",
-        quiz: "Quick Quiz",
-        memory: "Memory Game",
-        challenge: "Speed Challenge"
-      },
-      startQuiz: "Start Quiz",
-      checkAnswer: "Check Answer",
-      nextQuestion: "Next Question",
-      correct: "Correct!",
-      incorrect: "Incorrect",
-      yourAnswer: "Your answer",
-      correctAnswer: "Correct answer",
-      score: "Score",
-      timeLeft: "Time Left",
-      streak: "Streak",
-      clickToReveal: "Click to reveal",
-      matchPairs: "Match the pairs",
-      speedRound: "Speed Round!",
-      selectCorrect: "Select the correct definition",
-      congrats: "Congratulations!",
-      perfectScore: "Perfect Score!",
-      tryAgain: "Try Again",
-      playAgain: "Play Again"
-    },
-    es: {
-      title: "Entrenador de Vocabulario de Crucero",
-      modes: {
-        flashcard: "Tarjetas",
-        quiz: "Quiz Rápido",
-        memory: "Juego de Memoria",
-        challenge: "Desafío de Velocidad"
-      },
-      startQuiz: "Iniciar Quiz",
-      checkAnswer: "Verificar",
-      nextQuestion: "Siguiente",
-      correct: "¡Correcto!",
-      incorrect: "Incorrecto",
-      yourAnswer: "Tu respuesta",
-      correctAnswer: "Respuesta correcta",
-      score: "Puntuación",
-      timeLeft: "Tiempo",
-      streak: "Racha",
-      clickToReveal: "Clic para revelar",
-      matchPairs: "Empareja los pares",
-      speedRound: "¡Ronda Rápida!",
-      selectCorrect: "Selecciona la definición correcta",
-      congrats: "¡Felicitaciones!",
-      perfectScore: "¡Puntuación Perfecta!",
-      tryAgain: "Intentar de Nuevo",
-      playAgain: "Jugar de Nuevo"
-    }
-  };
-
+  const [language, setLanguage] = useState<Language>('en');
   return { language, setLanguage, t: translations[language] };
 };
 
@@ -75,15 +95,15 @@ export default function CruiseWord() {
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [quizAnswer, setQuizAnswer] = useState('');
-  const [quizResult, setQuizResult] = useState(null);
-  const [memoryCards, setMemoryCards] = useState([]);
-  const [flippedMemory, setFlippedMemory] = useState([]);
-  const [matchedPairs, setMatchedPairs] = useState([]);
+  const [quizResult, setQuizResult] = useState<boolean | null>(null);
+  const [memoryCards, setMemoryCards] = useState<MemoryCard[]>([]);
+  const [flippedMemory, setFlippedMemory] = useState<string[]>([]);
+  const [matchedPairs, setMatchedPairs] = useState<number[]>([]);
   const [speedTimer, setSpeedTimer] = useState(30);
   const [speedScore, setSpeedScore] = useState(0);
   const [speedActive, setSpeedActive] = useState(false);
-  const [speedOptions, setSpeedOptions] = useState([]);
-  const [particles, setParticles] = useState([]);
+  const [speedOptions, setSpeedOptions] = useState<SpeedOption[]>([]);
+  const [particles, setParticles] = useState<Particle[]>([]);
 
   const cruiseWords = [
     {
@@ -178,11 +198,11 @@ export default function CruiseWord() {
 
   // Inicializar Memory Game
   const initMemoryGame = () => {
-    const cards = [];
+    const cards: MemoryCard[] = [];
     const selectedWords = cruiseWords.slice(0, 6);
     selectedWords.forEach((word, idx) => {
       cards.push({ id: `word-${idx}`, content: word.word, type: 'word', matchId: idx });
-      cards.push({ id: `def-${idx}`, content: word.definition[language], type: 'definition', matchId: idx });
+      cards.push({ id: `def-${idx}`, content: word.definition[language as keyof typeof word.definition], type: 'definition', matchId: idx });
     });
     setMemoryCards(cards.sort(() => Math.random() - 0.5));
     setFlippedMemory([]);
@@ -200,11 +220,12 @@ export default function CruiseWord() {
   const generateSpeedQuestion = () => {
     const correctWord = cruiseWords[Math.floor(Math.random() * cruiseWords.length)];
     const wrongWords = cruiseWords.filter(w => w.word !== correctWord.word);
-    const options = [
-      { text: correctWord.definition[language], correct: true },
-      { text: wrongWords[0].definition[language], correct: false },
-      { text: wrongWords[1].definition[language], correct: false },
-      { text: wrongWords[2].definition[language], correct: false }
+    const langKey = language as keyof typeof correctWord.definition;
+    const options: SpeedOption[] = [
+      { text: correctWord.definition[langKey], correct: true },
+      { text: wrongWords[0].definition[langKey], correct: false },
+      { text: wrongWords[1].definition[langKey], correct: false },
+      { text: wrongWords[2].definition[langKey], correct: false }
     ].sort(() => Math.random() - 0.5);
 
     setCurrentWord(cruiseWords.indexOf(correctWord));
@@ -245,15 +266,16 @@ export default function CruiseWord() {
     }
   };
 
-  const handleMemoryClick = (card) => {
+  const handleMemoryClick = (card: MemoryCard) => {
     if (flippedMemory.length === 2 || matchedPairs.includes(card.matchId) || flippedMemory.includes(card.id)) return;
 
     const newFlipped = [...flippedMemory, card.id];
     setFlippedMemory(newFlipped);
 
     if (newFlipped.length === 2) {
-      const [first, second] = newFlipped.map(id => memoryCards.find(c => c.id === id));
-      if (first.matchId === second.matchId) {
+      const first = memoryCards.find(c => c.id === newFlipped[0]);
+      const second = memoryCards.find(c => c.id === newFlipped[1]);
+      if (first && second && first.matchId === second.matchId) {
         setTimeout(() => {
           setMatchedPairs([...matchedPairs, first.matchId]);
           setFlippedMemory([]);
@@ -266,7 +288,7 @@ export default function CruiseWord() {
     }
   };
 
-  const handleSpeedAnswer = (correct) => {
+  const handleSpeedAnswer = (correct: boolean) => {
     if (correct) {
       setSpeedScore(speedScore + 1);
       setScore(score + 2);
@@ -309,8 +331,8 @@ export default function CruiseWord() {
             }}
           >
             <CardContent className="p-12 bg-gradient-to-br from-blue-50 to-cyan-50">
-              <p className="text-2xl text-slate-700 mb-4">{word.definition[language]}</p>
-              <Badge variant="outline">{word.hint[language]}</Badge>
+              <p className="text-2xl text-slate-700 mb-4">{word.definition[language as keyof typeof word.definition]}</p>
+              <Badge variant="outline">{word.hint[language as keyof typeof word.hint]}</Badge>
             </CardContent>
           </div>
         </Card>
@@ -349,8 +371,8 @@ export default function CruiseWord() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="bg-blue-50 p-6 rounded-lg">
-            <p className="text-xl text-slate-700 mb-2">{word.definition[language]}</p>
-            <p className="text-sm text-slate-500">{word.hint[language]}</p>
+            <p className="text-xl text-slate-700 mb-2">{word.definition[language as keyof typeof word.definition]}</p>
+            <p className="text-sm text-slate-500">{word.hint[language as keyof typeof word.hint]}</p>
           </div>
 
           {quizResult === null ? (

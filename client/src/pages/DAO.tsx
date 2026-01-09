@@ -9,8 +9,8 @@ import { formatAsHondurasCurrency } from '@/lib/currency-formatter';
 import { motion, AnimatePresence, useAnimation, useInView } from 'framer-motion';
 import { useTheme } from 'next-themes';
 
-// --- Animated Counter Hook ---
-const useAnimatedCounter = (end, duration = 2000) => {
+// --- Animated Counter Component ---
+const AnimatedCounter = ({ end, duration = 2000 }: { end: number; duration?: number }) => {
   const [count, setCount] = useState(0);
   useEffect(() => {
     let start = 0;
@@ -25,11 +25,11 @@ const useAnimatedCounter = (end, duration = 2000) => {
     }, 16);
     return () => clearInterval(timer);
   }, [end, duration]);
-  return count;
+  return <>{count}</>;
 };
 
 // --- Progress Ring Component ---
-const ProgressRing = ({ progress, size = 60, strokeWidth = 8 }) => {
+const ProgressRing = ({ progress, size = 60, strokeWidth = 8 }: { progress: number; size?: number; strokeWidth?: number }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
@@ -195,15 +195,15 @@ export default function EnhancedDAO() {
           >
             <Badge variant="secondary" className="gap-1">
               <Users className="h-4 w-4" />
-              <useAnimatedCounter end={2929} /> {t.language === 'es' ? 'Miembros' : 'Members'}
+              <AnimatedCounter end={2929} /> {t.language === 'es' ? 'Miembros' : 'Members'}
             </Badge>
             <Badge variant="secondary" className="gap-1">
               <GitBranch className="h-4 w-4" />
-              <useAnimatedCounter end={12} /> {t.language === 'es' ? 'Proyectos' : 'Projects'}
+              <AnimatedCounter end={12} /> {t.language === 'es' ? 'Proyectos' : 'Projects'}
             </Badge>
             <Badge variant="secondary" className="gap-1">
               <Activity className="h-4 w-4" />
-              <useAnimatedCounter end={47} /> {t.language === 'es' ? 'Propuestas' : 'Proposals'}
+              <AnimatedCounter end={47} /> {t.language === 'es' ? 'Propuestas' : 'Proposals'}
             </Badge>
           </motion.div>
         </motion.div>
@@ -371,7 +371,7 @@ export default function EnhancedDAO() {
                   <div className="grid md:grid-cols-4 gap-6 text-center">
                     <div>
                       <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                        <useAnimatedCounter end={2929} />
+                        <AnimatedCounter end={2929} />
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-300">
                         {t.language === 'es' ? 'Miembros Totales' : 'Total Members'}
@@ -379,7 +379,7 @@ export default function EnhancedDAO() {
                     </div>
                     <div>
                       <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                        <useAnimatedCounter end={47} />
+                        <AnimatedCounter end={47} />
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-300">
                         {t.language === 'es' ? 'Propuestas Activas' : 'Active Proposals'}
@@ -387,7 +387,7 @@ export default function EnhancedDAO() {
                     </div>
                     <div>
                       <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                        <useAnimatedCounter end={156} />
+                        <AnimatedCounter end={156} />
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-300">
                         {t.language === 'es' ? 'Contribuidores' : 'Contributors'}

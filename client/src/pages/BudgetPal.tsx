@@ -53,7 +53,7 @@ export default function PremiumBudgetPal() {
   const totalSavingsCurrent = savingsGoals.reduce((sum, g) => sum + g.currentAmount, 0);
   const remainingBudget = totalIncome - totalExpenses;
 
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' }).format(amount);
   };
 
@@ -73,7 +73,7 @@ export default function PremiumBudgetPal() {
     quickAdd: language === "es" ? "Acciones Rápidas" : "Quick Actions",
   };
 
-  const categoryIcons = {
+  const categoryIcons: Record<string, string> = {
     food: "🍽️",
     transport: "🚗",
     utilities: "🏠",
