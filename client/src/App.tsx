@@ -15,7 +15,6 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import StudyBuddy from "./pages/StudyBuddy";
 import BudgetPal from "./pages/BudgetPal";
-import EnhancedBudgetPal from "./pages/EnhancedBudgetPal";
 import Blog from "./pages/Blog";
 import CruiseWord from "./pages/CruiseWord";
 import AuthPage from "./pages/auth-page";
@@ -69,7 +68,7 @@ function Router() {
                     <ProtectedRoute path="/dashboard" component={Dashboard} />
                     <ProtectedRoute path="/studybuddy" component={StudyBuddy} />
                     <ProtectedRoute path="/revision" component={StudentRevision} roles={['student']} />
-                    <ProtectedRoute path="/budgetpal" component={EnhancedBudgetPal} />
+                    <ProtectedRoute path="/budgetpal" component={BudgetPal} />
                     <ProtectedRoute path="/blog" component={Blog} />
                     <ProtectedRoute path="/cruiseword" component={CruiseWord} />
                     <Route component={NotFound} />
