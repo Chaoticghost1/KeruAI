@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { apiRequest } from '@/lib/queryClient';
 import { useTutors } from '../hooks/use-personas';
+import SyncStatus from '../components/SyncStatus';
 
 interface Badge {
   id: number;
@@ -333,6 +334,10 @@ export default function StudyBuddy() {
 
         {/* Progress Dashboard */}
         {userId && <ProgressDashboard userId={userId} />}
+
+        <div className="mb-6 p-3 bg-blue-50 rounded">
+          <SyncStatus />
+        </div>
 
         {!currentSession ? (
           // Agent Selection View
