@@ -1,8 +1,8 @@
 // Service Worker for Honduras Educational Platform
 // Aggressive offline-first caching strategy for low-bandwidth environments
 
-const CACHE_NAME = 'honduras-edu-v1';
-const API_CACHE = 'honduras-edu-api-v1';
+const CACHE_NAME = 'honduras-edu-v2';
+const API_CACHE = 'honduras-edu-api-v2';
 
 // Essential public files to cache for offline functionality (no auth required)
 const STATIC_CACHE_FILES = [
