@@ -118,39 +118,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Simple logout function that clears everything and redirects
-  const performLogout = async () => {
-    // 1. Clear tokens immediately
+  // Logout function that clears everything and redirects
+  const performLogout = () => {
+    // 1. Clear tokens immediately (synchronous)
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     
-    // 2. Clear ALL localStorage just to be safe
+    // 2. Clear ALL localStorage except app version
+    const appVersion = localStorage.getItem('app_version');
     localStorage.clear();
+    if (appVersion) localStorage.setItem('app_version', appVersion);
     
-    // 3. Clear query cache
+    // 3. Clear sessionStorage too
+    sessionStorage.clear();
+    
+    // 4. Clear query cache (synchronous)
     queryClient.setQueryData(["/api/auth/me"], null);
     queryClient.clear();
     
-    // 4. Clear IndexedDB offline cache (this was caching /api/auth/me!)
-    try {
-      await OfflineManager.clearAllContentCache();
-    } catch (e) {
-      console.warn('Failed to clear offline cache:', e);
-    }
+    // 5. Clear async caches in background (don't wait)
+    (async () => {
+      try {
+        await OfflineManager.clearAllContentCache();
+      } catch (e) {
+        console.warn('Failed to clear offline cache:', e);
+      }
+      
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+    })();
     
-    // 5. Clear service worker cache
-    if ('caches' in window) {
-      const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.map(name => caches.delete(name)));
-    }
-    
-    // 6. Force reload from server (not from cache)
-    window.location.replace('/');
+    // 6. Force reload from server immediately (don't wait for async)
+    window.location.href = '/';
   };
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await performLogout();
+      performLogout();
     },
     onSuccess: () => {
       // Already handled in mutationFn
