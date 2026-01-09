@@ -122,9 +122,9 @@ export default function EnhancedDAO() {
       status: t.language === 'es' ? 'Votación Activa' : 'Active Voting',
       votes: { for: 156, against: 23, abstain: 12 },
       deadline: '2025-10-15',
-      category: t.language === 'es' ? 'Infraestructura' : 'Infrastructure'
+      category: t.language === 'es' ? 'Infraestructura' : 'Infrastructure',
+      description: t.language === 'es' ? 'Proveer acceso gratuito a internet en las áreas principales del parque.' : 'Provide free internet access in the main park areas.'
     },
-    // ... (other proposals)
   ];
 
   const events = [
@@ -211,16 +211,16 @@ export default function EnhancedDAO() {
         {/* --- Tabs --- */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 bg-white dark:bg-gray-800 rounded-xl p-1">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-orange-500 dark:data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg transition-all">
               {t.language === 'es' ? 'Resumen' : 'Overview'}
             </TabsTrigger>
-            <TabsTrigger value="community" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all">
+            <TabsTrigger value="community" className="data-[state=active]:bg-orange-500 dark:data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg transition-all">
               {t.language === 'es' ? 'Comunidad' : 'Community'}
             </TabsTrigger>
-            <TabsTrigger value="governance" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all">
+            <TabsTrigger value="governance" className="data-[state=active]:bg-orange-500 dark:data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg transition-all">
               {t.language === 'es' ? 'Gobernanza' : 'Governance'}
             </TabsTrigger>
-            <TabsTrigger value="events" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all">
+            <TabsTrigger value="events" className="data-[state=active]:bg-orange-500 dark:data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg transition-all">
               {t.language === 'es' ? 'Eventos' : 'Events'}
             </TabsTrigger>
           </TabsList>
@@ -250,7 +250,7 @@ export default function EnhancedDAO() {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {projects[0].tags.map((tag, i) => (
-                          <Badge key={i} variant="secondary" className="bg-white/20 hover:bg-white/30 transition-colors">
+                          <Badge key={i} variant="secondary" className="bg-white/20 dark:bg-white/10 hover:bg-white/30 transition-colors">
                             {tag}
                           </Badge>
                         ))}
@@ -278,15 +278,15 @@ export default function EnhancedDAO() {
                   <Card className="h-full hover:shadow-lg transition-shadow border border-slate-200 dark:border-gray-700">
                     <CardHeader>
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-2xl text-orange-600">
+                        <div className="text-2xl text-orange-600 dark:text-orange-400">
                           {project.icon}
                         </div>
                         <Badge variant={project.status === (t.language === 'es' ? 'En desarrollo' : 'In development') ? 'default' : 'secondary'}>
                           {project.status}
                         </Badge>
                       </div>
-                      <CardTitle className="text-xl">{project.name}</CardTitle>
-                      <Badge variant="outline" className="bg-orange-50 text-orange-600">
+                      <CardTitle className="text-xl dark:text-white">{project.name}</CardTitle>
+                      <Badge variant="outline" className="bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800">
                         {project.category}
                       </Badge>
                     </CardHeader>
@@ -299,7 +299,7 @@ export default function EnhancedDAO() {
                           <ProgressRing progress={project.progress} />
                         </div>
                         <div className="text-right">
-                          <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-300">
+                          <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
                             <Users className="h-4 w-4" />
                             {project.contributors}
                           </div>
@@ -308,7 +308,7 @@ export default function EnhancedDAO() {
                           </div>
                         </div>
                       </div>
-                      <Button variant="outline" className="w-full bg-orange-50 hover:bg-orange-100 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors">
+                      <Button variant="outline" className="w-full bg-orange-50 hover:bg-orange-100 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-orange-400 dark:border-orange-900/50 transition-colors">
                         {t.language === 'es' ? 'Más Información' : 'Learn More'}
                       </Button>
                     </CardContent>
@@ -332,12 +332,12 @@ export default function EnhancedDAO() {
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="text-2xl text-orange-600">
+                          <div className="text-2xl text-orange-600 dark:text-orange-400">
                             {link.icon}
                           </div>
-                          <span>{link.name}</span>
+                          <span className="dark:text-white">{link.name}</span>
                         </div>
-                        <Badge variant="outline" className="bg-orange-50 text-orange-600">
+                        <Badge variant="outline" className="bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800">
                           {link.members} {t.language === 'es' ? 'miembros' : 'members'}
                         </Badge>
                       </CardTitle>
@@ -361,9 +361,9 @@ export default function EnhancedDAO() {
 
             {/* --- Community Stats --- */}
             <motion.div initial="hidden" animate="visible" variants={cardVariants}>
-              <Card className="border border-slate-200 dark:border-gray-700">
+              <Card className="border border-slate-200 dark:border-gray-700 dark:bg-gray-800/50 backdrop-blur-sm">
                 <CardHeader>
-                  <CardTitle>
+                  <CardTitle className="dark:text-white">
                     {t.language === 'es' ? 'Estadísticas de la Comunidad' : 'Community Statistics'}
                   </CardTitle>
                 </CardHeader>
@@ -422,7 +422,7 @@ export default function EnhancedDAO() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline" className="bg-orange-50 text-orange-600">
+                            <Badge variant="outline" className="bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800">
                               {proposal.id}
                             </Badge>
                             <Badge variant={
@@ -434,11 +434,11 @@ export default function EnhancedDAO() {
                             }>
                               {proposal.status}
                             </Badge>
-                            <Badge variant="outline" className="bg-orange-50 text-orange-600">
+                            <Badge variant="outline" className="bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800">
                               {proposal.category}
                             </Badge>
                           </div>
-                          <CardTitle className="text-xl mb-2">{proposal.title}</CardTitle>
+                          <CardTitle className="text-xl mb-2 dark:text-white">{proposal.title}</CardTitle>
                           <p className="text-sm text-slate-600 dark:text-slate-300">
                             {t.language === 'es' ? 'Por' : 'By'} {proposal.author} •{' '}
                             {t.language === 'es' ? 'Vence: ' : 'Deadline: '}
@@ -452,7 +452,7 @@ export default function EnhancedDAO() {
                     <CardContent>
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm">
-                          <span>{t.language === 'es' ? 'A favor' : 'For'}</span>
+                          <span className="dark:text-slate-300">{t.language === 'es' ? 'A favor' : 'For'}</span>
                           <span className="font-medium text-green-600 dark:text-green-400">
                             {proposal.votes.for}
                           </span>
@@ -462,7 +462,7 @@ export default function EnhancedDAO() {
                             initial={{ width: 0 }}
                             animate={{ width: `${(proposal.votes.for / (proposal.votes.for + proposal.votes.against + proposal.votes.abstain)) * 100}%` }}
                             transition={{ duration: 1.5, ease: 'easeOut' }}
-                            className="bg-green-500 h-2 rounded-full"
+                            className="bg-green-500 dark:bg-green-600 h-2 rounded-full"
                           />
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-sm">
@@ -470,7 +470,7 @@ export default function EnhancedDAO() {
                             <div className="font-medium text-green-600 dark:text-green-400">
                               {proposal.votes.for}
                             </div>
-                            <p className="text-slate-600 dark:text-slate-300">
+                            <p className="text-slate-600 dark:text-slate-400">
                               {t.language === 'es' ? 'A favor' : 'For'}
                             </p>
                           </div>
@@ -478,26 +478,26 @@ export default function EnhancedDAO() {
                             <div className="font-medium text-red-600 dark:text-red-400">
                               {proposal.votes.against}
                             </div>
-                            <p className="text-slate-600 dark:text-slate-300">
+                            <p className="text-slate-600 dark:text-slate-400">
                               {t.language === 'es' ? 'En contra' : 'Against'}
                             </p>
                           </div>
                           <div className="text-center">
-                            <div className="font-medium text-slate-600 dark:text-slate-300">
+                            <div className="font-medium text-slate-600 dark:text-slate-400">
                               {proposal.votes.abstain}
                             </div>
-                            <p className="text-slate-600 dark:text-slate-300">
+                            <p className="text-slate-600 dark:text-slate-400">
                               {t.language === 'es' ? 'Abstención' : 'Abstain'}
                             </p>
                           </div>
                         </div>
                       </div>
                       <div className="flex gap-2 mt-4">
-                        <Button variant="outline" size="sm" className="flex-1">
+                        <Button variant="outline" size="sm" className="flex-1 dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-600 dark:text-white">
                           {t.language === 'es' ? 'Ver Detalles' : 'View Details'}
                         </Button>
                         {(proposal.status.includes(t.language === 'es' ? 'Votación' : 'Voting')) && (
-                          <Button size="sm" className="flex-1 bg-orange-500 hover:bg-orange-600 text-white transition-colors">
+                          <Button size="sm" className="flex-1 bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 text-white transition-colors">
                             {t.language === 'es' ? 'Votar' : 'Vote'}
                           </Button>
                         )}

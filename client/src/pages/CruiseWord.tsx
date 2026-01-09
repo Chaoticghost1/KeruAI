@@ -330,9 +330,9 @@ export default function CruiseWord() {
               width: '100%'
             }}
           >
-            <CardContent className="p-12 bg-gradient-to-br from-blue-50 to-cyan-50">
-              <p className="text-2xl text-slate-700 mb-4">{word.definition[language as keyof typeof word.definition]}</p>
-              <Badge variant="outline">{word.hint[language as keyof typeof word.hint]}</Badge>
+            <CardContent className="p-12 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20">
+              <p className="text-2xl text-slate-700 dark:text-slate-200 mb-4">{word.definition[language as keyof typeof word.definition]}</p>
+              <Badge variant="outline" className="dark:border-slate-700">{word.hint[language as keyof typeof word.hint]}</Badge>
             </CardContent>
           </div>
         </Card>
@@ -370,9 +370,9 @@ export default function CruiseWord() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="bg-blue-50 p-6 rounded-lg">
-            <p className="text-xl text-slate-700 mb-2">{word.definition[language as keyof typeof word.definition]}</p>
-            <p className="text-sm text-slate-500">{word.hint[language as keyof typeof word.hint]}</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg">
+            <p className="text-xl text-slate-700 dark:text-slate-300 mb-2">{word.definition[language as keyof typeof word.definition]}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{word.hint[language as keyof typeof word.hint]}</p>
           </div>
 
           {quizResult === null ? (
@@ -557,7 +557,7 @@ export default function CruiseWord() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 p-4 md:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4 md:p-6 relative overflow-hidden">
       {/* Partículas de celebración */}
       {particles.map((particle) => (
         <div
@@ -576,7 +576,7 @@ export default function CruiseWord() {
         <div className="text-center mb-8">
           <div className="flex justify-between items-center mb-4">
             <div className="flex-1"></div>
-            <h1 className="text-5xl font-bold text-slate-900 flex-1">{t.title}</h1>
+            <h1 className="text-5xl font-bold text-slate-900 dark:text-white flex-1">{t.title}</h1>
             <div className="flex-1 flex justify-end">
               <Button
                 variant="outline"
