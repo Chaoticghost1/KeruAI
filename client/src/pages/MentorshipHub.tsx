@@ -12,9 +12,10 @@ import {
   Sparkles, Crown, Zap, Globe, DollarSign, ArrowRight, UserCheck, 
   Target, Trophy, Briefcase, Mail, Phone
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function MentorshipHub() {
-  const [language, setLanguage] = useState('es');
+  const { language, setLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState('find-mentor');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('');

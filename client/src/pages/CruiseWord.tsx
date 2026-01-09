@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, Compass, Users, Shield, UtensilsCrossed, Calendar, Ship, Trophy, Zap, Target, Brain, Award } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type Language = 'en' | 'es';
 
@@ -82,13 +83,9 @@ const translations = {
   }
 };
 
-const useLanguage = () => {
-  const [language, setLanguage] = useState<Language>('en');
-  return { language, setLanguage, t: translations[language] };
-};
-
 export default function CruiseWord() {
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+  const t = translations[language as Language] || translations.en;
   const [mode, setMode] = useState('flashcard');
   const [currentWord, setCurrentWord] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);

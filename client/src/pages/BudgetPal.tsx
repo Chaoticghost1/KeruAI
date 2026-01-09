@@ -26,9 +26,10 @@ import {
   CircleDollarSign,
   Eye,
 } from "lucide-react";
+import { useLanguage } from "../contexts/LanguageContext";
 
 export default function PremiumBudgetPal() {
-  const [language, setLanguage] = useState("es");
+  const { language, setLanguage } = useLanguage();
   const [expenses, setExpenses] = useState([
     { id: "1", amount: 450, description: "Supermercado", category: "food", date: "2026-01-08" },
     { id: "2", amount: 200, description: "Gasolina", category: "transport", date: "2026-01-07" },

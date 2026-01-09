@@ -320,7 +320,7 @@ export const translations = {
 };
 
 export const socialLinks = [
-  { platform: "Twitter", url: "https://twitter.com/keruai", icon: "fab fa-twitter" },
-  { platform: "YouTube", url: "https://youtube.com/@keruai", icon: "fab fa-youtube" },
-  { platform: "GitHub", url: "https://github.com/keruai", icon: "fab fa-github" }
+  { platform: "Twitter", url: "https://twitter.com/keruai" },
+  { platform: "YouTube", url: "https://youtube.com/@keruai" },
+  { platform: "GitHub", url: "https://github.com/keruai" }
 ];
