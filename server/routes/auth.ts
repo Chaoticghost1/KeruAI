@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, NextFunction, Response } from "express";
 import { storage } from "../storage";
 import { User } from "@shared/schema";
 import {
@@ -17,11 +17,10 @@ import {
 export const authRouter = Router();
 
 // Register user
-authRouter.post("/register", async (req, res) => {
+authRouter.post("/register", async (req, res, next: NextFunction) => {
   try {
     const { username, email, phoneNumber, password, role = 'student', firstName, lastName } = req.body;
     
-    // Validate required fields
     if (!username || !password) {
       return res.status(400).json({ error: "Username and password are required" });
     }
@@ -30,7 +29,6 @@ authRouter.post("/register", async (req, res) => {
       return res.status(400).json({ error: "Email or phone number is required" });
     }
 
-    // Check if user already exists
     const existingUser = await storage.getUserByUsername(username);
     if (existingUser) {
       return res.status(400).json({ error: "Username already exists" });
@@ -50,7 +48,6 @@ authRouter.post("/register", async (req, res) => {
       }
     }
 
-    // Hash password and create user
     const hashedPassword = await hashPassword(password);
     const user = await storage.createUser({
       username,
@@ -63,13 +60,8 @@ authRouter.post("/register", async (req, res) => {
       isVerified: false
     });
 
-    // Generate verification token
     const verificationToken = await generateVerificationToken(user.id);
-    
-    // Generate auth tokens
     const tokens = await generateTokens(user);
-
-    // Remove password from response
     const { password: _, ...userResponse } = user;
 
     res.status(201).json({
@@ -78,13 +70,12 @@ authRouter.post("/register", async (req, res) => {
       verificationToken
     });
   } catch (error) {
-    console.error("Registration error:", error);
-    res.status(500).json({ error: "Registration failed" });
+    next(error);
   }
 });
 
 // Login user
-authRouter.post("/login", async (req, res) => {
+authRouter.post("/login", async (req, res, next: NextFunction) => {
   try {
     const { username, email, phoneNumber, password } = req.body;
     
@@ -92,7 +83,6 @@ authRouter.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Password is required" });
     }
 
-    // Find user by username, email, or phone
     let user: User | undefined;
     if (username) {
       user = await storage.getUserByUsername(username);
@@ -112,19 +102,13 @@ authRouter.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Account is deactivated" });
     }
 
-    // Verify password
     const isValidPassword = await comparePassword(password, user.password!);
     if (!isValidPassword) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Update last login
     await storage.updateLastLogin(user.id);
-
-    // Generate tokens
     const tokens = await generateTokens(user);
-
-    // Remove password from response
     const { password: _, ...userResponse } = user;
 
     res.json({
@@ -132,37 +116,34 @@ authRouter.post("/login", async (req, res) => {
       tokens
     });
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ error: "Login failed" });
+    next(error);
   }
 });
 
 // Logout user
-authRouter.post("/logout", authenticateToken, async (req: AuthRequest, res) => {
+authRouter.post("/logout", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (req.tokenId) {
       await revokeToken(req.tokenId);
     }
     res.json({ message: "Logged out successfully" });
   } catch (error) {
-    console.error("Logout error:", error);
-    res.status(500).json({ error: "Logout failed" });
+    next(error);
   }
 });
 
 // Get current user
-authRouter.get("/me", authenticateToken, async (req: AuthRequest, res) => {
+authRouter.get("/me", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { password: _, ...userResponse } = req.user!;
     res.json(userResponse);
   } catch (error) {
-    console.error("Get user error:", error);
-    res.status(500).json({ error: "Failed to get user" });
+    next(error);
   }
 });
 
 // Verify email
-authRouter.post("/verify-email", async (req, res) => {
+authRouter.post("/verify-email", async (req, res, next: NextFunction) => {
   try {
     const { token } = req.body;
     
@@ -180,13 +161,12 @@ authRouter.post("/verify-email", async (req, res) => {
 
     res.json({ message: "Email verified successfully" });
   } catch (error) {
-    console.error("Email verification error:", error);
-    res.status(500).json({ error: "Email verification failed" });
+    next(error);
   }
 });
 
 // Request password reset
-authRouter.post("/forgot-password", async (req, res) => {
+authRouter.post("/forgot-password", async (req, res, next: NextFunction) => {
   try {
     const { email } = req.body;
     
@@ -196,26 +176,22 @@ authRouter.post("/forgot-password", async (req, res) => {
 
     const user = await storage.getUserByEmail(email);
     if (!user) {
-      // Don't reveal if email exists
       return res.json({ message: "If the email exists, a reset link has been sent" });
     }
 
     const resetToken = await generatePasswordResetToken(user.id);
 
-    // In production, send email with reset link
-    // For now, return the token in response (remove in production)
     res.json({ 
       message: "Password reset token generated",
-      resetToken // Remove this in production
+      resetToken
     });
   } catch (error) {
-    console.error("Password reset error:", error);
-    res.status(500).json({ error: "Password reset failed" });
+    next(error);
   }
 });
 
 // Reset password
-authRouter.post("/reset-password", async (req, res) => {
+authRouter.post("/reset-password", async (req, res, next: NextFunction) => {
   try {
     const { token, newPassword } = req.body;
     
@@ -234,7 +210,6 @@ authRouter.post("/reset-password", async (req, res) => {
 
     res.json({ message: "Password reset successfully" });
   } catch (error) {
-    console.error("Password reset error:", error);
-    res.status(500).json({ error: "Password reset failed" });
+    next(error);
   }
 });

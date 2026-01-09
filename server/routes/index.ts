@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import { storage } from "../storage";
 import { insertUserSchema } from "@shared/schema";
 import express from 'express';
@@ -32,17 +32,17 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.use('/api/assignments', assignmentsRouter);
   app.use('/api/admin', adminRouter);
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validatedUser = insertUserSchema.parse(req.body);
       const user = await storage.createUser(validatedUser);
       res.json(user);
     } catch (error) {
-      res.status(400).json({ error: "Invalid user data" });
+      next(error);
     }
   });
 
-  app.get("/api/users/:id", async (req, res) => {
+  app.get("/api/users/:id", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
       const user = await storage.getUser(id);
@@ -51,11 +51,11 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       res.json(user);
     } catch (error) {
-      res.status(400).json({ error: "Invalid user ID" });
+      next(error);
     }
   });
 
-  app.get("/api/users/username/:username", async (req, res) => {
+  app.get("/api/users/username/:username", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const username = req.params.username;
       const user = await storage.getUserByUsername(username);
@@ -64,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       res.json(user);
     } catch (error) {
-      res.status(400).json({ error: "Error fetching user" });
+      next(error);
     }
   });
 }

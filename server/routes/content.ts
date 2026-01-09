@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { insertContentSubmissionSchema } from "@shared/schema";
 import {
@@ -47,7 +47,7 @@ const upload = multer({
 
 export const contentRouter = Router();
 
-contentRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superuser'), requireVerification, upload.single('file'), async (req: AuthRequest, res) => {
+contentRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superuser'), requireVerification, upload.single('file'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { title, description, contentType, subject, gradeLevel, tags, htmlContent } = req.body;
     
@@ -83,30 +83,29 @@ contentRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superuser'
 
     res.status(201).json(submission);
   } catch (error) {
-    console.error("Content creation error:", error);
-    res.status(500).json({ error: "Failed to create content" });
+    next(error);
   }
 });
 
-contentRouter.get("/my", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+contentRouter.get("/my", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const submissions = await storage.getTeacherContentSubmissions(req.user!.id);
     res.json(submissions);
   } catch (error) {
-    res.status(500).json({ error: "Failed to get content submissions" });
+    next(error);
   }
 });
 
-contentRouter.get("/", authenticateToken, requireVerification, async (req: AuthRequest, res) => {
+contentRouter.get("/", authenticateToken, requireVerification, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const submissions = await storage.getAllContentSubmissions(true);
     res.json(submissions);
   } catch (error) {
-    res.status(500).json({ error: "Failed to get content" });
+    next(error);
   }
 });
 
-contentRouter.patch("/:id", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+contentRouter.patch("/:id", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const contentId = parseInt(req.params.id);
     const content = await storage.getContentSubmission(contentId);
@@ -127,12 +126,11 @@ contentRouter.patch("/:id", authenticateToken, authorizeRoles('teacher', 'superu
     });
     res.json(updated);
   } catch (error) {
-    console.error("Content update error:", error);
-    res.status(500).json({ error: "Failed to update content" });
+    next(error);
   }
 });
 
-contentRouter.delete("/:id", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+contentRouter.delete("/:id", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const contentId = parseInt(req.params.id);
     const content = await storage.getContentSubmission(contentId);
@@ -148,12 +146,11 @@ contentRouter.delete("/:id", authenticateToken, authorizeRoles('teacher', 'super
     await storage.deleteContentSubmission(contentId);
     res.json({ message: "Content deleted successfully" });
   } catch (error) {
-    console.error("Content deletion error:", error);
-    res.status(500).json({ error: "Failed to delete content" });
+    next(error);
   }
 });
 
-contentRouter.post("/:id/publish", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+contentRouter.post("/:id/publish", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const contentId = parseInt(req.params.id);
     const content = await storage.getContentSubmission(contentId);
@@ -169,6 +166,6 @@ contentRouter.post("/:id/publish", authenticateToken, authorizeRoles('teacher', 
     const published = await storage.publishContentSubmission(contentId);
     res.json(published);
   } catch (error) {
-    res.status(500).json({ error: "Failed to publish content" });
+    next(error);
   }
 });

@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, NextFunction } from "express";
 import { storage } from "../storage";
 import {
   insertTutorSessionSchema,
@@ -9,17 +9,16 @@ import { AITutorService } from "../ai-service.js";
 
 export const tutorsRouter = Router();
 
-tutorsRouter.get("/", async (req, res) => {
+tutorsRouter.get("/", async (req, res, next: NextFunction) => {
   try {
     const agents = await storage.getTutorAgents();
     res.json(agents);
   } catch (error) {
-    console.error('Error fetching tutors:', error);
-    res.status(500).json({ error: "Error fetching tutor agents" });
+    next(error);
   }
 });
 
-tutorsRouter.get("/:agentKey", async (req, res) => {
+tutorsRouter.get("/:agentKey", async (req, res, next: NextFunction) => {
   try {
     const agentKey = req.params.agentKey;
     const agent = await storage.getTutorAgentByKey(agentKey);
@@ -29,11 +28,11 @@ tutorsRouter.get("/:agentKey", async (req, res) => {
     const persona = getPersonaByKey(agentKey);
     res.json({ agent, persona });
   } catch (error) {
-    res.status(400).json({ error: "Error fetching tutor agent" });
+    next(error);
   }
 });
 
-tutorsRouter.post("/sessions", async (req, res) => {
+tutorsRouter.post("/sessions", async (req, res, next: NextFunction) => {
   try {
     const validatedSession = insertTutorSessionSchema.parse(req.body);
     const session = await storage.createTutorSession(validatedSession);
@@ -68,33 +67,31 @@ tutorsRouter.post("/sessions", async (req, res) => {
     
     res.json(session);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error creating tutor session:', errorMessage);
-    res.status(500).json({ error: "Failed to create session" });
+    next(error);
   }
 });
 
-tutorsRouter.get("/sessions/:userId", async (req, res) => {
+tutorsRouter.get("/sessions/:userId", async (req, res, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.userId);
     const sessions = await storage.getUserTutorSessions(userId);
     res.json(sessions);
   } catch (error) {
-    res.status(400).json({ error: "Error fetching tutor sessions" });
+    next(error);
   }
 });
 
-tutorsRouter.patch("/sessions/:sessionId/end", async (req, res) => {
+tutorsRouter.patch("/sessions/:sessionId/end", async (req, res, next: NextFunction) => {
   try {
     const sessionId = parseInt(req.params.sessionId);
     const endedSession = await storage.endTutorSession(sessionId);
     res.json(endedSession);
   } catch (error) {
-    res.status(400).json({ error: "Error ending session" });
+    next(error);
   }
 });
 
-tutorsRouter.post("/messages", async (req, res) => {
+tutorsRouter.post("/messages", async (req, res, next: NextFunction) => {
   try {
     const validatedMessage = insertTutorMessageSchema.parse(req.body);
     const message = await storage.createTutorMessage(validatedMessage);
@@ -143,16 +140,16 @@ tutorsRouter.post("/messages", async (req, res) => {
     
     res.json(message);
   } catch (error) {
-    res.status(400).json({ error: "Invalid message data" });
+    next(error);
   }
 });
 
-tutorsRouter.get("/sessions/:sessionId/messages", async (req, res) => {
+tutorsRouter.get("/sessions/:sessionId/messages", async (req, res, next: NextFunction) => {
   try {
     const sessionId = parseInt(req.params.sessionId);
     const messages = await storage.getSessionMessages(sessionId);
     res.json(messages);
   } catch (error) {
-    res.status(400).json({ error: "Error fetching session messages" });
+    next(error);
   }
 });

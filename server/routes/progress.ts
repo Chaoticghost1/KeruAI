@@ -1,10 +1,10 @@
-import { Router } from "express";
+import { Router, NextFunction } from "express";
 import { storage } from "../storage";
 import { insertStudentProfileSchema } from "@shared/schema";
 
 export const progressRouter = Router();
 
-progressRouter.get("/profile/:userId", async (req, res) => {
+progressRouter.get("/profile/:userId", async (req, res, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.userId);
     const profile = await storage.getStudentProfile(userId);
@@ -13,41 +13,41 @@ progressRouter.get("/profile/:userId", async (req, res) => {
     }
     res.json(profile);
   } catch (error) {
-    res.status(400).json({ error: "Error fetching student profile" });
+    next(error);
   }
 });
 
-progressRouter.post("/profile", async (req, res) => {
+progressRouter.post("/profile", async (req, res, next: NextFunction) => {
   try {
     const validatedProfile = insertStudentProfileSchema.parse(req.body);
     const profile = await storage.createStudentProfile(validatedProfile);
     res.json(profile);
   } catch (error) {
-    res.status(400).json({ error: "Invalid profile data" });
+    next(error);
   }
 });
 
-progressRouter.put("/profile/:userId", async (req, res) => {
+progressRouter.put("/profile/:userId", async (req, res, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.userId);
     const updates = req.body;
     const profile = await storage.updateStudentProfile(userId, updates);
     res.json(profile);
   } catch (error) {
-    res.status(400).json({ error: "Error updating student profile" });
+    next(error);
   }
 });
 
-progressRouter.get("/badges", async (req, res) => {
+progressRouter.get("/badges", async (req, res, next: NextFunction) => {
   try {
     const badges = await storage.getBadges();
     res.json(badges);
   } catch (error) {
-    res.status(500).json({ error: "Error fetching badges" });
+    next(error);
   }
 });
 
-progressRouter.get("/badges/:id", async (req, res) => {
+progressRouter.get("/badges/:id", async (req, res, next: NextFunction) => {
   try {
     const badgeId = parseInt(req.params.id);
     const badge = await storage.getBadge(badgeId);
@@ -56,43 +56,43 @@ progressRouter.get("/badges/:id", async (req, res) => {
     }
     res.json(badge);
   } catch (error) {
-    res.status(500).json({ error: "Error fetching badge" });
+    next(error);
   }
 });
 
-progressRouter.get("/user-badges/:userId", async (req, res) => {
+progressRouter.get("/user-badges/:userId", async (req, res, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.userId);
     const userBadges = await storage.getUserBadges(userId);
     res.json(userBadges);
   } catch (error) {
-    res.status(500).json({ error: "Error fetching user badges" });
+    next(error);
   }
 });
 
-progressRouter.post("/user-badges/:userId/:badgeId/view", async (req, res) => {
+progressRouter.post("/user-badges/:userId/:badgeId/view", async (req, res, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.userId);
     const badgeId = parseInt(req.params.badgeId);
     await storage.markBadgeAsViewed(userId, badgeId);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: "Error marking badge as viewed" });
+    next(error);
   }
 });
 
-progressRouter.get("/streaks/:userId", async (req, res) => {
+progressRouter.get("/streaks/:userId", async (req, res, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.userId);
     const limit = parseInt(req.query.limit as string) || 30;
     const streaks = await storage.getStudyStreaks(userId, limit);
     res.json(streaks);
   } catch (error) {
-    res.status(500).json({ error: "Error fetching study streaks" });
+    next(error);
   }
 });
 
-progressRouter.post("/session-complete/:sessionId", async (req, res) => {
+progressRouter.post("/session-complete/:sessionId", async (req, res, next: NextFunction) => {
   try {
     const sessionId = parseInt(req.params.sessionId);
     const { userId, subject, duration, messagesExchanged, difficulty } = req.body;
@@ -107,16 +107,16 @@ progressRouter.post("/session-complete/:sessionId", async (req, res) => {
     
     res.json(rewards);
   } catch (error) {
-    res.status(500).json({ error: "Error completing session" });
+    next(error);
   }
 });
 
-progressRouter.get("/stats/:userId", async (req, res) => {
+progressRouter.get("/stats/:userId", async (req, res, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.userId);
     const stats = await storage.getUserSessionStats(userId);
     res.json(stats);
   } catch (error) {
-    res.status(500).json({ error: "Error fetching user stats" });
+    next(error);
   }
 });

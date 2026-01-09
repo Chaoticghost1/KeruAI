@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { insertBotPersonaSchema } from "@shared/schema";
 import {
@@ -9,17 +9,17 @@ import {
 
 export const adminRouter = Router();
 
-adminRouter.get("/users", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+adminRouter.get("/users", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const users = await storage.getAllUsers();
     const sanitizedUsers = users.map(({ password, ...user }) => user);
     res.json(sanitizedUsers);
   } catch (error) {
-    res.status(500).json({ error: "Failed to get users" });
+    next(error);
   }
 });
 
-adminRouter.patch("/users/:id/status", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+adminRouter.patch("/users/:id/status", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id);
     const { isActive } = req.body;
@@ -35,11 +35,11 @@ adminRouter.patch("/users/:id/status", authenticateToken, authorizeRoles('superu
     const updatedUser = await storage.updateUser(userId, { isActive });
     res.json(updatedUser);
   } catch (error) {
-    res.status(500).json({ error: "Failed to update user status" });
+    next(error);
   }
 });
 
-adminRouter.patch("/users/:id/role", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+adminRouter.patch("/users/:id/role", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id);
     const { role } = req.body;
@@ -55,21 +55,21 @@ adminRouter.patch("/users/:id/role", authenticateToken, authorizeRoles('superuse
     const updatedUser = await storage.updateUser(userId, { role });
     res.json(updatedUser);
   } catch (error) {
-    res.status(500).json({ error: "Failed to update user role" });
+    next(error);
   }
 });
 
-adminRouter.patch("/users/:id/verify", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+adminRouter.patch("/users/:id/verify", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id);
     await storage.verifyUser(userId);
     res.json({ message: "User verified successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Failed to verify user" });
+    next(error);
   }
 });
 
-adminRouter.delete("/users/:id", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+adminRouter.delete("/users/:id", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.id);
     
@@ -80,12 +80,11 @@ adminRouter.delete("/users/:id", authenticateToken, authorizeRoles('superuser'),
     await storage.deleteUser(userId);
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
+    next(error);
   }
 });
 
-adminRouter.patch("/system/features", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+adminRouter.patch("/system/features", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { feature, enabled } = req.body;
 
@@ -95,51 +94,50 @@ adminRouter.patch("/system/features", authenticateToken, authorizeRoles('superus
 
     res.json({ message: `Feature ${feature} ${enabled ? 'enabled' : 'disabled'}` });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update system feature" });
+    next(error);
   }
 });
 
-adminRouter.get("/analytics", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.get("/analytics", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const analytics = await storage.getAnalytics();
     res.json(analytics);
   } catch (error) {
-    res.status(500).json({ error: "Failed to get analytics" });
+    next(error);
   }
 });
 
-adminRouter.get("/budget-analytics", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res) => {
+adminRouter.get("/budget-analytics", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const analytics = await storage.getBudgetAnalytics();
     res.json(analytics);
   } catch (error) {
-    res.status(500).json({ error: "Failed to get budget analytics" });
+    next(error);
   }
 });
 
-adminRouter.get("/chat-analytics", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.get("/chat-analytics", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const analytics = await storage.getChatAnalytics();
     res.json(analytics);
   } catch (error) {
-    res.status(500).json({ error: "Failed to get chat analytics" });
+    next(error);
   }
 });
 
-adminRouter.get("/bot-personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.get("/bot-personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const personas = await storage.getBotPersonas();
     res.json(personas);
   } catch (error) {
-    res.status(500).json({ error: "Failed to get bot personas" });
+    next(error);
   }
 });
 
-adminRouter.post("/bot-personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.post("/bot-personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const personaData = req.body;
     
-    // Convert subjects from comma-separated string to array
     if (typeof personaData.subjects === 'string') {
       const subjectsArray = personaData.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       personaData.subjects = subjectsArray.length > 0 ? subjectsArray : null;
@@ -151,17 +149,15 @@ adminRouter.post("/bot-personas", authenticateToken, authorizeRoles('superuser',
     const persona = await storage.createBotPersona(personaData);
     res.json(persona);
   } catch (error) {
-    console.error('Error creating bot persona:', error);
-    res.status(500).json({ error: "Failed to create bot persona" });
+    next(error);
   }
 });
 
-adminRouter.put("/bot-personas/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.put("/bot-personas/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id);
     const updates = req.body;
     
-    // Convert subjects from comma-separated string to array
     if (typeof updates.subjects === 'string') {
       const subjectsArray = updates.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       updates.subjects = subjectsArray.length > 0 ? subjectsArray : null;
@@ -172,21 +168,21 @@ adminRouter.put("/bot-personas/:id", authenticateToken, authorizeRoles('superuse
     const persona = await storage.updateBotPersona(id, updates);
     res.json(persona);
   } catch (error) {
-    res.status(500).json({ error: "Failed to update bot persona" });
+    next(error);
   }
 });
 
-adminRouter.delete("/bot-personas/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.delete("/bot-personas/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id);
     await storage.deleteBotPersona(id);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: "Failed to delete bot persona" });
+    next(error);
   }
 });
 
-adminRouter.get("/blog-posts", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.get("/blog-posts", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const limitParam = req.query.limit ? parseInt(req.query.limit as string) : undefined;
     const offsetParam = req.query.offset ? parseInt(req.query.offset as string) : undefined;
@@ -206,11 +202,11 @@ adminRouter.get("/blog-posts", authenticateToken, authorizeRoles('superuser', 't
       res.json(posts);
     }
   } catch (error) {
-    res.status(500).json({ error: "Failed to get blog posts" });
+    next(error);
   }
 });
 
-adminRouter.post("/blog-posts", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.post("/blog-posts", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const postData = { ...req.body, authorId: req.user!.id };
     if (postData.tags && typeof postData.tags === 'string') {
@@ -222,11 +218,11 @@ adminRouter.post("/blog-posts", authenticateToken, authorizeRoles('superuser', '
     const post = await storage.createBlogPost(postData);
     res.json(post);
   } catch (error) {
-    res.status(500).json({ error: "Failed to create blog post" });
+    next(error);
   }
 });
 
-adminRouter.put("/blog-posts/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.put("/blog-posts/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id);
     const updates = req.body;
@@ -239,21 +235,21 @@ adminRouter.put("/blog-posts/:id", authenticateToken, authorizeRoles('superuser'
     const post = await storage.updateBlogPost(id, updates);
     res.json(post);
   } catch (error) {
-    res.status(500).json({ error: "Failed to update blog post" });
+    next(error);
   }
 });
 
-adminRouter.delete("/blog-posts/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.delete("/blog-posts/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id);
     await storage.deleteBlogPost(id);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: "Failed to delete blog post" });
+    next(error);
   }
 });
 
-adminRouter.get("/personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.get("/personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const limitParam = req.query.limit ? parseInt(req.query.limit as string) : undefined;
     const offsetParam = req.query.offset ? parseInt(req.query.offset as string) : undefined;
@@ -273,11 +269,11 @@ adminRouter.get("/personas", authenticateToken, authorizeRoles('superuser', 'tea
       res.json(personas);
     }
   } catch (error) {
-    res.status(500).json({ error: "Failed to get personas" });
+    next(error);
   }
 });
 
-adminRouter.get("/submissions", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.get("/submissions", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const limitParam = req.query.limit ? parseInt(req.query.limit as string) : undefined;
     const offsetParam = req.query.offset ? parseInt(req.query.offset as string) : undefined;
@@ -302,11 +298,11 @@ adminRouter.get("/submissions", authenticateToken, authorizeRoles('superuser', '
       res.json(submissions);
     }
   } catch (error) {
-    res.status(500).json({ error: "Failed to get submissions" });
+    next(error);
   }
 });
 
-adminRouter.get("/assignments", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res) => {
+adminRouter.get("/assignments", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const limitParam = req.query.limit ? parseInt(req.query.limit as string) : undefined;
     const offsetParam = req.query.offset ? parseInt(req.query.offset as string) : undefined;
@@ -326,6 +322,6 @@ adminRouter.get("/assignments", authenticateToken, authorizeRoles('superuser', '
       res.json(allAssignments);
     }
   } catch (error) {
-    res.status(500).json({ error: "Failed to get assignments" });
+    next(error);
   }
 });

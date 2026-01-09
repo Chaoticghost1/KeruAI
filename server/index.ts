@@ -1,3 +1,4 @@
+import { errorHandler } from './middleware/error-handler';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes";
@@ -85,3 +86,5 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
   });
 })();
+// Error handling middleware - MUST BE LAST
+app.use(errorHandler);

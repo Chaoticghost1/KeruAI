@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { insertStudentAssignmentSchema } from "@shared/schema";
 import {
@@ -47,7 +47,7 @@ const upload = multer({
 
 export const assignmentsRouter = Router();
 
-assignmentsRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+assignmentsRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { studentId, contentId } = req.body;
     
@@ -63,20 +63,20 @@ assignmentsRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superu
 
     res.status(201).json(assignment);
   } catch (error) {
-    res.status(500).json({ error: "Failed to create assignment" });
+    next(error);
   }
 });
 
-assignmentsRouter.get("/my", authenticateToken, authorizeRoles('student'), async (req: AuthRequest, res) => {
+assignmentsRouter.get("/my", authenticateToken, authorizeRoles('student'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const assignments = await storage.getStudentAssignments(req.user!.id);
     res.json(assignments);
   } catch (error) {
-    res.status(500).json({ error: "Failed to get assignments" });
+    next(error);
   }
 });
 
-assignmentsRouter.post("/:id/submit", authenticateToken, authorizeRoles('student'), upload.array('files', 5), async (req: AuthRequest, res) => {
+assignmentsRouter.post("/:id/submit", authenticateToken, authorizeRoles('student'), upload.array('files', 5), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const assignmentId = parseInt(req.params.id);
     const { submissionText } = req.body;
@@ -100,11 +100,11 @@ assignmentsRouter.post("/:id/submit", authenticateToken, authorizeRoles('student
 
     res.json(submitted);
   } catch (error) {
-    res.status(500).json({ error: "Failed to submit assignment" });
+    next(error);
   }
 });
 
-assignmentsRouter.post("/:id/grade", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res) => {
+assignmentsRouter.post("/:id/grade", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const assignmentId = parseInt(req.params.id);
     const { grade, feedback } = req.body;
@@ -116,11 +116,11 @@ assignmentsRouter.post("/:id/grade", authenticateToken, authorizeRoles('teacher'
     const graded = await storage.gradeAssignment(assignmentId, grade, feedback);
     res.json(graded);
   } catch (error) {
-    res.status(500).json({ error: "Failed to grade assignment" });
+    next(error);
   }
 });
 
-assignmentsRouter.get("/revision/materials", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res) => {
+assignmentsRouter.get("/revision/materials", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const assignments = await storage.getStudentAssignments(req.user!.id);
     
@@ -152,12 +152,11 @@ assignmentsRouter.get("/revision/materials", authenticateToken, authorizeRoles('
 
     res.json(materialsWithContent.filter(m => m.content));
   } catch (error) {
-    console.error("Failed to get revision materials:", error);
-    res.status(500).json({ error: "Failed to get revision materials" });
+    next(error);
   }
 });
 
-assignmentsRouter.get("/revision/content/:contentId", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res) => {
+assignmentsRouter.get("/revision/content/:contentId", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const contentId = parseInt(req.params.contentId);
     
@@ -180,12 +179,11 @@ assignmentsRouter.get("/revision/content/:contentId", authenticateToken, authori
 
     res.json(content);
   } catch (error) {
-    console.error("Failed to get content:", error);
-    res.status(500).json({ error: "Failed to get content" });
+    next(error);
   }
 });
 
-assignmentsRouter.post("/revision/session/start", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res) => {
+assignmentsRouter.post("/revision/session/start", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { contentId, subject, topic } = req.body;
     
@@ -214,12 +212,11 @@ assignmentsRouter.post("/revision/session/start", authenticateToken, authorizeRo
       message: "Revision session started successfully"
     });
   } catch (error) {
-    console.error("Failed to start revision session:", error);
-    res.status(500).json({ error: "Failed to start revision session" });
+    next(error);
   }
 });
 
-assignmentsRouter.post("/revision/ai-help", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res) => {
+assignmentsRouter.post("/revision/ai-help", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { contentId, question, sessionId } = req.body;
     
@@ -260,7 +257,6 @@ assignmentsRouter.post("/revision/ai-help", authenticateToken, authorizeRoles('s
 
     res.json(enhancedResponse);
   } catch (error) {
-    console.error("Failed to get AI help:", error);
-    res.status(500).json({ error: "Failed to get AI assistance" });
+    next(error);
   }
 });

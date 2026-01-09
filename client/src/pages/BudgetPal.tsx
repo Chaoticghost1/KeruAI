@@ -1,717 +1,470 @@
-import React, { useState } from 'react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
-import { PieChart, Target, TrendingUp, Plus, Wallet, DollarSign, Receipt, Calendar } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useToast } from '@/hooks/use-toast';
-import { formatCurrency } from '@/lib/currency-formatter';
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
+import {
+  PieChart,
+  Target,
+  TrendingUp,
+  Plus,
+  Wallet,
+  DollarSign,
+  Receipt,
+  ArrowUpRight,
+  ArrowDownRight,
+  Sparkles,
+  Calendar,
+  Filter,
+  Download,
+  Settings,
+  Bell,
+  ChevronRight,
+  Zap,
+} from "lucide-react";
 
+export default function PremiumBudgetPal() {
+  const [language, setLanguage] = useState("es");
+  const [expenses, setExpenses] = useState([
+    { id: "1", amount: 450, description: "Supermercado", category: "food", date: "2026-01-08" },
+    { id: "2", amount: 200, description: "Gasolina", category: "transport", date: "2026-01-07" },
+    { id: "3", amount: 850, description: "Renta", category: "utilities", date: "2026-01-05" },
+  ]);
+  const [savingsGoals, setSavingsGoals] = useState([
+    { id: "1", name: "Vacaciones 2026", targetAmount: 15000, currentAmount: 8500, deadline: "2026-12-01", progress: 56.67 },
+    { id: "2", name: "Fondo Emergencia", targetAmount: 20000, currentAmount: 12000, deadline: "2026-06-01", progress: 60 },
+  ]);
+  const [income, setIncome] = useState([
+    { id: "1", amount: 12000, source: "Salario", date: "2026-01-01", frequency: "monthly" },
+  ]);
 
-// Form schemas
-const expenseSchema = z.object({
-  amount: z.string().min(1, 'Amount is required'),
-  description: z.string().min(1, 'Description is required'),
-  category: z.string().min(1, 'Category is required'),
-  date: z.string().min(1, 'Date is required')
-});
-
-const savingsGoalSchema = z.object({
-  name: z.string().min(1, 'Goal name is required'),
-  targetAmount: z.string().min(1, 'Target amount is required'),
-  currentAmount: z.string().min(0),
-  deadline: z.string().min(1, 'Deadline is required')
-});
-
-const incomeSchema = z.object({
-  amount: z.string().min(1, 'Amount is required'),
-  source: z.string().min(1, 'Source is required'),
-  date: z.string().min(1, 'Date is required'),
-  frequency: z.string().min(1, 'Frequency is required')
-});
-
-type ExpenseFormData = z.infer<typeof expenseSchema>;
-type SavingsGoalFormData = z.infer<typeof savingsGoalSchema>;
-type IncomeFormData = z.infer<typeof incomeSchema>;
-
-interface Expense {
-  id: string;
-  amount: number;
-  description: string;
-  category: string;
-  date: string;
-}
-
-interface SavingsGoal {
-  id: string;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline: string;
-  progress: number;
-}
-
-interface Income {
-  id: string;
-  amount: number;
-  source: string;
-  date: string;
-  frequency: string;
-}
-
-export default function EnhancedBudgetPal() {
-  const { t } = useLanguage();
-  const { toast } = useToast();
-  
-  // Honduras-first: Use proper currency formatting
-  const formatHondurasCurrency = (amount: number) => formatCurrency(amount, 'HNL', t.language);
-  
-  // State for storing budget data
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
-  const [income, setIncome] = useState<Income[]>([]);
-  
-  // Dialog states
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [savingsDialogOpen, setSavingsDialogOpen] = useState(false);
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
-  
-  // Forms
-  const expenseForm = useForm<ExpenseFormData>({
-    resolver: zodResolver(expenseSchema),
-    defaultValues: {
-      amount: '',
-      description: '',
-      category: '',
-      date: new Date().toISOString().split('T')[0]
-    }
-  });
-  
-  const savingsForm = useForm<SavingsGoalFormData>({
-    resolver: zodResolver(savingsGoalSchema),
-    defaultValues: {
-      name: '',
-      targetAmount: '',
-      currentAmount: '0',
-      deadline: ''
-    }
-  });
-  
-  const incomeForm = useForm<IncomeFormData>({
-    resolver: zodResolver(incomeSchema),
-    defaultValues: {
-      amount: '',
-      source: '',
-      date: new Date().toISOString().split('T')[0],
-      frequency: ''
-    }
-  });
-  
-  // Submit handlers
-  const onExpenseSubmit = (data: ExpenseFormData) => {
-    const newExpense: Expense = {
-      id: Date.now().toString(),
-      amount: parseFloat(data.amount),
-      description: data.description,
-      category: data.category,
-      date: data.date
-    };
-    setExpenses(prev => [newExpense, ...prev]);
-    setExpenseDialogOpen(false);
-    expenseForm.reset();
-    toast({
-      title: t.language === 'es' ? 'Gasto agregado' : 'Expense added',
-      description: t.language === 'es' ? 'Tu gasto ha sido registrado exitosamente' : 'Your expense has been recorded successfully'
-    });
-  };
-  
-  const onSavingsSubmit = (data: SavingsGoalFormData) => {
-    const currentAmount = parseFloat(data.currentAmount);
-    const targetAmount = parseFloat(data.targetAmount);
-    const newGoal: SavingsGoal = {
-      id: Date.now().toString(),
-      name: data.name,
-      targetAmount,
-      currentAmount,
-      deadline: data.deadline,
-      progress: (currentAmount / targetAmount) * 100
-    };
-    setSavingsGoals(prev => [newGoal, ...prev]);
-    setSavingsDialogOpen(false);
-    savingsForm.reset();
-    toast({
-      title: t.language === 'es' ? 'Meta de ahorro creada' : 'Savings goal created',
-      description: t.language === 'es' ? 'Tu meta de ahorro ha sido establecida' : 'Your savings goal has been set'
-    });
-  };
-  
-  const onIncomeSubmit = (data: IncomeFormData) => {
-    const newIncome: Income = {
-      id: Date.now().toString(),
-      amount: parseFloat(data.amount),
-      source: data.source,
-      date: data.date,
-      frequency: data.frequency
-    };
-    setIncome(prev => [newIncome, ...prev]);
-    setIncomeDialogOpen(false);
-    incomeForm.reset();
-    toast({
-      title: t.language === 'es' ? 'Ingreso agregado' : 'Income added',
-      description: t.language === 'es' ? 'Tu ingreso ha sido registrado exitosamente' : 'Your income has been recorded successfully'
-    });
-  };
-  
-  // Calculate totals
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalIncome = income.reduce((sum, inc) => sum + inc.amount, 0);
-  const totalSavingsTarget = savingsGoals.reduce((sum, goal) => sum + goal.targetAmount, 0);
-  const totalSavingsCurrent = savingsGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalIncome = income.reduce((sum, i) => sum + i.amount, 0);
+  const totalSavingsCurrent = savingsGoals.reduce((sum, g) => sum + g.currentAmount, 0);
   const remainingBudget = totalIncome - totalExpenses;
-  
-  // Expense categories for the dropdown
-  const expenseCategories = [
-    { value: 'food', label: t.language === 'es' ? 'Comida' : 'Food' },
-    { value: 'transport', label: t.language === 'es' ? 'Transporte' : 'Transport' },
-    { value: 'utilities', label: t.language === 'es' ? 'Servicios' : 'Utilities' },
-    { value: 'entertainment', label: t.language === 'es' ? 'Entretenimiento' : 'Entertainment' },
-    { value: 'shopping', label: t.language === 'es' ? 'Compras' : 'Shopping' },
-    { value: 'healthcare', label: t.language === 'es' ? 'Salud' : 'Healthcare' },
-    { value: 'education', label: t.language === 'es' ? 'Educación' : 'Education' },
-    { value: 'other', label: t.language === 'es' ? 'Otro' : 'Other' }
-  ];
-  
-  const incomeFrequencies = [
-    { value: 'daily', label: t.language === 'es' ? 'Diario' : 'Daily' },
-    { value: 'weekly', label: t.language === 'es' ? 'Semanal' : 'Weekly' },
-    { value: 'monthly', label: t.language === 'es' ? 'Mensual' : 'Monthly' },
-    { value: 'one-time', label: t.language === 'es' ? 'Una vez' : 'One-time' }
-  ];
 
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' }).format(amount);
+  };
 
+  const t = {
+    title: language === "es" ? "BudgetPal Premium" : "BudgetPal Premium",
+    subtitle: language === "es" ? "Tu asistente financiero inteligente" : "Your intelligent financial assistant",
+    totalIncome: language === "es" ? "Ingresos Totales" : "Total Income",
+    totalExpenses: language === "es" ? "Gastos Totales" : "Total Expenses",
+    remaining: language === "es" ? "Disponible" : "Available",
+    savings: language === "es" ? "Ahorros" : "Savings",
+    recentActivity: language === "es" ? "Actividad Reciente" : "Recent Activity",
+    savingsGoals: language === "es" ? "Metas de Ahorro" : "Savings Goals",
+    insights: language === "es" ? "Insights Financieros" : "Financial Insights",
+    addExpense: language === "es" ? "Nuevo Gasto" : "New Expense",
+    addIncome: language === "es" ? "Nuevo Ingreso" : "New Income",
+    createGoal: language === "es" ? "Nueva Meta" : "New Goal",
+  };
+
+  const categoryIcons = {
+    food: "🍽️",
+    transport: "🚗",
+    utilities: "🏠",
+    entertainment: "🎬",
+    shopping: "🛍️",
+    healthcare: "⚕️",
+    education: "📚",
+    other: "📦",
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-4">
-            {t.budgetpal.title}
-          </h1>
-          <p className="text-xl text-slate-600">
-            {t.budgetpal.description}
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white">
+      {/* Animated background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+      </div>
+
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="border-b border-white/10 backdrop-blur-xl bg-slate-900/50">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+                  <Wallet className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
+                    {t.title}
+                  </h1>
+                  <p className="text-xs text-slate-400">{t.subtitle}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10">
+                  <Bell className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10">
+                  <Settings className="h-5 w-5" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="rounded-full hover:bg-white/10"
+                  onClick={() => setLanguage(language === "es" ? "en" : "es")}
+                >
+                  {language === "es" ? "EN" : "ES"}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Hero Stats */}
+          <div className="grid md:grid-cols-4 gap-4 mb-8">
+            <Card className="bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 border-emerald-500/30 backdrop-blur-xl overflow-hidden group hover:scale-105 transition-transform duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <CardContent className="p-6 relative">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="h-12 w-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-emerald-400" />
+                  </div>
+                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+                    <ArrowUpRight className="h-3 w-3 mr-1" />
+                    +12%
+                  </Badge>
+                </div>
+                <p className="text-sm text-emerald-300/80 mb-1">{t.totalIncome}</p>
+                <p className="text-3xl font-bold text-white mb-2">{formatCurrency(totalIncome)}</p>
+                <div className="h-1 w-full bg-emerald-500/20 rounded-full overflow-hidden">
+                  <div className="h-full w-3/4 bg-gradient-to-r from-emerald-400 to-teal-400 animate-pulse"></div>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Budget Dashboard */}
-          <div className="space-y-6">
-            {/* Budget Overview Cards */}
-            <div className="grid md:grid-cols-4 gap-4 mb-8">
-              <Card className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-emerald-100 text-sm">
-                        {t.language === 'es' ? 'Ingresos Totales' : 'Total Income'}
-                      </p>
-                      <p className="text-2xl font-bold">{formatHondurasCurrency(totalIncome)}</p>
-                    </div>
-                    <DollarSign className="h-8 w-8 text-emerald-200" />
+            <Card className="bg-gradient-to-br from-red-500/20 to-red-600/20 border-red-500/30 backdrop-blur-xl overflow-hidden group hover:scale-105 transition-transform duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <CardContent className="p-6 relative">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="h-12 w-12 rounded-xl bg-red-500/20 flex items-center justify-center">
+                    <Receipt className="h-6 w-6 text-red-400" />
                   </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-red-100 text-sm">
-                        {t.language === 'es' ? 'Gastos Totales' : 'Total Expenses'}
-                      </p>
-                      <p className="text-2xl font-bold">{formatHondurasCurrency(totalExpenses)}</p>
-                    </div>
-                    <Receipt className="h-8 w-8 text-red-200" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-blue-100 text-sm">
-                        {t.language === 'es' ? 'Presupuesto Restante' : 'Remaining Budget'}
-                      </p>
-                      <p className={`text-2xl font-bold ${remainingBudget < 0 ? 'text-red-200' : 'text-white'}`}>
-                        {formatHondurasCurrency(remainingBudget)}
-                      </p>
-                    </div>
-                    <Wallet className="h-8 w-8 text-blue-200" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-green-100 text-sm">
-                        {t.language === 'es' ? 'Ahorros Actuales' : 'Current Savings'}
-                      </p>
-                      <p className="text-2xl font-bold">{formatHondurasCurrency(totalSavingsCurrent)}</p>
-                    </div>
-                    <Target className="h-8 w-8 text-green-200" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <Badge className="bg-red-500/20 text-red-300 border-red-500/30">
+                    <ArrowDownRight className="h-3 w-3 mr-1" />
+                    -{Math.round((totalExpenses/totalIncome)*100)}%
+                  </Badge>
+                </div>
+                <p className="text-sm text-red-300/80 mb-1">{t.totalExpenses}</p>
+                <p className="text-3xl font-bold text-white mb-2">{formatCurrency(totalExpenses)}</p>
+                <div className="h-1 w-full bg-red-500/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-red-400 to-orange-400 animate-pulse" style={{width: `${(totalExpenses/totalIncome)*100}%`}}></div>
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Action Cards */}
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
-              <Card className="card-hover" data-testid="card-expenses">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <PieChart className="mr-3 text-emerald-600" />
-                      {t.language === 'es' ? 'Gastos' : 'Expenses'}
-                    </div>
-                    <Badge variant="secondary">{expenses.length}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-600 mb-4">
-                    {t.language === 'es' 
-                      ? 'Rastrea y categoriza todos tus gastos diarios automáticamente.'
-                      : 'Track and categorize all your daily expenses automatically.'
-                    }
-                  </p>
-                  <div className="space-y-2">
-                    <Dialog open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button className="w-full" data-testid="button-add-expense">
-                          <Plus className="mr-2 h-4 w-4" />
-                          {t.language === 'es' ? 'Agregar Gasto' : 'Add Expense'}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>
-                            {t.language === 'es' ? 'Agregar Nuevo Gasto' : 'Add New Expense'}
-                          </DialogTitle>
-                        </DialogHeader>
-                        <Form {...expenseForm}>
-                          <form onSubmit={expenseForm.handleSubmit(onExpenseSubmit)} className="space-y-4">
-                            <FormField
-                              control={expenseForm.control}
-                              name="amount"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Monto' : 'Amount'}</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="0.00" type="number" step="0.01" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={expenseForm.control}
-                              name="description"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Descripción' : 'Description'}</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder={t.language === 'es' ? 'Ej: Almuerzo' : 'e.g. Lunch'} {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={expenseForm.control}
-                              name="category"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Categoría' : 'Category'}</FormLabel>
-                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder={t.language === 'es' ? 'Selecciona una categoría' : 'Select a category'} />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {expenseCategories.map((category) => (
-                                        <SelectItem key={category.value} value={category.value}>
-                                          {category.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={expenseForm.control}
-                              name="date"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Fecha' : 'Date'}</FormLabel>
-                                  <FormControl>
-                                    <Input type="date" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <DialogFooter>
-                              <Button type="submit">
-                                {t.language === 'es' ? 'Guardar Gasto' : 'Save Expense'}
-                              </Button>
-                            </DialogFooter>
-                          </form>
-                        </Form>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    {expenses.length > 0 && (
-                      <Button variant="outline" className="w-full" data-testid="button-view-expenses">
-                        {t.language === 'es' ? 'Ver Todos los Gastos' : 'View All Expenses'}
-                      </Button>
-                    )}
+            <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 border-blue-500/30 backdrop-blur-xl overflow-hidden group hover:scale-105 transition-transform duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <CardContent className="p-6 relative">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="h-12 w-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                    <Wallet className="h-6 w-6 text-blue-400" />
                   </div>
-                </CardContent>
-              </Card>
+                  <Badge className={`${remainingBudget > 0 ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30'}`}>
+                    {remainingBudget > 0 ? '+' : ''}{Math.round((remainingBudget/totalIncome)*100)}%
+                  </Badge>
+                </div>
+                <p className="text-sm text-blue-300/80 mb-1">{t.remaining}</p>
+                <p className="text-3xl font-bold text-white mb-2">{formatCurrency(remainingBudget)}</p>
+                <div className="h-1 w-full bg-blue-500/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 animate-pulse" style={{width: `${(remainingBudget/totalIncome)*100}%`}}></div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card className="card-hover" data-testid="card-savings">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Target className="mr-3 text-green-600" />
-                      {t.language === 'es' ? 'Ahorros' : 'Savings'}
-                    </div>
-                    <Badge variant="secondary">{savingsGoals.length}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-600 mb-4">
-                    {t.language === 'es' 
-                      ? 'Establece metas de ahorro y sigue tu progreso mes a mes.'
-                      : 'Set savings goals and track your progress month by month.'
-                    }
-                  </p>
-                  <div className="space-y-2">
-                    <Dialog open={savingsDialogOpen} onOpenChange={setSavingsDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button className="w-full" data-testid="button-create-goal">
-                          <Plus className="mr-2 h-4 w-4" />
-                          {t.language === 'es' ? 'Nueva Meta' : 'New Goal'}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>
-                            {t.language === 'es' ? 'Crear Meta de Ahorro' : 'Create Savings Goal'}
-                          </DialogTitle>
-                        </DialogHeader>
-                        <Form {...savingsForm}>
-                          <form onSubmit={savingsForm.handleSubmit(onSavingsSubmit)} className="space-y-4">
-                            <FormField
-                              control={savingsForm.control}
-                              name="name"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Nombre de la Meta' : 'Goal Name'}</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder={t.language === 'es' ? 'Ej: Vacaciones' : 'e.g. Vacation'} {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={savingsForm.control}
-                              name="targetAmount"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Monto Objetivo' : 'Target Amount'}</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="1000.00" type="number" step="0.01" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={savingsForm.control}
-                              name="currentAmount"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Monto Actual' : 'Current Amount'}</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="0.00" type="number" step="0.01" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={savingsForm.control}
-                              name="deadline"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Fecha Límite' : 'Deadline'}</FormLabel>
-                                  <FormControl>
-                                    <Input type="date" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <DialogFooter>
-                              <Button type="submit">
-                                {t.language === 'es' ? 'Crear Meta' : 'Create Goal'}
-                              </Button>
-                            </DialogFooter>
-                          </form>
-                        </Form>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    {savingsGoals.length > 0 && (
-                      <Button variant="outline" className="w-full" data-testid="button-my-goals">
-                        {t.language === 'es' ? 'Ver Mis Metas' : 'View My Goals'}
-                      </Button>
-                    )}
+            <Card className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 border-purple-500/30 backdrop-blur-xl overflow-hidden group hover:scale-105 transition-transform duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <CardContent className="p-6 relative">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="h-12 w-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                    <Target className="h-6 w-6 text-purple-400" />
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="card-hover" data-testid="card-income">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <TrendingUp className="mr-3 text-blue-600" />
-                      {t.language === 'es' ? 'Ingresos' : 'Income'}
-                    </div>
-                    <Badge variant="secondary">{income.length}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-600 mb-4">
-                    {t.language === 'es' 
-                      ? 'Registra tus ingresos variables y mantén control total.'
-                      : 'Record your variable income and maintain total control.'
-                    }
-                  </p>
-                  <div className="space-y-2">
-                    <Dialog open={incomeDialogOpen} onOpenChange={setIncomeDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button className="w-full" data-testid="button-add-income">
-                          <Plus className="mr-2 h-4 w-4" />
-                          {t.language === 'es' ? 'Agregar Ingreso' : 'Add Income'}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>
-                            {t.language === 'es' ? 'Agregar Nuevo Ingreso' : 'Add New Income'}
-                          </DialogTitle>
-                        </DialogHeader>
-                        <Form {...incomeForm}>
-                          <form onSubmit={incomeForm.handleSubmit(onIncomeSubmit)} className="space-y-4">
-                            <FormField
-                              control={incomeForm.control}
-                              name="amount"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Monto' : 'Amount'}</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="0.00" type="number" step="0.01" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={incomeForm.control}
-                              name="source"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Fuente' : 'Source'}</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder={t.language === 'es' ? 'Ej: Trabajo, Freelance' : 'e.g. Job, Freelance'} {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={incomeForm.control}
-                              name="frequency"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Frecuencia' : 'Frequency'}</FormLabel>
-                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder={t.language === 'es' ? 'Selecciona frecuencia' : 'Select frequency'} />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {incomeFrequencies.map((freq) => (
-                                        <SelectItem key={freq.value} value={freq.value}>
-                                          {freq.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={incomeForm.control}
-                              name="date"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>{t.language === 'es' ? 'Fecha' : 'Date'}</FormLabel>
-                                  <FormControl>
-                                    <Input type="date" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <DialogFooter>
-                              <Button type="submit">
-                                {t.language === 'es' ? 'Guardar Ingreso' : 'Save Income'}
-                              </Button>
-                            </DialogFooter>
-                          </form>
-                        </Form>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    {income.length > 0 && (
-                      <Button variant="outline" className="w-full">
-                        {t.language === 'es' ? 'Ver Todos los Ingresos' : 'View All Income'}
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Activity and Savings Progress */}
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
-              {/* Recent Expenses */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Receipt className="mr-2 h-5 w-5" />
-                    {t.language === 'es' ? 'Gastos Recientes' : 'Recent Expenses'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {expenses.length > 0 ? (
-                    <div className="space-y-3">
-                      {expenses.slice(0, 3).map((expense) => (
-                        <div key={expense.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                          <div>
-                            <p className="font-medium">{expense.description}</p>
-                            <p className="text-sm text-slate-500">
-                              {expenseCategories.find(cat => cat.value === expense.category)?.label} • {expense.date}
-                            </p>
-                          </div>
-                          <Badge variant="destructive">{formatHondurasCurrency(expense.amount)}</Badge>
-                        </div>
-                      ))}
-                      {expenses.length > 3 && (
-                        <p className="text-sm text-slate-500 text-center">
-                          {t.language === 'es' ? 'y' : 'and'} {expenses.length - 3} {t.language === 'es' ? 'más...' : 'more...'}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-slate-500">
-                      <Receipt className="mx-auto h-12 w-12 mb-4 text-slate-300" />
-                      <p>{t.language === 'es' ? 'No hay gastos registrados' : 'No expenses recorded'}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              {/* Savings Goals Progress */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Target className="mr-2 h-5 w-5" />
-                    {t.language === 'es' ? 'Progreso de Metas' : 'Goals Progress'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {savingsGoals.length > 0 ? (
-                    <div className="space-y-4">
-                      {savingsGoals.slice(0, 3).map((goal) => (
-                        <div key={goal.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{goal.name}</span>
-                            <span className="text-sm text-slate-500">
-                              {formatHondurasCurrency(goal.currentAmount)} / {formatHondurasCurrency(goal.targetAmount)}
-                            </span>
-                          </div>
-                          <Progress value={goal.progress} className="h-2" />
-                          <p className="text-xs text-slate-500">
-                            {goal.progress.toFixed(1)}% {t.language === 'es' ? 'completado' : 'complete'}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-slate-500">
-                      <Target className="mx-auto h-12 w-12 mb-4 text-slate-300" />
-                      <p>{t.language === 'es' ? 'No hay metas de ahorro' : 'No savings goals set'}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Call to Action */}
-            <Card className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white">
-              <CardContent className="p-8 text-center">
-                <h2 className="text-2xl font-bold mb-4">
-                  {t.language === 'es' ? '¡Toma Control de tu Dinero!' : 'Take Control of Your Money!'}
-                </h2>
-                <p className="mb-6">
-                  {t.language === 'es' 
-                    ? 'Comienza a administrar tus finanzas de manera inteligente y alcanza tus metas económicas.'
-                    : 'Start managing your finances intelligently and reach your economic goals.'
-                  }
-                </p>
-                <div className="flex justify-center gap-4">
-                  <Button size="lg" variant="secondary" onClick={() => setExpenseDialogOpen(true)} data-testid="button-get-started">
-                    <Plus className="mr-2 h-4 w-4" />
-                    {t.language === 'es' ? 'Agregar Primer Gasto' : 'Add First Expense'}
-                  </Button>
-                  <Button size="lg" variant="outline" className="text-white border-white hover:bg-white hover:text-emerald-600" onClick={() => setSavingsDialogOpen(true)}>
-                    <Target className="mr-2 h-4 w-4" />
-                    {t.language === 'es' ? 'Crear Meta' : 'Create Goal'}
-                  </Button>
+                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                    <Zap className="h-3 w-3 mr-1" />
+                    {savingsGoals.length}
+                  </Badge>
+                </div>
+                <p className="text-sm text-purple-300/80 mb-1">{t.savings}</p>
+                <p className="text-3xl font-bold text-white mb-2">{formatCurrency(totalSavingsCurrent)}</p>
+                <div className="h-1 w-full bg-purple-500/20 rounded-full overflow-hidden">
+                  <div className="h-full w-2/3 bg-gradient-to-r from-purple-400 to-pink-400 animate-pulse"></div>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Quick Actions */}
+          <div className="grid md:grid-cols-3 gap-4 mb-8">
+            <Dialog open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen}>
+              <DialogTrigger asChild>
+                <Card className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50 backdrop-blur-xl cursor-pointer hover:scale-105 transition-all duration-300 hover:border-emerald-500/50 group">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Receipt className="h-7 w-7 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-semibold">{t.addExpense}</p>
+                          <p className="text-sm text-slate-400">Registra gastos rápido</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-emerald-400 transition-colors" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </DialogTrigger>
+              <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                <DialogHeader>
+                  <DialogTitle>{t.addExpense}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">Monto</label>
+                    <Input className="bg-slate-800 border-slate-700" placeholder="0.00" type="number" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">Descripción</label>
+                    <Input className="bg-slate-800 border-slate-700" placeholder="Ej: Almuerzo" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">Categoría</label>
+                    <select className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2">
+                      <option>Comida</option>
+                      <option>Transporte</option>
+                      <option>Servicios</option>
+                      <option>Entretenimiento</option>
+                    </select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600">
+                    Guardar Gasto
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={incomeDialogOpen} onOpenChange={setIncomeDialogOpen}>
+              <DialogTrigger asChild>
+                <Card className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50 backdrop-blur-xl cursor-pointer hover:scale-105 transition-all duration-300 hover:border-emerald-500/50 group">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <TrendingUp className="h-7 w-7 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-semibold">{t.addIncome}</p>
+                          <p className="text-sm text-slate-400">Registra tus ingresos</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-emerald-400 transition-colors" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </DialogTrigger>
+              <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                <DialogHeader>
+                  <DialogTitle>{t.addIncome}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">Monto</label>
+                    <Input className="bg-slate-800 border-slate-700" placeholder="0.00" type="number" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">Fuente</label>
+                    <Input className="bg-slate-800 border-slate-700" placeholder="Ej: Salario" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600">
+                    Guardar Ingreso
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={savingsDialogOpen} onOpenChange={setSavingsDialogOpen}>
+              <DialogTrigger asChild>
+                <Card className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/50 backdrop-blur-xl cursor-pointer hover:scale-105 transition-all duration-300 hover:border-emerald-500/50 group">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Target className="h-7 w-7 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-semibold">{t.createGoal}</p>
+                          <p className="text-sm text-slate-400">Define tus objetivos</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-emerald-400 transition-colors" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </DialogTrigger>
+              <DialogContent className="bg-slate-900 border-slate-700 text-white">
+                <DialogHeader>
+                  <DialogTitle>{t.createGoal}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">Nombre</label>
+                    <Input className="bg-slate-800 border-slate-700" placeholder="Ej: Vacaciones" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-400 mb-2 block">Monto Objetivo</label>
+                    <Input className="bg-slate-800 border-slate-700" placeholder="0.00" type="number" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                    Crear Meta
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            {/* Recent Activity */}
+            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center">
+                    <Sparkles className="mr-2 h-5 w-5 text-emerald-400" />
+                    {t.recentActivity}
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10">
+                    Ver todos
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {expenses.slice(0, 5).map((expense, index) => (
+                  <div 
+                    key={expense.id} 
+                    className="flex items-center justify-between p-4 rounded-xl bg-slate-900/50 hover:bg-slate-900/80 transition-all duration-300 group border border-slate-700/30 hover:border-emerald-500/30"
+                    style={{animationDelay: `${index * 100}ms`}}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                        {categoryIcons[expense.category]}
+                      </div>
+                      <div>
+                        <p className="font-medium">{expense.description}</p>
+                        <p className="text-sm text-slate-400">{expense.date}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-red-400">-{formatCurrency(expense.amount)}</p>
+                      <Badge className="bg-red-500/20 text-red-300 border-red-500/30 text-xs">
+                        Gasto
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Savings Goals */}
+            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center">
+                    <Target className="mr-2 h-5 w-5 text-purple-400" />
+                    {t.savingsGoals}
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10">
+                    Ver todas
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {savingsGoals.map((goal, index) => (
+                  <div 
+                    key={goal.id} 
+                    className="p-5 rounded-xl bg-gradient-to-br from-slate-900/80 to-slate-900/50 border border-slate-700/50 hover:border-purple-500/50 transition-all duration-300 group"
+                    style={{animationDelay: `${index * 100}ms`}}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Target className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">{goal.name}</p>
+                          <p className="text-sm text-slate-400">
+                            {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                        {goal.progress.toFixed(0)}%
+                      </Badge>
+                    </div>
+                    <Progress value={goal.progress} className="h-3 bg-slate-700/50">
+                      <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500" style={{width: `${goal.progress}%`}}></div>
+                    </Progress>
+                    <p className="text-xs text-slate-400 mt-2">
+                      <Calendar className="h-3 w-3 inline mr-1" />
+                      Meta: {goal.deadline}
+                    </p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* AI Insights Banner */}
+          <Card className="bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-cyan-500/20 border-emerald-500/30 backdrop-blur-xl overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 via-teal-400/10 to-cyan-400/10 animate-pulse"></div>
+            <CardContent className="p-8 relative">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center animate-pulse">
+                    <Sparkles className="h-8 w-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold mb-2">{t.insights}</h3>
+                    <p className="text-slate-300 max-w-2xl">
+                      {language === "es" 
+                        ? "Estás ahorrando 15% más que el mes pasado. ¡Sigue así! Tus gastos en transporte aumentaron 8%."
+                        : "You're saving 15% more than last month. Keep it up! Your transport expenses increased by 8%."}
+                    </p>
+                  </div>
+                </div>
+                <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-lg shadow-emerald-500/50">
+                  Ver Análisis
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
