@@ -118,22 +118,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   // Simple logout function that clears everything and redirects
-  const performLogout = () => {
+  const performLogout = async () => {
     // 1. Clear tokens immediately
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     
-    // 2. Clear query cache
+    // 2. Clear ALL localStorage just to be safe
+    localStorage.clear();
+    
+    // 3. Clear query cache
     queryClient.setQueryData(["/api/auth/me"], null);
     queryClient.clear();
     
-    // 3. Redirect immediately - no waiting for any API calls
-    window.location.href = '/';
+    // 4. Clear service worker cache
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+    }
+    
+    // 5. Force reload from server (not from cache)
+    window.location.replace('/');
   };
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      performLogout();
+      await performLogout();
     },
     onSuccess: () => {
       // Already handled in mutationFn

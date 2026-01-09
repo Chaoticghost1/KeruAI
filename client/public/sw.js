@@ -1,8 +1,8 @@
 // Service Worker for Honduras Educational Platform
 // Aggressive offline-first caching strategy for low-bandwidth environments
 
-const CACHE_NAME = 'honduras-edu-v2';
-const API_CACHE = 'honduras-edu-api-v2';
+const CACHE_NAME = 'honduras-edu-v3';
+const API_CACHE = 'honduras-edu-api-v3';
 
 // Essential public files to cache for offline functionality (no auth required)
 const STATIC_CACHE_FILES = [
@@ -12,11 +12,11 @@ const STATIC_CACHE_FILES = [
 ];
 
 // API endpoints to cache for offline use
+// NOTE: /api/auth/* should NEVER be cached - it contains user-specific session data
 const API_CACHE_PATTERNS = [
   /^\/api\/study\/notes/,
   /^\/api\/budget/,
   /^\/api\/games\/scores/,
-  /^\/api\/auth\/me/,
   /^\/api\/content/,
 ];
 
@@ -60,7 +60,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Handle API requests with network-first strategy
+  // NEVER cache auth endpoints - always go to network
+  if (url.pathname.startsWith('/api/auth/')) {
+    return; // Let the browser handle this normally, no service worker intervention
+  }
+  
+  // Handle other API requests with network-first strategy
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(handleApiRequest(event.request));
     return;
