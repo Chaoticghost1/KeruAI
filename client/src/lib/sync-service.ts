@@ -1,4 +1,4 @@
-import { db } from './offline-storage';
+import { offlineDb as db } from './offline-storage';
 
 export interface SyncResult {
   synced: number;
@@ -18,7 +18,7 @@ export const syncService = {
       // Sync unsynced study notes
       const unsyncedNotes = await db.studyNotes
         .where('synced')
-        .equals(false)
+        .equals(0)
         .toArray();
 
       for (const note of unsyncedNotes) {
@@ -40,13 +40,13 @@ export const syncService = {
           }
         } catch (error) {
           result.failed++;
-          result.errors.push(`Error syncing note: ${error.message}`);
+          result.errors.push(`Error syncing note: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
       return result;
     } catch (error) {
-      result.errors.push(`Critical sync error: ${error.message}`);
+      result.errors.push(`Critical sync error: ${error instanceof Error ? error.message : String(error)}`);
       return result;
     }
   },
