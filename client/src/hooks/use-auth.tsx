@@ -117,41 +117,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Simple logout function that clears everything and redirects
+  const performLogout = () => {
+    // 1. Clear tokens immediately
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    
+    // 2. Clear query cache
+    queryClient.setQueryData(["/api/auth/me"], null);
+    queryClient.clear();
+    
+    // 3. Redirect immediately - no waiting for any API calls
+    window.location.href = '/';
+  };
+
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Clear tokens FIRST before making any API call
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      
-      // Try server logout but don't wait or care about result
-      try {
-        await fetch('/api/auth/logout', { method: 'POST' });
-      } catch {
-        // Ignore - server logout is optional
-      }
+      performLogout();
     },
     onSuccess: () => {
-      // Clear cache
-      queryClient.setQueryData(["/api/auth/me"], null);
-      queryClient.clear();
-      
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      });
-      
-      // Redirect to homepage with full page reload
-      window.location.replace('/');
+      // Already handled in mutationFn
     },
     onError: () => {
-      // Even if something fails, clear everything and redirect
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      queryClient.setQueryData(["/api/auth/me"], null);
-      queryClient.clear();
-      
-      // Redirect to homepage
-      window.location.replace('/');
+      // Still perform logout even if something fails
+      performLogout();
     },
   });
 
