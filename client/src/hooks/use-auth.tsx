@@ -119,7 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/auth/logout");
+      try {
+        await apiRequest("POST", "/api/auth/logout");
+      } catch (e) {
+        // Ignore server errors, we'll clear local state anyway
+      }
     },
     onSuccess: () => {
       // Clear tokens from localStorage
@@ -134,18 +138,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Logged out",
         description: "You have been successfully logged out.",
       });
+      
+      // Redirect to homepage
+      window.location.href = '/';
     },
-    onError: (error: Error) => {
-      // Even if logout fails on server, clear local tokens
+    onError: () => {
+      // Even if logout fails on server, clear local tokens and redirect
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       queryClient.setQueryData(["/api/auth/me"], null);
+      queryClient.clear();
       
-      toast({
-        title: "Logout failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      // Still redirect to homepage
+      window.location.href = '/';
     },
   });
 

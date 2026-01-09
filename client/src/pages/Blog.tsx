@@ -1,82 +1,38 @@
-import React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { FileText } from 'lucide-react';
 
 export default function Blog() {
   const { t } = useLanguage();
 
-  const blogPosts = [
-    {
-      id: 1,
-      title: t.language === 'es' ? 'Trabajar en Cruceros: Mi Primera Experiencia' : 'Working on Cruise Ships: My First Experience',
-      excerpt: t.language === 'es' 
-        ? 'Todo lo que necesitas saber antes de embarcar en tu primera aventura laboral en alta mar.'
-        : 'Everything you need to know before embarking on your first work adventure at sea.',
-      category: t.language === 'es' ? 'Trabajo' : 'Work',
-      date: '2024-01-15',
-      image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400'
-    },
-    {
-      id: 2,
-      title: t.language === 'es' ? 'Los Mejores Destinos del Caribe' : 'The Best Caribbean Destinations',
-      excerpt: t.language === 'es' 
-        ? 'Descubre las islas más hermosas y sus secretos mejor guardados desde la perspectiva de alguien que las ha visitado.'
-        : 'Discover the most beautiful islands and their best-kept secrets from someone who has visited them.',
-      category: t.language === 'es' ? 'Destinos' : 'Destinations',
-      date: '2024-01-10',
-      image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400'
-    },
-    {
-      id: 3,
-      title: t.language === 'es' ? 'Comida Internacional: Sabores del Mundo' : 'International Cuisine: Flavors of the World',
-      excerpt: t.language === 'es' 
-        ? 'Una guía gastronómica de los sabores más increíbles que he probado en mis viajes.'
-        : 'A gastronomic guide to the most incredible flavors I have tasted in my travels.',
-      category: t.language === 'es' ? 'Comida' : 'Food',
-      date: '2024-01-05',
-      image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400'
-    }
-  ];
+  const emptyStateMessage = t.language === 'es' 
+    ? 'Los artículos se cargarán desde la base de datos cuando estén disponibles.' 
+    : 'Articles will load from the database when available.';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-100 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-slate-900 mb-4">
-            {t.blog.title}
+            {t.blog?.title || (t.language === 'es' ? 'Blog de Viajes' : 'Travel Blog')}
           </h1>
           <p className="text-xl text-slate-600">
-            {t.blog.description}
+            {t.blog?.description || (t.language === 'es' ? 'Historias y experiencias de viaje' : 'Travel stories and experiences')}
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {blogPosts.map((post) => (
-            <Card key={post.id} className="card-hover overflow-hidden">
-              <div className="aspect-video overflow-hidden">
-                <img 
-                  src={post.image}
-                  alt={post.title}
-                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                />
-              </div>
-              <CardHeader>
-                <div className="flex items-center justify-between mb-2">
-                  <Badge variant="secondary">{post.category}</Badge>
-                  <span className="text-sm text-slate-500">{post.date}</span>
-                </div>
-                <CardTitle className="text-lg">{post.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-600 mb-4">{post.excerpt}</p>
-                <button className="text-blue-600 hover:text-blue-800 font-semibold">
-                  {t.language === 'es' ? 'Leer más →' : 'Read more →'}
-                </button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Card className="mb-8">
+          <CardContent className="py-16">
+            <div className="text-center">
+              <FileText className="h-20 w-20 text-slate-300 mx-auto mb-6" />
+              <h3 className="text-xl font-semibold text-slate-600 mb-2">
+                {t.language === 'es' ? 'No hay artículos aún' : 'No articles yet'}
+              </h3>
+              <p className="text-slate-500">{emptyStateMessage}</p>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid md:grid-cols-2 gap-6">
           <Card className="card-hover">
