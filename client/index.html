@@ -22,12 +22,18 @@
         if (storedVersion !== APP_VERSION) {
           console.log('Version mismatch, clearing all caches...');
           
-          // Clear all storage
-          try { localStorage.clear(); } catch(e) {}
+          // Set new version FIRST to prevent infinite loop
+          try { localStorage.setItem('html_app_version', APP_VERSION); } catch(e) {}
+          
+          // Clear sessionStorage (not localStorage - we need to keep version)
           try { sessionStorage.clear(); } catch(e) {}
           
-          // Set new version BEFORE clearing so we don't loop
-          try { localStorage.setItem('html_app_version', APP_VERSION); } catch(e) {}
+          // Remove auth tokens from localStorage
+          try { 
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('app_version');
+          } catch(e) {}
           
           // Unregister all service workers
           if ('serviceWorker' in navigator) {

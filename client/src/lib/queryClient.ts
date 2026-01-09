@@ -131,7 +131,6 @@ export async function apiRequest(
 
   // Honduras-first: Cache successful GET responses for offline use
   // NEVER cache auth endpoints - they contain sensitive user session data
-  const isAuthEndpoint = fullUrl.includes('/api/auth');
   if (method === 'GET' && res.ok && !isAuthEndpoint) {
     try {
       const responseClone = res.clone();
