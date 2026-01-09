@@ -18,6 +18,13 @@ export function useTutors() {
 }
 
 /**
+ * Alias for useTutors - fetches personas/tutors for student view
+ */
+export function usePersonas() {
+  return useTutors();
+}
+
+/**
  * Hook for admin persona management
  * Provides CRUD operations for bot personas
  */

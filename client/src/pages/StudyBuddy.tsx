@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { apiRequest } from '@/lib/queryClient';
-import { useTutors } from '../hooks/use-personas';
-import SyncStatus from '../components/SyncStatus';
+import { usePersonas } from '../hooks/use-personas';
+import { SyncStatus } from '../components/SyncStatus';
 
 interface Badge {
   id: number;
@@ -222,8 +222,8 @@ export default function StudyBuddy() {
   // Get authenticated user ID
   const userId = user?.id;
 
-  // Fetch available tutor agents using shared hook
-  const { data: agents = [], isLoading: agentsLoading } = useTutors();
+  // Fetch available personas using shared hook
+  const { data: personas = [], isLoading: personasLoading } = usePersonas();
 
   // Fetch session messages
   const { data: messages = [], isLoading: messagesLoading } = useQuery<TutorMessage[]>({
@@ -305,7 +305,7 @@ export default function StudyBuddy() {
     endSessionMutation.mutate(currentSession.id);
   };
 
-  if (agentsLoading || !user) {
+  if (personasLoading || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
         <div className="max-w-4xl mx-auto">
@@ -350,29 +350,29 @@ export default function StudyBuddy() {
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-3 gap-4 mb-6">
-                  {agents.map((agent: TutorAgent) => (
+                  {personas.map((persona: TutorAgent) => (
                     <Card 
-                      key={agent.id}
+                      key={persona.id}
                       className={`cursor-pointer transition-all hover:shadow-lg ${
-                        selectedAgent?.id === agent.id 
+                        selectedAgent?.id === persona.id 
                           ? 'ring-2 ring-blue-500 bg-blue-50' 
                           : 'hover:bg-slate-50'
                       }`}
-                      onClick={() => setSelectedAgent(agent)}
+                      onClick={() => setSelectedAgent(persona)}
                     >
                       <CardContent className="p-4">
                         <div className="text-center">
-                          <div className="text-3xl mb-2">{agent.avatar}</div>
-                          <h3 className="font-semibold text-lg">{agent.name}</h3>
-                          <p className="text-sm text-slate-600 mb-3">{agent.title}</p>
+                          <div className="text-3xl mb-2">{persona.avatar}</div>
+                          <h3 className="font-semibold text-lg">{persona.name}</h3>
+                          <p className="text-sm text-slate-600 mb-3">{persona.title}</p>
                           <div className="flex flex-wrap gap-1 justify-center mb-3">
-                            {agent.subjects.map((subject: string) => (
+                            {persona.subjects.map((subject: string) => (
                               <Badge key={subject} variant="secondary" className="text-xs">
                                 {subject}
                               </Badge>
                             ))}
                           </div>
-                          <p className="text-xs text-slate-500">{agent.description}</p>
+                          <p className="text-xs text-slate-500">{persona.description}</p>
                         </div>
                       </CardContent>
                     </Card>
