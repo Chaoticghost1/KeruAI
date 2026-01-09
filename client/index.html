@@ -12,57 +12,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   </head>
   <body>
-    <script>
-      // Force clear all caches on version change - runs BEFORE any other JS
-      (function() {
-        var APP_VERSION = '3.0.0';
-        var storedVersion = null;
-        try { storedVersion = localStorage.getItem('html_app_version'); } catch(e) {}
-        
-        if (storedVersion !== APP_VERSION) {
-          console.log('Version mismatch, clearing all caches...');
-          
-          // Set new version FIRST to prevent infinite loop
-          try { localStorage.setItem('html_app_version', APP_VERSION); } catch(e) {}
-          
-          // Clear sessionStorage (not localStorage - we need to keep version)
-          try { sessionStorage.clear(); } catch(e) {}
-          
-          // Remove auth tokens from localStorage
-          try { 
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('app_version');
-          } catch(e) {}
-          
-          // Unregister all service workers
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(regs) {
-              regs.forEach(function(reg) { reg.unregister(); });
-            });
-          }
-          
-          // Clear all caches
-          if ('caches' in window) {
-            caches.keys().then(function(names) {
-              names.forEach(function(name) { caches.delete(name); });
-            });
-          }
-          
-          // Clear IndexedDB
-          if (indexedDB.databases) {
-            indexedDB.databases().then(function(dbs) {
-              dbs.forEach(function(db) { 
-                if (db.name) indexedDB.deleteDatabase(db.name); 
-              });
-            });
-          }
-          
-          // Reload after a short delay to let clearing complete
-          setTimeout(function() { location.reload(true); }, 100);
-        }
-      })();
-    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->

@@ -114,7 +114,8 @@ export async function apiRequest(
 
   if (!res.ok) {
     // Honduras-first: For GET requests, try serving from cache if network fails
-    if (method === 'GET') {
+    // NEVER serve cached auth data - auth must always reflect server state
+    if (method === 'GET' && !isAuthEndpoint) {
       const cachedData = await OfflineManager.getCachedContent(fullUrl);
       if (cachedData) {
         console.log('Network failed, serving from cache:', fullUrl);
