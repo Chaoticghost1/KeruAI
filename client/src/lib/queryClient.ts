@@ -26,7 +26,9 @@ export async function apiRequest(
   const dataSaverEnabled = settings?.dataSaverMode || false;
   
   // For GET requests, try cache first if offline or data saver enabled
-  if (method === 'GET' && (!navigator.onLine || dataSaverEnabled)) {
+  // NEVER use cache for auth endpoints - they must always hit the network
+  const isAuthEndpoint = fullUrl.includes('/api/auth');
+  if (method === 'GET' && (!navigator.onLine || dataSaverEnabled) && !isAuthEndpoint) {
     const cachedData = await OfflineManager.getCachedContent(fullUrl);
     if (cachedData) {
       console.log('Serving from cache (Honduras data saver/offline):', fullUrl);
@@ -128,7 +130,9 @@ export async function apiRequest(
   }
 
   // Honduras-first: Cache successful GET responses for offline use
-  if (method === 'GET' && res.ok) {
+  // NEVER cache auth endpoints - they contain sensitive user session data
+  const isAuthEndpoint = fullUrl.includes('/api/auth');
+  if (method === 'GET' && res.ok && !isAuthEndpoint) {
     try {
       const responseClone = res.clone();
       const data = await responseClone.json();

@@ -3,6 +3,7 @@ import { useQuery, useMutation, UseMutationResult, useQueryClient } from "@tanst
 import { User, InsertUser } from "@shared/schema";
 import { apiRequest } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { OfflineManager } from "@/lib/offline-storage";
 
 type AuthResponse = {
   user: User;
@@ -130,13 +131,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.setQueryData(["/api/auth/me"], null);
     queryClient.clear();
     
-    // 4. Clear service worker cache
+    // 4. Clear IndexedDB offline cache (this was caching /api/auth/me!)
+    try {
+      await OfflineManager.clearAllContentCache();
+    } catch (e) {
+      console.warn('Failed to clear offline cache:', e);
+    }
+    
+    // 5. Clear service worker cache
     if ('caches' in window) {
       const cacheNames = await caches.keys();
       await Promise.all(cacheNames.map(name => caches.delete(name)));
     }
     
-    // 5. Force reload from server (not from cache)
+    // 6. Force reload from server (not from cache)
     window.location.replace('/');
   };
 

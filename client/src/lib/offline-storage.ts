@@ -261,6 +261,20 @@ export class OfflineManager {
     return await offlineDb.contentCache.where('expiresAt').below(now).delete();
   }
 
+  // Clear ALL content cache (used on logout)
+  static async clearAllContentCache() {
+    return await offlineDb.contentCache.clear();
+  }
+
+  // Clear auth-related cache entries
+  static async clearAuthCache() {
+    // Delete any cached auth endpoints
+    return await offlineDb.contentCache.where('url').startsWithAnyOf([
+      '/api/auth',
+      'http'  // In case full URLs are cached
+    ]).filter(item => item.url.includes('/api/auth')).delete();
+  }
+
   // Database maintenance
   static async getStorageUsage(): Promise<{ used: number; available?: number }> {
     try {
