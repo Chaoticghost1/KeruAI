@@ -1,10 +1,43 @@
+import "dotenv/config";
 import { errorHandler } from './middleware/error-handler';
+import { apiLimiter } from './middleware/rate-limit';
+import helmet from 'helmet';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Security headers with Helmet
+app.use(helmet({
+                app.use(helmet({
+                  contentSecurityPolicy: {
+                    directives: {
+                      defaultSrc: ["'self'"],
+                      scriptSrc: ["'self'"],
+                      styleSrc: ["'self'"],
+                      imgSrc: ["'self'", "data:", "https:"],
+                      connectSrc: ["'self'", "http://127.0.0.1:7242"],
+                      fontSrc: ["'self'"],
+                      objectSrc: ["'none'"],
+                      mediaSrc: ["'self'"],
+                      frameSrc: ["'none'"]
+                    }
+                  },
+  crossOriginEmbedderPolicy: true,
+  crossOriginOpenerPolicy: true,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  frameguard: { action: "deny" },
+  hidePoweredBy: true,
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  ieNoOpen: true,
+  noSniff: true,
+  originAgentCluster: true,
+  permittedCrossDomainPolicies: { permittedPolicies: "none" },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  xssFilter: true
+}));
 
 // CORS middleware
 app.use((req, res, next) => {
@@ -53,8 +86,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// Rate limit API (150 req/15 min per IP). Auth routes use a stricter limit in auth router.
+app.use("/api", apiLimiter);
+
+// #region agent log (guarded by DEBUG_AGENT_INGEST; leave unset in production)
+const _dbg = process.env.DEBUG_AGENT_INGEST
+  ? (m: string, d?: object) => fetch('http://127.0.0.1:7242/ingest/5a811126-3bcf-4744-9ff0-298a7797a469', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'server/index.ts', message: m, data: d || {}, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H1' }) }).catch(() => {})
+  : () => {};
+// #endregion
 (async () => {
+  _dbg('registerRoutes starting', {});
   await registerRoutes(app);
+  _dbg('registerRoutes done, creating server', {});
   const server = createServer(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -74,16 +117,12 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  // Port configurable via PORT env (default 5000). Use 3000 if 5000 is reserved on Windows.
+  const port = Number(process.env.PORT) || 5000;
+  const host = process.env.HOST || "127.0.0.1";
+  server.listen(port, host, () => {
     log(`serving on port ${port}`);
+    _dbg('server listening', { port, host, env: app.get('env') });
   });
 })();
 // Error handling middleware - MUST BE LAST

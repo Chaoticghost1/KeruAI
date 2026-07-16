@@ -26,16 +26,16 @@ export function usePersonas() {
 
 /**
  * Hook for admin persona management
- * Provides CRUD operations for bot personas
+ * Provides CRUD operations for bot personas.
+ * Pass skipList: true when using paginated list in the same view to avoid double fetch.
  */
-export function useAdminPersonas(userRole?: string) {
+export function useAdminPersonas(userRole?: string, options?: { skipList?: boolean }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all personas (including inactive) for admin management
   const personas = useQuery({
     queryKey: ['/api/admin/bot-personas'],
-    enabled: !!userRole && ['superuser', 'teacher'].includes(userRole)
+    enabled: !!userRole && ['superuser', 'teacher'].includes(userRole) && !options?.skipList
   });
 
   // Create new persona

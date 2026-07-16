@@ -11,9 +11,8 @@ import { User, AuthToken, InsertAuthToken } from '@shared/schema';
 // - Use cryptographically random values (not dictionary words)
 // - Generate secure secrets using: openssl rand -base64 32
 // - Set JWT_SECRET and JWT_REFRESH_SECRET in your environment variables
-const isDev = process.env.NODE_ENV !== 'production';
-const JWT_SECRET = process.env.JWT_SECRET || (isDev ? 'dev-secret-key-change-in-production' : '');
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || (isDev ? 'dev-refresh-secret-change-in-production' : '');
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
 // Validate that secrets are set in production
 if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
@@ -89,8 +88,8 @@ export async function generateTokens(user: User): Promise<{ accessToken: string;
     tokenId: savedRefreshToken.token,
   };
 
-  const accessToken = jwt.sign(accessTokenPayload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES });
-  const refreshToken = jwt.sign(refreshTokenPayload, JWT_REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES });
+  const accessToken = jwt.sign(accessTokenPayload, JWT_SECRET!, { expiresIn: ACCESS_TOKEN_EXPIRES });
+  const refreshToken = jwt.sign(refreshTokenPayload, JWT_REFRESH_SECRET!, { expiresIn: REFRESH_TOKEN_EXPIRES });
 
   return { accessToken, refreshToken };
 }
@@ -98,6 +97,7 @@ export async function generateTokens(user: User): Promise<{ accessToken: string;
 export async function verifyToken(token: string, isRefresh = false): Promise<JWTPayload | null> {
   try {
     const secret = isRefresh ? JWT_REFRESH_SECRET : JWT_SECRET;
+    if (!secret) return null;
     const decoded = jwt.verify(token, secret) as JWTPayload;
     
     // Check if token exists in database and is not revoked
@@ -160,14 +160,20 @@ export function authorizeRoles(...roles: string[]) {
   };
 }
 
-// Middleware to ensure user is verified
+// Middleware to ensure user is verified (or admin-approved for teachers)
+// Superuser bypasses; teachers must be verified/approved by admin before uploads and class sharing
 export function requireVerification(req: AuthRequest, res: Response, next: NextFunction) {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
+  // Superuser always bypasses (admin has full control)
+  if (req.user.role === 'superuser') {
+    return next();
+  }
+
   if (!req.user.isVerified) {
-    return res.status(403).json({ error: 'Email verification required' });
+    return res.status(403).json({ error: 'Admin approval required. Please wait for an administrator to approve your account.' });
   }
 
   next();

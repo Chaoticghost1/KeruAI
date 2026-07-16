@@ -1,23 +1,48 @@
 import OpenAI from "openai";
 import { tutorPersonas, getPersonaByKey, generatePersonaResponse } from '../shared/tutorPersonas.js';
+import { storage } from './storage';
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY 
+const PERPLEXITY_BASE_URL = 'https://api.perplexity.ai';
+const PERPLEXITY_MODEL = 'sonar';
+
+/** Resolve API keys: stored (System Settings) first, then env. Never returns raw keys to callers outside this file. */
+export async function getApiKeys(): Promise<{ openai: string | undefined; perplexity: string | undefined }> {
+  const stored = await storage.getSystemSetting('api_keys');
+  const s = stored && typeof stored === 'object' && !Array.isArray(stored) ? (stored as Record<string, unknown>) : {};
+  const openai = typeof s.openai === 'string' && s.openai.trim() ? s.openai.trim() : process.env.OPENAI_API_KEY;
+  const perplexity = typeof s.perplexity === 'string' && s.perplexity.trim() ? s.perplexity.trim() : process.env.PERPLEXITY_API_KEY;
+  return { openai, perplexity };
+}
+
+// Legacy module-level client (used only when getApiKeys not yet needed for a code path)
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
-
-// Perplexity AI client setup
-const perplexity = {
-  apiKey: process.env.PERPLEXITY_API_KEY,
-  baseURL: 'https://api.perplexity.ai',
-  model: 'sonar' // Updated to use current valid model (lightweight, cost-effective)
-};
 
 export interface AITutorResponse {
   message: string;
   toolsUsed: string[];
   difficulty: number;
   engagement: number;
+}
+
+/** DB persona (admin-created) for custom system prompt */
+export interface DBPersona {
+  name: string;
+  description?: string | null;
+  systemPrompt: string;
+}
+
+/** Student profile used to personalize Aprende conmigo AI */
+export interface StudentProfileContext {
+  learningStyle?: string | null;
+  preferredDifficulty?: number;
+  subjects?: string[];
+  strugglingAreas?: string[];
+  /** Display name for revision (Materiales de Estudio) assistant only */
+  revisionAssistantName?: string | null;
+  /** User's preferred language (es/en) */
+  language?: 'es' | 'en' | null;
 }
 
 export class AITutorService {
@@ -30,13 +55,20 @@ export class AITutorService {
     subject: string,
     difficultyLevel: number,
     sessionHistory: Array<{ sender: string; message: string; timestamp: string }> = [],
-    language: string = 'es'
+    language: string = 'es',
+    dbPersona?: DBPersona | null,
+    studentProfile?: StudentProfileContext | null
   ): Promise<AITutorResponse> {
     try {
+      // Use DB persona (admin-created) system prompt when provided
+      if (dbPersona?.systemPrompt) {
+        return this.generateResponseWithDBPersona(dbPersona, studentMessage, subject, difficultyLevel, sessionHistory, language, studentProfile);
+      }
       const persona = getPersonaByKey(agentKey);
       if (!persona) {
         throw new Error(`Persona not found: ${agentKey}`);
       }
+      const displayName = (studentProfile?.revisionAssistantName?.trim() || persona.name);
 
       // Build conversation context
       const conversationHistory = sessionHistory
@@ -50,7 +82,17 @@ export class AITutorService {
         : 'IMPORTANTE: Responde solo en español.';
 
       // Create persona-driven system prompt
-      const systemPrompt = `You are ${persona.name}, ${persona.title}. 
+      const studentProfileBlock = studentProfile && (studentProfile.learningStyle || studentProfile.preferredDifficulty != null || (studentProfile.subjects?.length) || (studentProfile.strugglingAreas?.length))
+        ? `
+STUDENT PROFILE (use to tailor your response):
+- Learning style: ${studentProfile.learningStyle ?? 'not specified'}
+- Preferred difficulty: ${studentProfile.preferredDifficulty ?? difficultyLevel}/3
+- Subjects: ${(studentProfile.subjects?.length) ? studentProfile.subjects.join(', ') : 'not specified'}
+- Struggling areas: ${(studentProfile.strugglingAreas?.length) ? studentProfile.strugglingAreas.join(', ') : 'not specified'}
+Adapt your explanations and examples to this student's way of learning.`
+        : '';
+
+      const systemPrompt = `You are ${displayName}, ${persona.title}. 
 
 ${languageInstruction}
 
@@ -63,25 +105,28 @@ CURRENT SESSION:
 - Subject: ${subject}
 - Difficulty Level: ${difficultyLevel}/3 (1=Beginner, 2=Intermediate, 3=Advanced)
 - Student Question: ${studentMessage}
+${studentProfileBlock}
 
 BEHAVIORAL RULES:
 ${persona.behavioralRules.dos.map(rule => `✓ ${rule}`).join('\n')}
 ${persona.behavioralRules.donts.map(rule => `✗ ${rule}`).join('\n')}
 
-Respond as ${persona.name} would, maintaining your unique personality while providing helpful tutoring. Be encouraging, educational, and match the difficulty level. Keep responses focused and not too lengthy.
+Respond as ${displayName} would, maintaining your unique personality while providing helpful tutoring. Be encouraging, educational, and match the difficulty level. Keep responses focused and not too lengthy.
 
 Recent conversation context:
 ${conversationHistory}
 
 Provide your response in JSON format:
 {
-  "message": "Your tutoring response as ${persona.name}",
+  "message": "Your tutoring response as ${displayName}",
   "toolsUsed": ["explanation", "example", "encouragement"],
   "difficulty": 1-3,
   "engagement": 1-5
 }`;
 
-      const response = await openai.chat.completions.create({
+      const { openai: openaiKey } = await getApiKeys();
+      const client = openaiKey ? new OpenAI({ apiKey: openaiKey }) : openai;
+      const response = await client.chat.completions.create({
         model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025
         messages: [
           { role: "system", content: systemPrompt },
@@ -111,19 +156,20 @@ Provide your response in JSON format:
       
       // Try Perplexity AI as fallback
       try {
-        return await this.generatePerplexityResponse(agentKey, studentMessage, subject, difficultyLevel, sessionHistory, language);
+        return await this.generatePerplexityResponse(agentKey, studentMessage, subject, difficultyLevel, sessionHistory, language, dbPersona, studentProfile);
       } catch (perplexityError) {
         const perplexityErrorMessage = perplexityError instanceof Error ? perplexityError.message : 'Unknown error';
         console.warn('Perplexity AI unavailable:', perplexityErrorMessage);
         
         // Final fallback to rule-based persona response
-        const persona = getPersonaByKey(agentKey);
+        const persona = dbPersona || getPersonaByKey(agentKey);
+        const fallbackName = (studentProfile?.revisionAssistantName?.trim() || persona?.name);
         const fallbackMessage = language === 'en' 
-          ? (persona 
-            ? `Hello! I'm ${persona.name}. I'm here to help you with ${subject}. While our AI system is temporarily unavailable, I can still provide basic guidance. What would you like to learn about?`
+          ? (fallbackName 
+            ? `Hello! I'm ${fallbackName}. I'm here to help you with ${subject}. While our AI system is temporarily unavailable, I can still provide basic guidance. What would you like to learn about?`
             : "I'm here to help you learn! While our AI system is temporarily unavailable, feel free to ask your question and I'll do my best to assist you.")
-          : (persona 
-            ? `¡Hola! Soy ${persona.name}. Estoy aquí para ayudarte con ${subject}. Aunque nuestro sistema de IA no está disponible temporalmente, aún puedo proporcionarte orientación básica. ¿Qué te gustaría aprender?`
+          : (fallbackName 
+            ? `¡Hola! Soy ${fallbackName}. Estoy aquí para ayudarte con ${subject}. Aunque nuestro sistema de IA no está disponible temporalmente, aún puedo proporcionarte orientación básica. ¿Qué te gustaría aprender?`
             : "¡Estoy aquí para ayudarte a aprender! Aunque nuestro sistema de IA no está disponible temporalmente, siéntete libre de hacer tu pregunta e intentaré ayudarte.");
 
         return {
@@ -136,6 +182,79 @@ Provide your response in JSON format:
     }
   }
 
+  /** Generate response using admin-created DB persona (systemPrompt only) */
+  static async generateResponseWithDBPersona(
+    dbPersona: DBPersona,
+    studentMessage: string,
+    subject: string,
+    difficultyLevel: number,
+    sessionHistory: Array<{ sender: string; message: string; timestamp: string }>,
+    language: string = 'es',
+    studentProfile?: StudentProfileContext | null
+  ): Promise<AITutorResponse> {
+    const conversationHistory = sessionHistory
+      .slice(-6)
+      .map(msg => `${msg.sender}: ${msg.message}`)
+      .join('\n');
+    const languageInstruction = language === 'en' 
+      ? 'IMPORTANT: Respond in English only.' 
+      : 'IMPORTANTE: Responde solo en español.';
+    const profileBlock = studentProfile && (studentProfile.learningStyle || studentProfile.subjects?.length || studentProfile.strugglingAreas?.length)
+      ? `\nSTUDENT PROFILE: Learning style: ${studentProfile.learningStyle ?? 'not specified'}. Subjects: ${(studentProfile.subjects?.length) ? studentProfile.subjects.join(', ') : 'not specified'}. Struggling areas: ${(studentProfile.strugglingAreas?.length) ? studentProfile.strugglingAreas.join(', ') : 'not specified'}. Adapt explanations to this student.\n`
+      : '';
+    const systemPrompt = `${dbPersona.systemPrompt}
+
+${languageInstruction}
+${profileBlock}
+CURRENT SESSION:
+- Subject: ${subject}
+- Difficulty Level: ${difficultyLevel}/3 (1=Beginner, 2=Intermediate, 3=Advanced)
+- Student Question: ${studentMessage}
+
+Recent conversation context:
+${conversationHistory}
+
+Provide your response in JSON format:
+{
+  "message": "Your tutoring response as ${dbPersona.name}",
+  "toolsUsed": ["explanation", "example", "encouragement"],
+  "difficulty": 1-3,
+  "engagement": 1-5
+}`;
+    try {
+      const { openai: openaiKey } = await getApiKeys();
+      const client = openaiKey ? new OpenAI({ apiKey: openaiKey }) : openai;
+      const response = await client.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: studentMessage }
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 1500
+      });
+      const content = response.choices[0].message.content;
+      if (!content) throw new Error('No content in OpenAI response');
+      const result = JSON.parse(content);
+      return {
+        message: result.message || "I'm here to help you learn!",
+        toolsUsed: Array.isArray(result.toolsUsed) ? result.toolsUsed : ["explanation"],
+        difficulty: Math.max(1, Math.min(3, result.difficulty || difficultyLevel)),
+        engagement: Math.max(1, Math.min(5, result.engagement || 3))
+      };
+    } catch (error) {
+      const fallbackMessage = language === 'en'
+        ? `Hello! I'm ${dbPersona.name}. I'm here to help with ${subject}. What would you like to learn?`
+        : `¡Hola! Soy ${dbPersona.name}. Estoy aquí para ayudarte con ${subject}. ¿Qué te gustaría aprender?`;
+      return {
+        message: fallbackMessage,
+        toolsUsed: ["rule-based-fallback"],
+        difficulty: difficultyLevel,
+        engagement: 3
+      };
+    }
+  }
+
   /**
    * Generate tutoring response using Perplexity AI
    */
@@ -145,26 +264,26 @@ Provide your response in JSON format:
     subject: string,
     difficultyLevel: number,
     sessionHistory: Array<{ sender: string; message: string; timestamp: string }> = [],
-    language: string = 'es'
+    language: string = 'es',
+    dbPersona?: DBPersona | null,
+    studentProfile?: StudentProfileContext | null
   ): Promise<AITutorResponse> {
-    const persona = getPersonaByKey(agentKey);
-    if (!persona) {
-      throw new Error(`Persona not found: ${agentKey}`);
-    }
-
-    // Build conversation context
+    let systemPrompt: string;
     const conversationHistory = sessionHistory
-      .slice(-4) // Last 4 messages for context (Perplexity has different limits)
+      .slice(-4)
       .map(msg => `${msg.sender}: ${msg.message}`)
       .join('\n');
-
-    // Get language instruction
     const languageInstruction = language === 'en' 
       ? 'IMPORTANT: Respond in English only.' 
       : 'IMPORTANTE: Responde solo en español.';
 
-    // Create persona-driven system prompt
-    const systemPrompt = `You are ${persona.name}, ${persona.title}. 
+    if (dbPersona?.systemPrompt) {
+      systemPrompt = `${dbPersona.systemPrompt}\n\n${languageInstruction}\n\nCURRENT SESSION:\n- Subject: ${subject}\n- Difficulty Level: ${difficultyLevel}/3\n- Student Question: ${studentMessage}\n\nRecent conversation:\n${conversationHistory}\n\nProvide a helpful tutoring response.`;
+    } else {
+      const persona = getPersonaByKey(agentKey);
+      if (!persona) throw new Error(`Persona not found: ${agentKey}`);
+      const displayName = (studentProfile?.revisionAssistantName?.trim() || persona.name);
+      systemPrompt = `You are ${displayName}, ${persona.title}. 
 
 ${languageInstruction}
 
@@ -182,26 +301,31 @@ BEHAVIORAL RULES:
 ${persona.behavioralRules.dos.map(rule => `✓ ${rule}`).join('\n')}
 ${persona.behavioralRules.donts.map(rule => `✗ ${rule}`).join('\n')}
 
-Respond as ${persona.name} would, maintaining your unique personality while providing helpful tutoring. Be encouraging, educational, and match the difficulty level. Keep responses focused and educational.
+Respond as ${displayName} would, maintaining your unique personality while providing helpful tutoring. Be encouraging, educational, and match the difficulty level. Keep responses focused and educational.
 
 Recent conversation:
 ${conversationHistory}
 
 Provide a helpful tutoring response that includes factual, up-to-date information when relevant.`;
+    }
+
+    const { perplexity: perplexityKey } = await getApiKeys();
+    const pKey = perplexityKey || process.env.PERPLEXITY_API_KEY;
+    if (!pKey) throw new Error('Perplexity API key not configured. Set it in Admin → System Settings → Integration Status.');
 
     const messages = [
       { role: "system", content: systemPrompt },
       { role: "user", content: studentMessage }
     ];
 
-    const response = await fetch(`${perplexity.baseURL}/chat/completions`, {
+    const response = await fetch(`${PERPLEXITY_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${perplexity.apiKey}`,
+        'Authorization': `Bearer ${pKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: perplexity.model,
+        model: PERPLEXITY_MODEL,
         messages,
         max_tokens: 1000,
         temperature: 0.2,
@@ -257,17 +381,19 @@ Provide a helpful tutoring response that includes factual, up-to-date informatio
     subject: string,
     topic?: string,
     difficultyLevel: number = 2,
-    language: string = 'es'
+    language: string = 'es',
+    dbPersona?: DBPersona | null,
+    studentProfile?: StudentProfileContext | null
   ): Promise<AITutorResponse> {
-    const persona = getPersonaByKey(agentKey);
-    if (!persona) {
-      throw new Error(`Persona not found: ${agentKey}`);
+    if (!dbPersona) {
+      const persona = getPersonaByKey(agentKey);
+      if (!persona) throw new Error(`Persona not found: ${agentKey}`);
     }
 
     const welcomePrompt = topic 
       ? `I'm starting a ${subject} tutoring session focused on ${topic}. Please introduce yourself and ask an engaging question to begin.`
       : `I'm starting a ${subject} tutoring session. Please introduce yourself and ask what specific area I'd like to explore.`;
 
-    return this.generateTutorResponse(agentKey, welcomePrompt, subject, difficultyLevel, [], language);
+    return this.generateTutorResponse(agentKey, welcomePrompt, subject, difficultyLevel, [], language, dbPersona, studentProfile);
   }
 }

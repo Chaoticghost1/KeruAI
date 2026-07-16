@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,36 +13,9 @@ import { Separator } from '@/components/ui/separator';
 import { apiRequest } from '@/lib/queryClient';
 import { usePersonas } from '../hooks/use-personas';
 import { SyncStatus } from '../components/SyncStatus';
-
-interface Badge {
-  id: number;
-  badgeKey: string;
-  name: string;
-  description: string;
-  icon: string;
-  category: string;
-  rarity: string;
-  points: number;
-}
-
-interface UserBadge {
-  id: number;
-  userId: number;
-  badgeId: number;
-  earnedAt: string;
-  progress: number;
-  isNew: boolean;
-}
-
-interface StudentProfile {
-  id: number;
-  userId: number;
-  level: number;
-  experiencePoints: number;
-  totalSessionsCompleted: number;
-  currentStreak: number;
-  longestStreak: number;
-}
+import { PageLayout } from '@/components/PageLayout';
+import type { StudentProfile } from '@/types/profile';
+import { Send, GraduationCap, Sparkles, ChevronRight } from 'lucide-react';
 
 interface TutorAgent {
   id: number;
@@ -76,138 +49,6 @@ interface TutorMessage {
   timestamp: string;
 }
 
-// Progress Dashboard Component
-function ProgressDashboard({ userId }: { userId: number }) {
-  const { t } = useLanguage();
-  
-  const { data: profile } = useQuery<StudentProfile>({
-    queryKey: ['/api/progress', 'profile', userId],
-  });
-  
-  const { data: userBadges } = useQuery<UserBadge[]>({
-    queryKey: ['/api/progress', 'user-badges', userId],
-  });
-  
-  const { data: allBadges } = useQuery<Badge[]>({
-    queryKey: ['/api/progress', 'badges'],
-  });
-  
-  const earnedBadgeIds = new Set(userBadges?.map(ub => ub.badgeId) || []);
-  const earnedBadges = allBadges?.filter(badge => earnedBadgeIds.has(badge.id)) || [];
-  
-  // Calculate level progress
-  const getXPProgress = (profile: StudentProfile) => {
-    const currentLevel = profile.level;
-    const nextLevelXP = Math.pow(currentLevel, 2) * 50;
-    const currentLevelXP = currentLevel === 1 ? 0 : Math.pow(currentLevel - 1, 2) * 50;
-    const neededXP = nextLevelXP - currentLevelXP;
-    const currentXP = profile.experiencePoints - currentLevelXP;
-    
-    return {
-      current: currentXP,
-      needed: neededXP,
-      progress: Math.round((currentXP / neededXP) * 100)
-    };
-  };
-  
-  const progress = profile ? getXPProgress(profile) : null;
-  
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-      {/* Level Progress */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            🎯 {t.language === 'es' ? 'Progreso del Nivel' : 'Level Progress'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {profile ? (
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{profile.level}</div>
-                <p className="text-sm text-slate-600">
-                  {t.language === 'es' ? 'Nivel Actual' : 'Current Level'}
-                </p>
-              </div>
-              
-              {progress && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>{progress.current} XP</span>
-                    <span>{progress.needed} XP</span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${progress.progress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-center text-slate-600">
-                    {progress.progress}% {t.language === 'es' ? 'al siguiente nivel' : 'to next level'}
-                  </p>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div className="text-center">
-                  <div className="text-xl font-semibold text-emerald-600">{profile.currentStreak}</div>
-                  <p className="text-xs text-slate-600">
-                    {t.language === 'es' ? 'Racha Actual' : 'Current Streak'}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <div className="text-xl font-semibold text-purple-600">{profile.totalSessionsCompleted}</div>
-                  <p className="text-xs text-slate-600">
-                    {t.language === 'es' ? 'Sesiones' : 'Sessions'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-center text-slate-600">
-              {t.language === 'es' ? 'Comienza tu primera sesión para ver tu progreso' : 'Start your first session to see progress'}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-      
-      {/* Badges */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            🏆 {t.language === 'es' ? 'Insignias' : 'Badges'} ({earnedBadges.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {earnedBadges.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3">
-              {earnedBadges.slice(0, 6).map((badge) => (
-                <div key={badge.id} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50">
-                  <span className="text-2xl">{badge.icon}</span>
-                  <div>
-                    <p className="font-medium text-sm">{badge.name}</p>
-                    <p className="text-xs text-slate-600 capitalize">{badge.rarity}</p>
-                  </div>
-                </div>
-              ))}
-              {earnedBadges.length > 6 && (
-                <div className="col-span-2 text-center text-sm text-slate-600">
-                  +{earnedBadges.length - 6} {t.language === 'es' ? 'más' : 'more'}
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-center text-slate-600">
-              {t.language === 'es' ? 'Completa sesiones para ganar insignias' : 'Complete sessions to earn badges'}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export default function StudyBuddy() {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -218,9 +59,23 @@ export default function StudyBuddy() {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [topic, setTopic] = useState('');
   const [difficultyLevel, setDifficultyLevel] = useState(2);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Get authenticated user ID
   const userId = user?.id;
+
+  // Fetch profile to prefill difficulty and show summary
+  const { data: profile } = useQuery<StudentProfile | null>({
+    queryKey: ['/api/progress', 'profile', userId],
+    enabled: !!userId,
+  });
+
+  // Prefill session difficulty from profile when present
+  useEffect(() => {
+    if (profile?.preferredDifficulty != null && profile.preferredDifficulty >= 1 && profile.preferredDifficulty <= 5) {
+      setDifficultyLevel(profile.preferredDifficulty);
+    }
+  }, [profile?.preferredDifficulty]);
 
   // Fetch available personas using shared hook
   const { data: personas = [], isLoading: personasLoading } = usePersonas();
@@ -234,6 +89,11 @@ export default function StudyBuddy() {
     },
     enabled: !!currentSession?.id
   });
+
+  // Scroll chat to bottom when messages change so new messages appear just above the send button
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // Create new tutor session
   const createSessionMutation = useMutation({
@@ -261,16 +121,30 @@ export default function StudyBuddy() {
     }
   });
 
-  // End session
+  // End session (revoke session, then award progress/badges via session-complete)
   const endSessionMutation = useMutation({
-    mutationFn: async (sessionId: number) => {
+    mutationFn: async (payload: { sessionId: number; userId: number; subject: string; messagesExchanged: number; difficulty: number }) => {
+      const { sessionId, userId, subject, messagesExchanged, difficulty } = payload;
       const response = await apiRequest('PATCH', `/api/tutors/sessions/${sessionId}/end`);
-      return await response.json();
+      const ended = await response.json();
+      try {
+        await apiRequest('POST', `/api/progress/session-complete/${sessionId}`, {
+          userId,
+          subject,
+          messagesExchanged,
+          difficulty,
+          duration: undefined,
+        });
+      } catch {
+        // Best-effort: rewards not critical for UX
+      }
+      return ended;
     },
     onSuccess: () => {
       setCurrentSession(null);
       setSelectedAgent(null);
       queryClient.invalidateQueries({ queryKey: ['tutorSessions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
     }
   });
 
@@ -301,97 +175,124 @@ export default function StudyBuddy() {
   };
 
   const endSession = () => {
-    if (!currentSession) return;
-    endSessionMutation.mutate(currentSession.id);
+    if (!currentSession || !userId) return;
+    endSessionMutation.mutate({
+      sessionId: currentSession.id,
+      userId,
+      subject: currentSession.subject,
+      messagesExchanged: messages?.length ?? 0,
+      difficulty: difficultyLevel,
+    });
   };
 
   if (personasLoading || !user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-slate-600">
-              {t.language === 'es' ? 'Cargando tutores...' : 'Loading tutors...'}
-            </p>
-          </div>
+      <PageLayout>
+        <div className="flex flex-col items-center justify-center py-24">
+          <div className="h-12 w-12 rounded-full border-2 border-youth-primary/30 border-t-youth-primary animate-spin" />
+          <p className="mt-4 text-muted-foreground text-sm">
+            {t.language === 'es' ? 'Cargando tutores...' : 'Loading tutors...'}
+          </p>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-4">
+    <PageLayout>
+        <div className="flex flex-col items-center mb-10">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-youth-primary/15 text-youth-primary">
+              <GraduationCap className="h-5 w-5" />
+            </div>
+            <Sparkles className="h-5 w-5 text-youth-accent" />
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-2">
             {t.studybuddy.title}
           </h1>
-          <p className="text-xl text-slate-600">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl text-center leading-relaxed">
             {t.studybuddy.description}
           </p>
-        </div>
-
-        {/* Progress Dashboard */}
-        {userId && <ProgressDashboard userId={userId} />}
-
-        <div className="mb-6 p-3 bg-blue-50 rounded">
-          <SyncStatus />
+          <div className="mt-4 text-sm text-muted-foreground/80">
+            <SyncStatus />
+          </div>
         </div>
 
         {!currentSession ? (
-          // Agent Selection View
+          // Agent Selection View - Grid of tutor cards
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {t.language === 'es' ? 'Elige tu Tutor IA' : 'Choose Your AI Tutor'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-4 mb-6">
-                  {personas.map((persona: TutorAgent) => (
-                    <Card 
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-4">
+                {t.language === 'es' ? 'Elige tu Tutor IA' : 'Choose Your AI Tutor'}
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {personas.map((persona: TutorAgent) => {
+                  const agentTr = (t.studybuddy as { agents?: Record<string, { name: string; title: string; longDescription: string }> }).agents?.[persona.agentKey];
+                  const subjectLabels = (t.studybuddy as { subjectLabels?: Record<string, string> }).subjectLabels;
+                  const displayName = agentTr?.name ?? persona.name;
+                  const displayTitle = agentTr?.title ?? persona.title;
+                  const isSelected = selectedAgent?.id === persona.id;
+                  return (
+                    <Card
                       key={persona.id}
-                      className={`cursor-pointer transition-all hover:shadow-lg ${
-                        selectedAgent?.id === persona.id 
-                          ? 'ring-2 ring-blue-500 bg-blue-50' 
-                          : 'hover:bg-slate-50'
+                      className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:border-youth-primary/50 ${
+                        isSelected ? 'ring-2 ring-youth-primary border-youth-primary/50 shadow-md' : 'border-border/80'
                       }`}
-                      onClick={() => setSelectedAgent(persona)}
+                      onClick={() => setSelectedAgent(isSelected ? null : persona)}
                     >
-                      <CardContent className="p-4">
-                        <div className="text-center">
-                          <div className="text-3xl mb-2">{persona.avatar}</div>
-                          <h3 className="font-semibold text-lg">{persona.name}</h3>
-                          <p className="text-sm text-slate-600 mb-3">{persona.title}</p>
-                          <div className="flex flex-wrap gap-1 justify-center mb-3">
-                            {persona.subjects.map((subject: string) => (
-                              <Badge key={subject} variant="secondary" className="text-xs">
-                                {subject}
-                              </Badge>
-                            ))}
-                          </div>
-                          <p className="text-xs text-slate-500">{persona.description}</p>
+                      <CardContent className="p-4 flex flex-col items-center text-center">
+                        <div className="text-4xl mb-3" aria-hidden>{persona.avatar}</div>
+                        <h3 className="font-semibold text-foreground mb-0.5">{displayName}</h3>
+                        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{displayTitle}</p>
+                        <div className="flex flex-wrap gap-1 justify-center mb-3">
+                          {persona.subjects.slice(0, 3).map((subject: string) => (
+                            <Badge key={subject} variant="secondary" className="text-[10px] px-1.5 py-0 bg-youth-primary/10 text-youth-primary border-0">
+                              {subjectLabels?.[subject] ?? subject}
+                            </Badge>
+                          ))}
+                          {persona.subjects.length > 3 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-0">
+                              +{persona.subjects.length - 3}
+                            </Badge>
+                          )}
                         </div>
+                        <Button
+                          size="sm"
+                          variant={isSelected ? 'secondary' : 'default'}
+                          className={`rounded-lg w-full ${!isSelected ? 'bg-youth-primary hover:bg-youth-primary/90 text-white' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedAgent(isSelected ? null : persona);
+                          }}
+                        >
+                          {isSelected
+                            ? (t.language === 'es' ? 'Cambiar' : 'Change')
+                            : ((t.studybuddy as { chooseThisTutor?: string }).chooseThisTutor ?? (t.language === 'es' ? 'Elegir' : 'Choose'))}
+                          <ChevronRight className="ml-1 h-3 w-3" />
+                        </Button>
                       </CardContent>
                     </Card>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                {selectedAgent && (
-                  <div className="space-y-4 p-4 bg-white rounded-lg border">
-                    <h3 className="font-semibold">
+            {selectedAgent && (
+              <Card className="rounded-2xl border border-border/80 overflow-hidden">
+                <CardContent className="p-5">
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-youth-primary" />
                       {t.language === 'es' ? 'Configurar Sesión' : 'Session Setup'}
                     </h3>
                     
                     <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-foreground">
                           {t.language === 'es' ? 'Materia' : 'Subject'}
                         </label>
                         <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                          <SelectTrigger>
+                          <SelectTrigger className="rounded-lg">
                             <SelectValue placeholder={
                               t.language === 'es' ? 'Selecciona una materia' : 'Select a subject'
                             } />
@@ -399,22 +300,22 @@ export default function StudyBuddy() {
                           <SelectContent>
                             {selectedAgent.subjects.map((subject: string) => (
                               <SelectItem key={subject} value={subject}>
-                                {subject}
+                                {(t.studybuddy as { subjectLabels?: Record<string, string> }).subjectLabels?.[subject] ?? subject}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-foreground">
                           {t.language === 'es' ? 'Nivel de Dificultad' : 'Difficulty Level'}
                         </label>
                         <Select 
                           value={difficultyLevel.toString()} 
                           onValueChange={(value) => setDifficultyLevel(parseInt(value))}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="rounded-lg">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -432,13 +333,14 @@ export default function StudyBuddy() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-foreground">
                         {t.language === 'es' ? 'Tema Específico (Opcional)' : 'Specific Topic (Optional)'}
                       </label>
                       <Input
                         value={topic}
                         onChange={(e) => setTopic(e.target.value)}
+                        className="rounded-lg"
                         placeholder={
                           t.language === 'es' 
                             ? 'ej. ecuaciones cuadráticas, biología celular' 
@@ -450,58 +352,57 @@ export default function StudyBuddy() {
                     <Button 
                       onClick={startSession}
                       disabled={!selectedSubject || createSessionMutation.isPending}
-                      className="w-full"
+                      className="w-full rounded-xl bg-youth-primary hover:bg-youth-primary/90 text-white py-5 text-base font-medium transition-all"
                     >
                       {createSessionMutation.isPending
                         ? (t.language === 'es' ? 'Iniciando...' : 'Starting...')
                         : (t.language === 'es' ? 'Comenzar Sesión de Tutoría' : 'Start Tutoring Session')
                       }
+                      <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         ) : (
           // Active Session View
           <div className="grid lg:grid-cols-4 gap-6">
-            {/* Session Info */}
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">
+            {/* Session Info Sidebar */}
+            <div className="lg:col-span-1 order-2 lg:order-1">
+              <Card className="rounded-2xl border border-border/80 shadow-sm overflow-hidden">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">
                     {t.language === 'es' ? 'Sesión Activa' : 'Active Session'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="text-center">
-                    <div className="text-2xl mb-2">{selectedAgent?.avatar}</div>
-                    <h3 className="font-semibold">{selectedAgent?.name}</h3>
-                    <p className="text-sm text-slate-600">{selectedAgent?.title}</p>
+                  <div className="flex flex-col items-center text-center">
+                    <div className="text-3xl mb-2" aria-hidden>{selectedAgent?.avatar}</div>
+                    <h3 className="font-semibold text-foreground">
+                      {selectedAgent ? ((t.studybuddy as { agents?: Record<string, { name: string }> }).agents?.[selectedAgent.agentKey]?.name ?? selectedAgent.name) : ''}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedAgent ? ((t.studybuddy as { agents?: Record<string, { title: string }> }).agents?.[selectedAgent.agentKey]?.title ?? selectedAgent.title) : ''}
+                    </p>
                   </div>
                   
                   <Separator />
                   
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-3 text-sm">
                     <div>
-                      <span className="font-medium">
-                        {t.language === 'es' ? 'Materia:' : 'Subject:'}
-                      </span>
-                      <p className="text-slate-600">{currentSession.subject}</p>
+                      <span className="font-medium text-foreground">{t.language === 'es' ? 'Materia:' : 'Subject:'}</span>
+                      <p className="text-muted-foreground mt-0.5">{currentSession.subject}</p>
                     </div>
                     {currentSession.topic && (
                       <div>
-                        <span className="font-medium">
-                          {t.language === 'es' ? 'Tema:' : 'Topic:'}
-                        </span>
-                        <p className="text-slate-600">{currentSession.topic}</p>
+                        <span className="font-medium text-foreground">{t.language === 'es' ? 'Tema:' : 'Topic:'}</span>
+                        <p className="text-muted-foreground mt-0.5">{currentSession.topic}</p>
                       </div>
                     )}
                     <div>
-                      <span className="font-medium">
-                        {t.language === 'es' ? 'Nivel:' : 'Level:'}
-                      </span>
-                      <p className="text-slate-600">
+                      <span className="font-medium text-foreground">{t.language === 'es' ? 'Nivel:' : 'Level:'}</span>
+                      <p className="text-muted-foreground mt-0.5">
                         {currentSession.difficultyLevel === 1 
                           ? (t.language === 'es' ? 'Principiante' : 'Beginner')
                           : currentSession.difficultyLevel === 2
@@ -516,7 +417,7 @@ export default function StudyBuddy() {
                     variant="outline" 
                     onClick={endSession}
                     disabled={endSessionMutation.isPending}
-                    className="w-full"
+                    className="w-full rounded-xl"
                   >
                     {t.language === 'es' ? 'Finalizar Sesión' : 'End Session'}
                   </Button>
@@ -525,55 +426,73 @@ export default function StudyBuddy() {
             </div>
 
             {/* Chat Interface */}
-            <div className="lg:col-span-3">
-              <Card className="h-[600px] flex flex-col">
-                <CardHeader>
-                  <CardTitle>
+            <div className="lg:col-span-3 order-1 lg:order-2">
+              <Card className="min-h-[480px] lg:min-h-[560px] flex flex-col rounded-2xl border border-border/80 shadow-sm overflow-hidden">
+                <CardHeader className="py-4 border-b bg-muted/20">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-youth-success animate-pulse" />
                     {t.language === 'es' ? 'Chat con tu Tutor' : 'Chat with your Tutor'}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 flex flex-col p-0">
+                <CardContent className="flex-1 flex flex-col p-0 min-h-0">
                   {/* Messages */}
                   <ScrollArea className="flex-1 p-4">
-                    <div className="space-y-4">
-                      {messages.map((message: TutorMessage) => (
-                        <div
-                          key={message.id}
-                          className={`flex ${
-                            message.sender === 'student' ? 'justify-end' : 'justify-start'
-                          }`}
-                        >
-                          <div
-                            className={`max-w-[80%] p-3 rounded-lg ${
-                              message.sender === 'student'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-slate-100 text-slate-900'
-                            }`}
-                          >
-                            <p className="whitespace-pre-wrap">{message.message}</p>
-                            <p className="text-xs opacity-70 mt-1">
-                              {new Date(message.timestamp).toLocaleTimeString()}
-                            </p>
+                    <div className="space-y-4 min-h-[200px]">
+                      {messages.length === 0 && !sendMessageMutation.isPending ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                          <div className="rounded-full bg-youth-primary/10 p-4 mb-4">
+                            <GraduationCap className="h-8 w-8 text-youth-primary" />
                           </div>
+                          <p className="text-muted-foreground font-medium">
+                            {t.language === 'es' ? '¡Empieza la conversación!' : 'Start the conversation!'}
+                          </p>
+                          <p className="text-sm text-muted-foreground/80 mt-1 max-w-xs">
+                            {t.language === 'es' ? 'Escribe tu primera pregunta abajo' : 'Type your first question below'}
+                          </p>
                         </div>
-                      ))}
-                      {sendMessageMutation.isPending && (
-                        <div className="flex justify-start">
-                          <div className="bg-slate-100 p-3 rounded-lg">
-                            <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                              <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                      ) : (
+                        <>
+                          {messages.map((message: TutorMessage) => (
+                            <div
+                              key={message.id}
+                              className={`flex ${
+                                message.sender === 'student' ? 'justify-end' : 'justify-start'
+                              }`}
+                            >
+                              <div
+                                className={`max-w-[85%] px-4 py-2.5 rounded-2xl shadow-sm ${
+                                  message.sender === 'student'
+                                    ? 'bg-youth-primary text-white rounded-br-md'
+                                    : 'bg-muted text-foreground rounded-bl-md'
+                                }`}
+                              >
+                                <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.message}</p>
+                                <p className={`text-xs mt-1.5 ${message.sender === 'student' ? 'opacity-80' : 'text-muted-foreground'}`}>
+                                  {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </div>
+                          ))}
+                          {sendMessageMutation.isPending && (
+                            <div className="flex justify-start">
+                              <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                  <div className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                  <div className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
+                      <div ref={messagesEndRef} />
                     </div>
                   </ScrollArea>
 
                   {/* Message Input */}
-                  <div className="p-4 border-t">
-                    <div className="flex space-x-2">
+                  <div className="p-4 border-t bg-muted/10">
+                    <div className="flex gap-2 items-end">
                       <Textarea
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
@@ -582,7 +501,7 @@ export default function StudyBuddy() {
                             ? 'Escribe tu pregunta aquí...' 
                             : 'Type your question here...'
                         }
-                        className="flex-1 min-h-[40px] max-h-[120px]"
+                        className="flex-1 min-h-[44px] max-h-[120px] rounded-xl resize-none border-border bg-background"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -593,8 +512,9 @@ export default function StudyBuddy() {
                       <Button 
                         onClick={sendMessage}
                         disabled={!messageInput.trim() || sendMessageMutation.isPending}
+                        className="rounded-xl bg-youth-primary hover:bg-youth-primary/90 h-[44px] px-4 shrink-0"
                       >
-                        {t.language === 'es' ? 'Enviar' : 'Send'}
+                        <Send className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -603,7 +523,6 @@ export default function StudyBuddy() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </PageLayout>
   );
 }

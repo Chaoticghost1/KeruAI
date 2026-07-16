@@ -1,0 +1,555 @@
+{
+  "name": "Keru.ai Tutoring Agents - Production",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "persona-chat",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Handle both test mode and production webhook mode\nconst input = items[0].json;\nconst body = input.body || input;\nconst message = body.studentMessage || '';\n\n// Normalize for caching\nconst normalized = message.toLowerCase().trim().replace(/\\s+/g, ' ').replace(/[^\\w\\s]/g, '');\n\n// Simple hash function (FNV-1a - no crypto module needed)\nfunction simpleHash(str) {\n  let hash = 2166136261;\n  for (let i = 0; i < str.length; i++) {\n    hash ^= str.charCodeAt(i);\n    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);\n  }\n  return (hash >>> 0).toString(16);\n}\n\nconst questionHash = simpleHash(normalized);\n\n// Analyze complexity for routing\nconst wordCount = message.split(/\\s+/).length;\nconst hasMath = /\\d+|\\+|\\-|\\*|\\/|=|\\^/.test(message);\nconst hasComplexWords = /\\b\\w{12,}\\b/.test(message);\n\n// Easy question heuristic: short, basic level, no complex words\nconst difficulty = body.difficultyLevel || 'intermedio';\nconst isEasyQuestion = (\n  wordCount < 20 && \n  difficulty === 'basico' && \n  !hasComplexWords\n) || body.forceLocalLLM === true;\n\nreturn items.map(item => ({\n  json: {\n    ...body,\n    questionHash,\n    normalized,\n    isEasyQuestion,\n    complexity: { wordCount, hasMath, hasComplexWords }\n  }\n}));"
+      },
+      "id": "normalize-2",
+      "name": "Normalize & Classify",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.BACKEND_URL}}/api/tutors/qa-cache/check?hash={{$json.questionHash}}&sessionId={{$json.sessionId}}&agentKey={{$json.agentKey}}",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "id": "cache-3",
+      "name": "Check Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [640, 400],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.cached}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-cache-4",
+      "name": "Cache Hit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [840, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json.agentResponse)}}"
+      },
+      "id": "respond-cached-5",
+      "name": "Return Cached",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "value1": "={{$json.agentKey}}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "matematico_guia"
+            },
+            {
+              "value2": "doctora_nova"
+            },
+            {
+              "value2": "profesor_pluma"
+            },
+            {
+              "value2": "maestro_ciencias"
+            },
+            {
+              "value2": "maestro_civismo"
+            },
+            {
+              "value2": "guia_informatica"
+            }
+          ]
+        }
+      },
+      "id": "switch-6",
+      "name": "Route Agent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1040, 500]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst subject = data.subject || 'matemáticas';\nconst difficulty = data.difficultyLevel || 'intermedio';\nconst gradeLevel = data.gradeLevel || 'secundaria';\nconst history = (data.conversationHistory || []).slice(-6);\nconst historyText = history.map(m => `${m.role === 'user' ? 'E' : 'T'}: ${m.content}`).join('\\n');\n\nlet profile = '';\nif (data.studentProfile?.learningStyle) {\n  profile = `Estilo aprendizaje: ${data.studentProfile.learningStyle}.\\n`;\n}\nif (data.studentProfile?.strugglingAreas?.length) {\n  profile += `Áreas difíciles: ${data.studentProfile.strugglingAreas.join(', ')}.\\n`;\n}\n\nconst systemPrompt = `IDENTIDAD:\nSois \"Matemático Guía\", tutor experto en matemáticas para Honduras.\n\nPRINCIPIOS:\n- JAMÁS des respuesta directa o solución final\n- Hacé preguntas estratégicas: \"¿Qué observás?\", \"¿Cuál es el primer paso?\"\n- Usá ejemplos hondureños (mercados, construcción)\n- Celebrá esfuerzo y razonamiento\n- Lenguaje conversacional hondureño\n\nCUANDO ESTUDIANTE ATASCADO:\n- Dividí en partes pequeñas\n- Preguntá conceptos previos: \"¿Recordás...?\"\n- Dá hints, nunca respuestas\n- Guía verificación de razonamiento\n\nContexto: ${subject}, Nivel ${difficulty}, Grado ${gradeLevel}\n${profile}\nÚltimos intercambios:\n${historyText || 'Inicio de conversación'}\n\nResponde en español Honduras.`;\n\nreturn items.map(item => ({\n  json: {\n    ...data,\n    systemPrompt,\n    userMessage: data.studentMessage\n  }\n}));"
+      },
+      "id": "prompt-matematico-7",
+      "name": "Matemático Guía",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1240, 250]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst subject = data.subject || 'ciencias naturales';\nconst difficulty = data.difficultyLevel || 'intermedio';\nconst gradeLevel = data.gradeLevel || 'secundaria';\nconst history = (data.conversationHistory || []).slice(-6);\nconst historyText = history.map(m => `${m.role === 'user' ? 'E' : 'T'}: ${m.content}`).join('\\n');\n\nlet profile = '';\nif (data.studentProfile?.learningStyle) {\n  profile = `Estilo: ${data.studentProfile.learningStyle}.\\n`;\n}\n\nconst systemPrompt = `IDENTIDAD:\nSois \"Doctora Nova\", tutora experta en química y biología para Honduras.\n\nPRINCIPIOS:\n- JAMÁS des respuestas; guía descubrimiento\n- Conectá con vida hondureña (ecosistemas locales, café, salud)\n- Preguntá: \"¿Qué observás?\", \"¿Por qué creés?\"\n- Enseñá método científico: hipótesis → observación → conclusión\n- Mantené curiosidad viva\n\nCUANDO CONFUNDIDO:\n- Usá analogías: \"Es como cuando...\"\n- Dividí procesos en etapas\n- Hacé predicciones: \"¿Qué pasaría si...?\"\n- Nunca sustituyas comprensión por definiciones\n\nContexto: ${subject}, Nivel ${difficulty}, Grado ${gradeLevel}\n${profile}\nÚltimos:\n${historyText || 'Inicio'}\n\nResponde en español Honduras, entusiasta y educativo.`;\n\nreturn items.map(item => ({\n  json: {\n    ...data,\n    systemPrompt,\n    userMessage: data.studentMessage\n  }\n}));"
+      },
+      "id": "prompt-doctora-8",
+      "name": "Doctora Nova",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1240, 350]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst subject = data.subject || 'literatura';\nconst difficulty = data.difficultyLevel || 'intermedio';\nconst gradeLevel = data.gradeLevel || 'secundaria';\nconst history = (data.conversationHistory || []).slice(-6);\nconst historyText = history.map(m => `${m.role === 'user' ? 'E' : 'T'}: ${m.content}`).join('\\n');\n\nlet profile = '';\nif (data.studentProfile?.learningStyle) {\n  profile = `Estilo: ${data.studentProfile.learningStyle}.\\n`;\n}\n\nconst systemPrompt = `IDENTIDAD:\nSois \"Profesor Pluma\", tutor experto en literatura y lenguaje para Honduras.\n\nPRINCIPIOS:\n- JAMÁS escribas ensayos ni respuestas por estudiante\n- Hacé preguntas profundas: \"¿Qué observás?\", \"¿Por qué el autor...?\"\n- Celebrá creatividad y voces únicas\n- Enseñá análisis crítico, no opinión superficial\n- Usá literatura hondureña cuando posible\n\nESCRITURA:\n- NO ESCRIBAS POR ELLOS\n- Preguntá idea principal primero\n- Guía organización: \"¿En qué orden fluye mejor?\"\n- Ayudá claridad, no corrección superficial\n\nLECTURA:\n- Guía hacia evidencia en texto\n- Preguntá: \"¿Cómo lo sabés?\"\n- Conectá con contexto (histórico, cultural)\n\nContexto: ${subject}, Nivel ${difficulty}, Grado ${gradeLevel}\n${profile}\nÚltimos:\n${historyText || 'Inicio'}\n\nResponde en español Honduras, respetuoso y educativo.`;\n\nreturn items.map(item => ({\n  json: {\n    ...data,\n    systemPrompt,\n    userMessage: data.studentMessage\n  }\n}));"
+      },
+      "id": "prompt-pluma-9",
+      "name": "Profesor Pluma",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1240, 450]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst subject = data.subject || 'física';\nconst difficulty = data.difficultyLevel || 'intermedio';\nconst gradeLevel = data.gradeLevel || 'secundaria';\nconst history = (data.conversationHistory || []).slice(-6);\nconst historyText = history.map(m => `${m.role === 'user' ? 'E' : 'T'}: ${m.content}`).join('\\n');\n\nlet profile = '';\nif (data.studentProfile?.learningStyle) {\n  profile = `Estilo: ${data.studentProfile.learningStyle}.\\n`;\n}\n\nconst systemPrompt = `IDENTIDAD:\nSois \"Maestro Ciencias\", tutor experto en física y STEM para Honduras.\n\nPRINCIPIOS:\n- JAMÁS resuelvas problemas; guía pensamiento\n- Conectá con Honduras (infraestructura, energía, recursos)\n- Usá método científico: observación → hipótesis → conclusión\n- Hacé ver física en vida diaria\n- Enseñá resolver problemas sistemáticamente\n\nPROBLEMAS:\n- Nunca resuelvas completo\n- Ayudá identificar dado y buscado\n- Guía elegir concepto/fórmula correcta\n- Supervisa cálculos pero que los haga estudiante\n- Validá proceso, no solo respuesta\n\nCONCEPTOS DIFÍCILES:\n- Dividí en partes\n- Analogías: \"Es como cuando...\"\n- Visualización: \"Imagina que...\"\n\nContexto: ${subject}, Nivel ${difficulty}, Grado ${gradeLevel}\n${profile}\nÚltimos:\n${historyText || 'Inicio'}\n\nResponde en español Honduras, técnico pero accesible.`;\n\nreturn items.map(item => ({\n  json: {\n    ...data,\n    systemPrompt,\n    userMessage: data.studentMessage\n  }\n}));"
+      },
+      "id": "prompt-ciencias-10",
+      "name": "Maestro Ciencias",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1240, 550]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst subject = data.subject || 'civismo';\nconst difficulty = data.difficultyLevel || 'intermedio';\nconst gradeLevel = data.gradeLevel || 'bachillerato';\nconst history = (data.conversationHistory || []).slice(-6);\nconst historyText = history.map(m => `${m.role === 'user' ? 'E' : 'T'}: ${m.content}`).join('\\n');\n\nlet profile = '';\nif (data.studentProfile?.learningStyle) {\n  profile = `Estilo: ${data.studentProfile.learningStyle}.\\n`;\n}\n\nconst systemPrompt = `IDENTIDAD:\nSois \"Maestro Civismo\", tutor experto en Constitución y leyes de Honduras.\n\nPRINCIPIOS:\n- JAMÁS des asesoramiento legal personal\n- Enseñá LEER Y ENTENDER leyes, no memorizar\n- Contextualizá con ejemplos hondureños\n- Respetá perspectivas políticas diferentes\n- Enfocate en derechos Y responsabilidades\n- Empoderá ciudadanos a entender sistema legal\n\nCONSTITUCIÓN:\n- Artículos derechos fundamentales (Art. 65-90)\n- Estructura gobierno (Ejecutivo, Legislativo, Judicial)\n- Procedimientos democráticos\n\nDERECHOS LABORALES:\n- Código del Trabajo Honduras\n- Salario mínimo, jornada laboral\n- Derechos sindicalización\n\nADVERTENCIA:\nEste agente EDUCA sobre leyes, NO proporciona asesoramiento legal.\n\nContexto: ${subject}, Nivel ${difficulty}, Grado ${gradeLevel}\n${profile}\nÚltimos:\n${historyText || 'Inicio'}\n\nResponde en español Honduras, educativo y cívico.`;\n\nreturn items.map(item => ({\n  json: {\n    ...data,\n    systemPrompt,\n    userMessage: data.studentMessage\n  }\n}));"
+      },
+      "id": "prompt-civismo-11",
+      "name": "Maestro Civismo",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1240, 650]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst subject = data.subject || 'programación';\nconst difficulty = data.difficultyLevel || 'intermedio';\nconst gradeLevel = data.gradeLevel || 'secundaria';\nconst history = (data.conversationHistory || []).slice(-6);\nconst historyText = history.map(m => `${m.role === 'user' ? 'E' : 'T'}: ${m.content}`).join('\\n');\n\nlet profile = '';\nif (data.studentProfile?.learningStyle) {\n  profile = `Estilo: ${data.studentProfile.learningStyle}.\\n`;\n}\n\nconst systemPrompt = `IDENTIDAD:\nSois \"Guía Informática\", tutor experto en programación y tecnología para Honduras.\n\nPRINCIPIOS:\n- JAMÁS des código completo que resuelva tarea\n- Enseñá LÓGICA antes que SINTAXIS\n- Ayudá debuggear pero guía a encontrar error\n- Conectá con Honduras (oportunidades tech, acceso digital)\n- Celebrá creatividad en coding\n\nCÓDIGO:\n1. Entendé qué quiere lograr\n2. Preguntá: \"¿Cuál es primer paso lógico?\"\n3. Estructura antes que código\n4. Pseudocódigo primero\n5. Luego código: \"¿Cómo expresás eso en [lenguaje]?\"\n\nDEBUGGING:\n- Nunca corrijas código por ellos\n- Preguntá: \"¿Qué esperabas vs qué pasó?\"\n- Guía leer mensajes error\n- \"¿Dónde creés está problema?\"\n\nContexto: ${subject}, Nivel ${difficulty}, Grado ${gradeLevel}\n${profile}\nÚltimos:\n${historyText || 'Inicio'}\n\nResponde en español Honduras, técnico y educativo.`;\n\nreturn items.map(item => ({\n  json: {\n    ...data,\n    systemPrompt,\n    userMessage: data.studentMessage\n  }\n}));"
+      },
+      "id": "prompt-informatica-12",
+      "name": "Guía Informática",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1240, 750]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.isEasyQuestion}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "route-llm-13",
+      "name": "Easy Question?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1440, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.LOCAL_LLM_URL || 'http://localhost:11434/v1/chat/completions'}}",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "body": "={\"model\":\"qwen2.5:14b-instruct-q4_K_M\",\"messages\":[{\"role\":\"system\",\"content\":\"{{$json.systemPrompt}}\"},{\"role\":\"user\",\"content\":\"{{$json.userMessage}}\"}],\"max_tokens\":600,\"temperature\":0.7}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "local-llm-14",
+      "name": "Local LLM (Qwen 14B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1640, 500],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "body": "={\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"{{$json.systemPrompt}}\"},{\"role\":\"user\",\"content\":\"{{$json.userMessage}}\"}],\"max_tokens\":800,\"temperature\":0.7}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "openai-15",
+      "name": "OpenAI (Complex)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1640, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.choices && $json.choices.length > 0}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-local-16",
+      "name": "Local LLM Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1840, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "body": "={\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"{{$json.systemPrompt}}\"},{\"role\":\"user\",\"content\":\"{{$json.userMessage}}\"}],\"max_tokens\":800,\"temperature\":0.7}",
+        "options": {}
+      },
+      "id": "openai-fallback-17",
+      "name": "OpenAI Fallback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2040, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst llmResponse = data.choices?.[0]?.message?.content || '';\nconst tokensUsed = data.usage?.total_tokens || 0;\nconst modelUsed = data.model || 'unknown';\n\n// Determine which LLM was used\nconst isLocalLLM = modelUsed.includes('qwen') || modelUsed.includes('local') || data.isEasyQuestion;\n\nconst agentResponse = {\n  message: llmResponse,\n  toolsUsed: [isLocalLLM ? 'local-qwen-14b' : 'openai-gpt4o-mini'],\n  difficulty: data.difficultyLevel || 'intermedio',\n  engagement: 'high',\n  tokensUsed,\n  cached: false,\n  modelUsed: isLocalLLM ? 'qwen2.5-14b' : 'gpt-4o-mini'\n};\n\nreturn items.map(item => ({\n  json: {\n    ...data,\n    agentResponse,\n    llmMessage: llmResponse\n  }\n}));"
+      },
+      "id": "format-18",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2240, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.BACKEND_URL}}/api/tutors/qa-cache",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "body": "={\"questionHash\":\"{{$json.questionHash}}\",\"sessionId\":\"{{$json.sessionId}}\",\"agentKey\":\"{{$json.agentKey}}\",\"studentMessage\":\"{{$json.studentMessage}}\",\"agentResponse\":{{JSON.stringify($json.agentResponse)}},\"modelUsed\":\"{{$json.agentResponse.modelUsed}}\"}",
+        "options": {}
+      },
+      "id": "save-cache-19",
+      "name": "Save Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2440, 600],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json.agentResponse)}}"
+      },
+      "id": "respond-20",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2640, 600]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Classify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Classify": {
+      "main": [
+        [
+          {
+            "node": "Check Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Cache": {
+      "main": [
+        [
+          {
+            "node": "Cache Hit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Hit?": {
+      "main": [
+        [
+          {
+            "node": "Return Cached",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Agent": {
+      "main": [
+        [
+          {
+            "node": "Matemático Guía",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Doctora Nova",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Profesor Pluma",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Maestro Ciencias",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Maestro Civismo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guía Informática",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matemático Guía": {
+      "main": [
+        [
+          {
+            "node": "Easy Question?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Doctora Nova": {
+      "main": [
+        [
+          {
+            "node": "Easy Question?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Profesor Pluma": {
+      "main": [
+        [
+          {
+            "node": "Easy Question?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maestro Ciencias": {
+      "main": [
+        [
+          {
+            "node": "Easy Question?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maestro Civismo": {
+      "main": [
+        [
+          {
+            "node": "Easy Question?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guía Informática": {
+      "main": [
+        [
+          {
+            "node": "Easy Question?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Easy Question?": {
+      "main": [
+        [
+          {
+            "node": "Local LLM (Qwen 14B)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI (Complex)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Local LLM (Qwen 14B)": {
+      "main": [
+        [
+          {
+            "node": "Local LLM Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI (Complex)": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Local LLM Success?": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Fallback": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Save Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Cache": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionTimeout": 60,
+    "maxExecutionTime": 60
+  },
+  "staticData": null,
+  "tags": [],
+  "pinData": {},
+  "versionId": "1"
+}

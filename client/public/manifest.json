@@ -1,10 +1,10 @@
 {
   "name": "Honduras Educational Platform",
   "short_name": "EduPlatform",
-  "description": "Educational platform for Honduras with offline capabilities",
+  "description": "Educational platform for Honduras",
   "theme_color": "#3b82f6",
   "background_color": "#ffffff",
-  "display": "standalone",
+  "display": "browser",
   "orientation": "portrait",
   "scope": "/",
   "start_url": "/",

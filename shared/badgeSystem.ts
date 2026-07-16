@@ -185,6 +185,132 @@ export const PREDEFINED_BADGES = [
     rarity: BADGE_RARITIES.EPIC,
     requirements: JSON.stringify({ allSubjects: true }),
     points: 150
+  },
+
+  // CruiseWord game badges
+  {
+    badgeKey: 'cruiseword_first',
+    name: 'First Voyage',
+    description: 'Submit your first CruiseWord score',
+    icon: '🛳️',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.COMMON,
+    requirements: JSON.stringify({ gameName: 'CruiseWord', minGames: 1 }),
+    points: 15
+  },
+  {
+    badgeKey: 'cruiseword_10',
+    name: 'Deck Hand',
+    description: 'Score 10 or more in CruiseWord',
+    icon: '⚓',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.COMMON,
+    requirements: JSON.stringify({ gameName: 'CruiseWord', minScore: 10 }),
+    points: 25
+  },
+  {
+    badgeKey: 'cruiseword_50',
+    name: 'Cruise Navigator',
+    description: 'Score 50 or more in CruiseWord',
+    icon: '🧭',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.RARE,
+    requirements: JSON.stringify({ gameName: 'CruiseWord', minScore: 50 }),
+    points: 50
+  },
+  {
+    badgeKey: 'cruiseword_100',
+    name: 'Captain',
+    description: 'Score 100 or more in CruiseWord',
+    icon: '👑',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.EPIC,
+    requirements: JSON.stringify({ gameName: 'CruiseWord', minScore: 100 }),
+    points: 100
+  },
+
+  // MathMaster game badges
+  {
+    badgeKey: 'mathmaster_first',
+    name: 'Mathlete',
+    description: 'Submit your first MathMaster score',
+    icon: '🧮',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.COMMON,
+    requirements: JSON.stringify({ gameName: 'MathMaster', minGames: 1 }),
+    points: 15
+  },
+  {
+    badgeKey: 'mathmaster_10',
+    name: 'Algebra Expert',
+    description: 'Score 10 or more in MathMaster',
+    icon: '📐',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.COMMON,
+    requirements: JSON.stringify({ gameName: 'MathMaster', minScore: 10 }),
+    points: 25
+  },
+  {
+    badgeKey: 'mathmaster_50',
+    name: 'Calculus Master',
+    description: 'Score 50 or more in MathMaster',
+    icon: '∫',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.RARE,
+    requirements: JSON.stringify({ gameName: 'MathMaster', minScore: 50 }),
+    points: 50
+  },
+  {
+    badgeKey: 'mathmaster_streak',
+    name: 'Perfect Streak',
+    description: 'Play MathMaster 5 times',
+    icon: '🔥',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.RARE,
+    requirements: JSON.stringify({ gameName: 'MathMaster', minGames: 5 }),
+    points: 40
+  },
+
+  // LinguaPlay game badges
+  {
+    badgeKey: 'linguaplay_first',
+    name: 'Polyglot',
+    description: 'Submit your first LinguaPlay score',
+    icon: '🌐',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.COMMON,
+    requirements: JSON.stringify({ gameName: 'LinguaPlay', minGames: 1 }),
+    points: 15
+  },
+  {
+    badgeKey: 'linguaplay_10',
+    name: 'Grammar Guru',
+    description: 'Score 10 or more in LinguaPlay',
+    icon: '📝',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.COMMON,
+    requirements: JSON.stringify({ gameName: 'LinguaPlay', minScore: 10 }),
+    points: 25
+  },
+  {
+    badgeKey: 'linguaplay_50',
+    name: 'Vocabulary Master',
+    description: 'Score 50 or more in LinguaPlay',
+    icon: '📚',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.RARE,
+    requirements: JSON.stringify({ gameName: 'LinguaPlay', minScore: 50 }),
+    points: 50
+  },
+  {
+    badgeKey: 'linguaplay_native',
+    name: 'Native Ear',
+    description: 'Play LinguaPlay 5 times',
+    icon: '👂',
+    category: BADGE_CATEGORIES.ACHIEVEMENT,
+    rarity: BADGE_RARITIES.RARE,
+    requirements: JSON.stringify({ gameName: 'LinguaPlay', minGames: 5 }),
+    points: 40
   }
 ];
 
@@ -294,6 +420,24 @@ export function checkBadgeEligibility(
   }
   
   return false;
+}
+
+/** Game-score requirements: { gameName, minScore?, minGames? } */
+export function checkBadgeEligibilityForGame(
+  badge: Badge,
+  gameName: string,
+  gameStats: { count: number; maxScore: number }
+): boolean {
+  const requirements = JSON.parse(badge.requirements) as { gameName?: string; minScore?: number; minGames?: number };
+  if (requirements.gameName && requirements.gameName !== gameName) return false;
+  if (requirements.minScore != null && gameStats.maxScore < requirements.minScore) return false;
+  if (requirements.minGames != null && gameStats.count < requirements.minGames) return false;
+  return true;
+}
+
+/** Points awarded for a game score (capped to avoid XP inflation). */
+export function calculateGameScorePoints(score: number, cap: number = 50): number {
+  return Math.min(Math.max(0, score), cap);
 }
 
 export type BadgeCategory = typeof BADGE_CATEGORIES[keyof typeof BADGE_CATEGORIES];

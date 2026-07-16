@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { OfflineManager } from '@/lib/offline-storage';
+import { OFFLINE_ENABLED } from '@/lib/offline-config';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from './use-auth';
 
@@ -36,43 +37,25 @@ export function useOfflineStudyNotes() {
     };
   }, []);
 
-  // Get study notes (online + offline merged)
+  // Get study notes (online + offline merged when OFFLINE_ENABLED)
   const { data: notes = [], isLoading, error } = useQuery({
     queryKey: ['/api/study/notes', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
-      try {
-        // Try to get online data first
-        const response = await apiRequest('GET', '/api/study/notes');
-        const onlineNotes = await response.json();
-        
-        // Get offline notes
-        const offlineNotes = await OfflineManager.getOfflineStudyNotes(user.id);
-        
-        // Merge online and offline notes, prioritizing unsynced offline notes
-        const allNotes = [...onlineNotes];
-        
-        offlineNotes.forEach(offlineNote => {
-          if (!offlineNote.synced) {
-            // Add unsynced offline notes
-            allNotes.push({
-              ...offlineNote,
-              id: undefined, // Remove server ID for unsynced notes
-            });
-          }
-        });
-        
-        return allNotes;
-      } catch (error) {
-        // If online request fails, return only offline notes
-        console.log('Failed to fetch online notes, using offline data');
-        const offlineNotes = await OfflineManager.getOfflineStudyNotes(user?.id || 0);
-        return offlineNotes;
-      }
+      const response = await apiRequest('GET', '/api/study/notes');
+      const onlineNotes = await response.json();
+      if (!OFFLINE_ENABLED) return onlineNotes;
+      const offlineNotes = await OfflineManager.getOfflineStudyNotes(user.id);
+      const allNotes = [...onlineNotes];
+      offlineNotes.forEach(offlineNote => {
+        if (!offlineNote.synced) {
+          allNotes.push({ ...offlineNote, id: undefined });
+        }
+      });
+      return allNotes;
     },
     enabled: !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutes for Honduras data saver optimization
+    staleTime: OFFLINE_ENABLED ? 5 * 60 * 1000 : Infinity,
   });
 
   // Create study note (offline-first)
@@ -87,29 +70,15 @@ export function useOfflineStudyNotes() {
         updatedAt: new Date().toISOString(),
       };
 
-      if (isOffline || !navigator.onLine) {
-        // Save offline for Honduras poor connectivity
-        console.log('Creating note offline for Honduras user');
+      if (OFFLINE_ENABLED && (isOffline || !navigator.onLine)) {
         const localId = await OfflineManager.saveStudyNoteOffline(newNote);
         return { ...newNote, localId, synced: false };
       }
-
-      try {
-        // Try online creation (userId will be extracted from auth token)
-        const { userId, ...noteDataWithoutUserId } = newNote;
-        const response = await apiRequest('POST', '/api/study/notes', noteDataWithoutUserId);
-        const serverNote = await response.json();
-        
-        // Cache the successful response
-        await OfflineManager.cacheContent('/api/study/notes', null, 0.5); // Invalidate cache
-        
-        return serverNote;
-      } catch (error) {
-        // Fallback to offline creation
-        console.log('Online creation failed, saving offline for Honduras user');
-        const localId = await OfflineManager.saveStudyNoteOffline(newNote);
-        return { ...newNote, localId, synced: false };
-      }
+      const { userId, ...noteDataWithoutUserId } = newNote;
+      const response = await apiRequest('POST', '/api/study/notes', noteDataWithoutUserId);
+      const serverNote = await response.json();
+      if (OFFLINE_ENABLED) await OfflineManager.cacheContent('/api/study/notes', null, 0.5);
+      return serverNote;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/study/notes', user?.id] });
@@ -126,46 +95,25 @@ export function useOfflineStudyNotes() {
         updatedAt: new Date().toISOString(),
       };
 
-      if (isOffline || !navigator.onLine) {
-        // Update offline for Honduras poor connectivity
-        console.log('Updating note offline for Honduras user');
-        if (localId) {
-          // Update existing offline note
-          return { ...updatedNote, localId, synced: false };
-        }
+      if (OFFLINE_ENABLED && (isOffline || !navigator.onLine) && localId) {
+        return { ...updatedNote, localId, synced: false };
+      }
+      if (OFFLINE_ENABLED && (isOffline || !navigator.onLine) && !localId) {
         throw new Error('Cannot update online note while offline');
       }
-
-      try {
-        if (id) {
-          // Update online note
-          const response = await apiRequest('PUT', `/api/study/notes/${id}`, updatedNote);
-          const serverNote = await response.json();
-          
-          // Invalidate cache
-          await OfflineManager.cacheContent('/api/study/notes', null, 0.5);
-          
-          return serverNote;
-        } else if (localId) {
-          // Convert offline note to online (userId will be extracted from auth token)
-          const response = await apiRequest('POST', '/api/study/notes', updatedNote);
-          const serverNote = await response.json();
-          
-          // Mark offline note as synced
-          await OfflineManager.markStudyNoteSynced(localId, serverNote.id);
-          
-          return serverNote;
-        }
-        
-        throw new Error('No valid ID provided for update');
-      } catch (error) {
-        if (localId) {
-          // Fallback to offline update
-          console.log('Online update failed, updating offline for Honduras user');
-          return { ...updatedNote, localId, synced: false };
-        }
-        throw error;
+      if (id) {
+        const response = await apiRequest('PUT', `/api/study/notes/${id}`, updatedNote);
+        const serverNote = await response.json();
+        if (OFFLINE_ENABLED) await OfflineManager.cacheContent('/api/study/notes', null, 0.5);
+        return serverNote;
       }
+      if (localId) {
+        const response = await apiRequest('POST', '/api/study/notes', updatedNote);
+        const serverNote = await response.json();
+        if (OFFLINE_ENABLED) await OfflineManager.markStudyNoteSynced(localId, serverNote.id);
+        return serverNote;
+      }
+      throw new Error('No valid ID provided for update');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/study/notes', user?.id] });
@@ -177,27 +125,16 @@ export function useOfflineStudyNotes() {
     mutationFn: async ({ id, localId }: { id?: number; localId?: string }) => {
       if (!user) throw new Error('User not authenticated');
 
-      if (localId && !id) {
-        // Delete offline-only note
-        // Note: This would need implementation in OfflineManager
-        console.log('Deleting offline note for Honduras user');
+      if (OFFLINE_ENABLED && localId && !id) {
         return { success: true };
       }
-
       if (id) {
-        if (isOffline || !navigator.onLine) {
-          // Queue for deletion when online
-          console.log('Queuing note deletion for when online (Honduras)');
+        if (OFFLINE_ENABLED && (isOffline || !navigator.onLine)) {
           return { success: true, queued: true };
         }
-
-        // Delete online note
         const response = await apiRequest('DELETE', `/api/study/notes/${id}`);
         const result = await response.json();
-        
-        // Invalidate cache
-        await OfflineManager.cacheContent('/api/study/notes', null, 0.5);
-        
+        if (OFFLINE_ENABLED) await OfflineManager.cacheContent('/api/study/notes', null, 0.5);
         return result;
       }
 
@@ -208,10 +145,8 @@ export function useOfflineStudyNotes() {
     },
   });
 
-  // Sync offline data when connection is restored
   const syncOfflineData = async () => {
-    if (!user || !navigator.onLine) return;
-
+    if (!OFFLINE_ENABLED || !user || !navigator.onLine) return;
     try {
       const unsyncedData = await OfflineManager.getUnsyncedData();
       
@@ -242,11 +177,8 @@ export function useOfflineStudyNotes() {
     }
   };
 
-  // Auto-sync when coming online
   useEffect(() => {
-    if (!isOffline && user) {
-      syncOfflineData();
-    }
+    if (OFFLINE_ENABLED && !isOffline && user) syncOfflineData();
   }, [isOffline, user]);
 
   return {

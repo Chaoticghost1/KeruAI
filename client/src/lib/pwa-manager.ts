@@ -1,5 +1,6 @@
 // PWA Manager for Honduras Educational Platform
 import { Workbox } from 'workbox-window';
+import { OFFLINE_ENABLED } from './offline-config';
 
 export interface PWAManager {
   isSupported: boolean;
@@ -33,52 +34,30 @@ class PWAManagerImpl implements PWAManager {
   }
 
   private async init() {
-    if (!this.isSupported) {
-      console.warn('Service workers are not supported');
-      return;
-    }
-
-    // Register service worker
-    this.wb = new Workbox('/sw.js');
-
-    // Listen for service worker updates
-    this.wb.addEventListener('waiting', () => {
-      console.log('New service worker is waiting to activate');
-      this.updateCallbacks.forEach(callback => callback());
-    });
-
-    this.wb.addEventListener('controlling', () => {
-      console.log('New service worker is controlling the page');
-      window.location.reload();
-    });
-
-    // Handle installation prompt
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      this.deferredPrompt = e;
-      console.log('PWA install prompt ready');
-    });
-
-    // Check if already installed
-    window.addEventListener('appinstalled', () => {
-      console.log('PWA was installed');
-      this.deferredPrompt = null;
-    });
-
-    // Register the service worker
-    try {
-      await this.wb.register();
-      console.log('Service worker registered successfully');
-    } catch (error) {
-      console.error('Service worker registration failed:', error);
-    }
-
-    // Listen for sync events from service worker
-    navigator.serviceWorker.addEventListener('message', (event) => {
-      if (event.data.type === 'SYNC_OFFLINE_DATA') {
-        this.syncOfflineData();
+    // Service worker and offline functionality completely disabled
+    console.log('PWA Manager: Service worker disabled');
+    
+    // Unregister any existing service workers
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          console.log('Unregistering service worker:', registration);
+          await registration.unregister();
+        }
+        
+        // Clear all caches
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          for (const cacheName of cacheNames) {
+            console.log('Deleting cache:', cacheName);
+            await caches.delete(cacheName);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to unregister service workers:', error);
       }
-    });
+    }
   }
 
   async install(): Promise<void> {

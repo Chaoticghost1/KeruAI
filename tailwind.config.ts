@@ -1,12 +1,12 @@
 import type { Config } from "tailwindcss";
 
 export default {
-  darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
       borderRadius: {
         lg: "var(--radius)",
+        "youth-lg": "var(--radius-lg)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
@@ -50,6 +50,13 @@ export default {
           "3": "var(--chart-3)",
           "4": "var(--chart-4)",
           "5": "var(--chart-5)",
+        },
+        youth: {
+          primary: "var(--youth-primary)",
+          accent: "var(--youth-accent)",
+          success: "var(--youth-success)",
+          surface: "var(--youth-surface)",
+          muted: "var(--youth-muted)",
         },
         sidebar: {
           DEFAULT: "var(--sidebar-background)",

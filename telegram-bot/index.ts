@@ -193,21 +193,23 @@ async function startTutorSession(chatId: number, agentKey: string) {
 
 async function generateAIResponse(agent: any, studentMessage: string, session: any): Promise<string> {
   try {
-    // Get persona for context
     const persona = getPersonaByKey(agent.agentKey);
-    
     if (!persona) {
       return "I'm here to help! What would you like to learn about?";
     }
-    
-    // Create OpenAI prompt based on persona
+
+    const profile = await storage.getStudentProfile(session.userId);
+    const profileBlock = profile && (profile.learningStyle || (profile.subjects?.length) || (profile.strugglingAreas?.length))
+      ? `\nSTUDENT PROFILE (use to tailor your response): Learning style: ${profile.learningStyle ?? 'not specified'}. Preferred difficulty: ${profile.preferredDifficulty ?? 2}/3. Subjects: ${(profile.subjects?.length) ? profile.subjects.join(', ') : 'not specified'}. Struggling areas: ${(profile.strugglingAreas?.length) ? profile.strugglingAreas.join(', ') : 'not specified'}. Adapt your explanations to this student's way of learning.\n`
+      : '';
+
     const systemPrompt = `You are ${persona.name}, a ${persona.title}.
 
 Personality: ${persona.personality.primaryTraits.join(', ')}
 Communication Style: ${persona.personality.communicationStyle.tone}, ${persona.personality.communicationStyle.formality}
 Teaching Approach: ${persona.teachingMethodology.primaryApproach}
 Subjects: ${persona.expertise.primarySubjects.join(', ')}
-
+${profileBlock}
 Key Behavioral Rules:
 ${persona.behavioralRules.dos.map(rule => `- ${rule}`).join('\n')}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/use-auth";
+import { PublicLayout } from "@/components/PublicLayout";
+import { PublicNav } from "@/components/PublicNav";
 import { Loader2, Mail, Phone, User, Lock, GraduationCap } from "lucide-react";
 
 interface FormData {
@@ -20,10 +22,27 @@ interface FormData {
   role: string;
 }
 
+const ALLOWED_RETURN_PATHS = ["/mentorship", "/mentor-apply", "/dashboard", "/classes"];
+
+function getReturnPath(): string | null {
+  const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+  const returnPath = params.get("return");
+  if (!returnPath || !returnPath.startsWith("/")) return null;
+  const allowed = ALLOWED_RETURN_PATHS.some((p) => returnPath === p || returnPath.startsWith(p + "?"));
+  return allowed ? returnPath : null;
+}
+
+function getInitialTab(): "login" | "register" {
+  if (typeof window === "undefined") return "login";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("tab") === "signup" ? "register" : "login";
+}
+
 export default function AuthPage() {
   const [, setLocation] = useLocation();
   const { user, loginMutation, registerMutation } = useAuth();
-  const [activeTab, setActiveTab] = useState("login");
+  const returnPath = useMemo(getReturnPath, []);
+  const [activeTab, setActiveTab] = useState<"login" | "register">(getInitialTab());
   const [error, setError] = useState("");
   const [loginData, setLoginData] = useState({
     identifier: "", // Can be username, email, or phone
@@ -42,9 +61,9 @@ export default function AuthPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      setLocation("/dashboard");
+      setLocation(returnPath ?? "/dashboard");
     }
-  }, [user, setLocation]);
+  }, [user, returnPath, setLocation]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +87,7 @@ export default function AuthPage() {
       };
 
       await loginMutation.mutateAsync(payload);
-      setLocation("/dashboard");
+      setLocation(returnPath ?? "/dashboard");
     } catch (err: any) {
       setError(err.message || "Login failed");
     }
@@ -90,7 +109,13 @@ export default function AuthPage() {
 
     try {
       await registerMutation.mutateAsync(registerData);
-      setLocation("/dashboard");
+      if (returnPath) {
+        setLocation(returnPath);
+      } else if (registerData.role === "student") {
+        setLocation("/classes");
+      } else {
+        setLocation("/dashboard");
+      }
     } catch (err: any) {
       setError(err.message || "Registration failed");
     }
@@ -105,41 +130,42 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        
-        {/* Hero Section */}
-        <div className="space-y-6 text-center lg:text-left">
-          <div className="space-y-4">
-            <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 dark:text-white">
-              Welcome to <span className="text-blue-600 dark:text-blue-400">Keru.ai</span>
-            </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-lg">
-              Your comprehensive educational platform with AI-powered tutoring, content management, and gamified learning experiences.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-md mx-auto lg:mx-0">
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border">
-              <GraduationCap className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Students</p>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Learn & Progress</p>
+    <PublicLayout>
+      <PublicNav variant="auth" />
+      <div className="flex items-center justify-center p-4 min-h-[calc(100vh-4rem)]">
+        <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          {/* Hero Section */}
+          <div className="space-y-6 text-center lg:text-left">
+            <div className="space-y-4">
+              <h1 className="text-4xl lg:text-6xl font-bold text-foreground">
+                Welcome to <span className="text-youth-primary">Keru.ai</span>
+              </h1>
+              <p className="text-xl text-muted-foreground max-w-lg">
+                Your comprehensive educational platform with AI-powered tutoring, content management, and gamified learning experiences.
+              </p>
             </div>
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border">
-              <User className="h-8 w-8 text-green-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Teachers</p>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Create Content</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border">
-              <Lock className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-900 dark:text-white">Admin</p>
-              <p className="text-xs text-gray-600 dark:text-gray-300">Manage Platform</p>
-            </div>
-          </div>
-        </div>
 
-        {/* Authentication Form */}
-        <Card className="w-full max-w-md mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-md mx-auto lg:mx-0">
+              <div className="bg-card p-4 rounded-youth-lg shadow-sm border border-youth-muted/50">
+                <GraduationCap className="h-8 w-8 text-youth-primary mx-auto mb-2" />
+                <p className="text-sm font-medium text-foreground">Students</p>
+                <p className="text-xs text-muted-foreground">Learn & Progress</p>
+              </div>
+              <div className="bg-card p-4 rounded-youth-lg shadow-sm border border-youth-muted/50">
+                <User className="h-8 w-8 text-youth-accent mx-auto mb-2" />
+                <p className="text-sm font-medium text-foreground">Teachers</p>
+                <p className="text-xs text-muted-foreground">Create Content</p>
+              </div>
+              <div className="bg-card p-4 rounded-youth-lg shadow-sm border border-youth-muted/50">
+                <Lock className="h-8 w-8 text-youth-primary mx-auto mb-2" />
+                <p className="text-sm font-medium text-foreground">Admin</p>
+                <p className="text-xs text-muted-foreground">Manage Platform</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Authentication Form */}
+          <Card className="w-full max-w-md mx-auto rounded-youth-lg border-youth-muted/50">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">
               Access Your Account
@@ -309,7 +335,8 @@ export default function AuthPage() {
             </Tabs>
           </CardContent>
         </Card>
+        </div>
       </div>
-    </div>
+    </PublicLayout>
   );
 }

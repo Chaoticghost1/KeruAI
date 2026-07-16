@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, decimal, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, decimal, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -65,6 +65,36 @@ export const gameScores = pgTable("game_scores", {
   playedAt: timestamp("played_at").defaultNow().notNull(),
 });
 
+// MathMaster game: problems per level (1-6)
+export const mathProblems = pgTable("math_problems", {
+  id: serial("id").primaryKey(),
+  level: integer("level").notNull(), // 1-6
+  topic: text("topic"),
+  questionEs: text("question_es").notNull(),
+  questionEn: text("question_en").notNull(),
+  options: jsonb("options").notNull(), // array of 4 choice strings
+  correctAnswer: text("correct_answer").notNull(),
+  explanationEs: text("explanation_es"),
+  explanationEn: text("explanation_en"),
+  category: text("category"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// LinguaPlay game: problems per level and mode
+export const languageProblems = pgTable("language_problems", {
+  id: serial("id").primaryKey(),
+  level: integer("level").notNull(), // 1-6
+  mode: text("mode").notNull(), // vocabulary, grammar, listening, spelling, pronunciation
+  promptEs: text("prompt_es").notNull(),
+  promptEn: text("prompt_en").notNull(),
+  options: jsonb("options").notNull(), // array of choice strings
+  correctAnswer: text("correct_answer").notNull(),
+  explanationEs: text("explanation_es"),
+  explanationEn: text("explanation_en"),
+  audioUrl: text("audio_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const tutorAgents = pgTable("tutor_agents", {
   id: serial("id").primaryKey(),
   agentKey: text("agent_key").unique().notNull(), // math_buddy, science_explorer, etc.
@@ -100,23 +130,36 @@ export const tutorMessages = pgTable("tutor_messages", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
 
-export const studentProfiles = pgTable("student_profiles", {
+// QA cache for duplicate question detection (token savings)
+export const tutorQaCache = pgTable("tutor_qa_cache", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  learningStyle: text("learning_style"), // visual, auditory, kinesthetic
-  preferredDifficulty: integer("preferred_difficulty").default(2).notNull(),
-  subjects: text("subjects").array().default([]).notNull(),
-  strugglingAreas: text("struggling_areas").array().default([]).notNull(),
-  preferences: text("preferences"), // JSON for detailed preferences
-  // Reward system fields
-  totalPoints: integer("total_points").default(0).notNull(),
-  currentStreak: integer("current_streak").default(0).notNull(),
-  longestStreak: integer("longest_streak").default(0).notNull(),
-  totalSessionsCompleted: integer("total_sessions_completed").default(0).notNull(),
-  level: integer("level").default(1).notNull(),
-  experiencePoints: integer("experience_points").default(0).notNull(),
+  sessionId: integer("session_id").references(() => tutorSessions.id, { onDelete: "cascade" }).notNull(),
+  agentKey: text("agent_key").notNull(),
+  questionHash: text("question_hash").notNull(),
+  studentMessage: text("student_message").notNull(),
+  agentResponse: text("agent_response").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [uniqueIndex("qa_cache_session_agent_hash").on(table.sessionId, table.agentKey, table.questionHash)]);
+
+export const studentProfiles = pgTable("student_profiles", {
+   id: serial("id").primaryKey(),
+   userId: integer("user_id").references(() => users.id).notNull(),
+   learningStyle: text("learning_style"), // visual, auditory, kinesthetic
+   preferredDifficulty: integer("preferred_difficulty").default(2).notNull(),
+   subjects: text("subjects").array().default([]).notNull(),
+   strugglingAreas: text("struggling_areas").array().default([]).notNull(),
+   preferences: text("preferences"), // JSON for detailed preferences
+   language: text("language").default('es').notNull(), // User's preferred language (es/en)
+   // Reward system fields
+   totalPoints: integer("total_points").default(0).notNull(),
+   currentStreak: integer("current_streak").default(0).notNull(),
+   longestStreak: integer("longest_streak").default(0).notNull(),
+   totalSessionsCompleted: integer("total_sessions_completed").default(0).notNull(),
+   level: integer("level").default(1).notNull(),
+   experiencePoints: integer("experience_points").default(0).notNull(),
+   revisionAssistantName: text("revision_assistant_name"), // AI assistant name for Materiales de Estudio only
+   createdAt: timestamp("created_at").defaultNow().notNull(),
+   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Badges and achievements system
@@ -211,6 +254,67 @@ export const studentAssignments = pgTable("student_assignments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Class groups - teachers create classes, students join via invite code
+export const classes = pgTable("classes", {
+  id: serial("id").primaryKey(),
+  teacherId: integer("teacher_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  inviteCode: text("invite_code").notNull().unique(),
+  subject: text("subject"),
+  status: text("status").notNull().default("active"), // active, terminated, archived, blocked
+  blockedUntil: timestamp("blocked_until"), // when status=blocked, chat resumes after this time
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Class members - students join a class; teacher approves before access
+export const classMembers = pgTable("class_members", {
+  id: serial("id").primaryKey(),
+  classId: integer("class_id").references(() => classes.id, { onDelete: "cascade" }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  role: text("role").notNull().default("student"), // student
+  status: text("status").notNull().default("pending"), // pending = awaiting teacher approval, approved = can access chat & materials
+  canChat: boolean("can_chat").default(true).notNull(), // false = muted
+  isBanned: boolean("is_banned").default(false).notNull(),
+  accessRevoked: boolean("access_revoked").default(false).notNull(), // negate permission to access
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+// Student-selected teachers: students explicitly select teachers to see their revision materials
+export const studentTeachers = pgTable("student_teachers", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  teacherId: integer("teacher_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Class chat messages - students chat with classmates
+export const classChatMessages = pgTable("class_chat_messages", {
+  id: serial("id").primaryKey(),
+  classId: integer("class_id").references(() => classes.id, { onDelete: "cascade" }).notNull(),
+  senderId: integer("sender_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Class chat archives - snapshot when a teacher deletes an empty class (super admin can view)
+export const classChatArchives = pgTable("class_chat_archives", {
+  id: serial("id").primaryKey(),
+  originalClassId: integer("original_class_id").notNull(),
+  className: text("class_name").notNull(),
+  teacherId: integer("teacher_id").references(() => users.id).notNull(),
+  subject: text("subject"),
+  inviteCode: text("invite_code").notNull(),
+  status: text("status").notNull().default("active"),
+  archivedAt: timestamp("archived_at").defaultNow().notNull(),
+  archivedByUserId: integer("archived_by_user_id").references(() => users.id).notNull(),
+  messagesSnapshot: jsonb("messages_snapshot").$type<{ senderId: number; message: string; createdAt: string; senderName?: string }[]>().notNull().default([]),
+  membersSnapshot: jsonb("members_snapshot").$type<{ userId: number; role: string; status: string; displayName?: string }[]>().notNull().default([]),
+});
+
+export type ClassChatArchive = typeof classChatArchives.$inferSelect;
+export type InsertClassChatArchive = typeof classChatArchives.$inferInsert;
+
 // Blog posts table for travel section
 export const blogPosts = pgTable("blog_posts", {
   id: serial("id").primaryKey(),
@@ -222,6 +326,7 @@ export const blogPosts = pgTable("blog_posts", {
   authorId: integer("author_id").references(() => users.id).notNull(),
   isPublished: boolean("is_published").default(false).notNull(),
   isHidden: boolean("is_hidden").default(false).notNull(),
+  showOnLanding: boolean("show_on_landing").default(false).notNull(),
   publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -263,6 +368,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   studentProfiles: many(studentProfiles),
   userBadges: many(userBadges),
   studyStreaks: many(studyStreaks),
+  classes: many(classes),
+  classMembers: many(classMembers),
+  classChatMessages: many(classChatMessages),
+  studentTeachers: many(studentTeachers),
 }));
 
 export const budgetCategoriesRelations = relations(budgetCategories, ({ one, many }) => ({
@@ -376,6 +485,27 @@ export const studentAssignmentsRelations = relations(studentAssignments, ({ one 
   }),
 }));
 
+export const classesRelations = relations(classes, ({ one, many }) => ({
+  teacher: one(users, { fields: [classes.teacherId], references: [users.id] }),
+  members: many(classMembers),
+  chatMessages: many(classChatMessages),
+}));
+
+export const classMembersRelations = relations(classMembers, ({ one }) => ({
+  class: one(classes, { fields: [classMembers.classId], references: [classes.id] }),
+  user: one(users, { fields: [classMembers.userId], references: [users.id] }),
+}));
+
+export const studentTeachersRelations = relations(studentTeachers, ({ one }) => ({
+  student: one(users, { fields: [studentTeachers.studentId], references: [users.id] }),
+  teacher: one(users, { fields: [studentTeachers.teacherId], references: [users.id] }),
+}));
+
+export const classChatMessagesRelations = relations(classChatMessages, ({ one }) => ({
+  class: one(classes, { fields: [classChatMessages.classId], references: [classes.id] }),
+  sender: one(users, { fields: [classChatMessages.senderId], references: [users.id] }),
+}));
+
 export const blogPostsRelations = relations(blogPosts, ({ one }) => ({
   author: one(users, {
     fields: [blogPosts.authorId],
@@ -395,10 +525,11 @@ export const insertBudgetCategorySchema = createInsertSchema(budgetCategories).o
   spent: true,
 });
 
-export const insertBudgetTransactionSchema = createInsertSchema(budgetTransactions).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertBudgetTransactionSchema = createInsertSchema(budgetTransactions)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    date: z.union([z.date(), z.string()]).transform((v) => (typeof v === "string" ? new Date(v) : v)).optional(),
+  });
 
 export const insertStudyNoteSchema = createInsertSchema(studyNotes).omit({
   id: true,
@@ -423,6 +554,11 @@ export const insertTutorSessionSchema = createInsertSchema(tutorSessions).omit({
 export const insertTutorMessageSchema = createInsertSchema(tutorMessages).omit({
   id: true,
   timestamp: true,
+});
+
+export const insertTutorQaCacheSchema = createInsertSchema(tutorQaCache).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertStudentProfileSchema = createInsertSchema(studentProfiles).omit({
@@ -471,6 +607,37 @@ export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
   createdAt: true,
   updatedAt: true,
 });
+
+export const insertClassSchema = createInsertSchema(classes).omit({
+  id: true,
+  inviteCode: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertClassMemberSchema = createInsertSchema(classMembers).omit({
+  id: true,
+  joinedAt: true,
+});
+
+export const insertClassChatMessageSchema = createInsertSchema(classChatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStudentTeacherSchema = createInsertSchema(studentTeachers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Class = typeof classes.$inferSelect;
+export type InsertClass = z.infer<typeof insertClassSchema>;
+export type ClassMember = typeof classMembers.$inferSelect;
+export type InsertClassMember = z.infer<typeof insertClassMemberSchema>;
+export type ClassChatMessage = typeof classChatMessages.$inferSelect;
+export type InsertClassChatMessage = z.infer<typeof insertClassChatMessageSchema>;
+export type StudentTeacher = typeof studentTeachers.$inferSelect;
+export type InsertStudentTeacher = z.infer<typeof insertStudentTeacherSchema>;
 
 // Peer Mentorship System for Honduras Community Learning
 export const mentorProfiles = pgTable("mentor_profiles", {
@@ -558,6 +725,49 @@ export const communityReplies = pgTable("community_replies", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Mentor applications - public sign-up form, admin pre-approves credentials
+export const mentorApplications = pgTable("mentor_applications", {
+  id: serial("id").primaryKey(),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  city: text("city"),
+  subjects: text("subjects").array().notNull(), // [math, science, english, etc.]
+  credentials: text("credentials"), // Degrees, certifications description
+  diplomaUrls: text("diploma_urls").array().default([]).notNull(), // File paths for uploaded diplomas
+  experience: text("experience"), // Years of experience, background
+  hourlyRate: text("hourly_rate").default("0"), // 0 = volunteer
+  gradeLevel: integer("grade_level"),
+  availability: text("availability"),
+  status: text("status").default("pending").notNull(), // pending, approved, rejected
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  adminNotes: text("admin_notes"), // Internal notes from admin review
+  userId: integer("user_id").references(() => users.id), // Set when approved; linked user account
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Mentor materials - teaching content uploaded by mentors; admin must approve before publish
+export const mentorMaterials = pgTable("mentor_materials", {
+  id: serial("id").primaryKey(),
+  mentorId: integer("mentor_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  subject: text("subject").notNull(),
+  gradeLevel: text("grade_level"),
+  contentType: text("content_type").notNull(), // pdf, image, video, html
+  filePath: text("file_path"),
+  fileUrl: text("file_url"),
+  status: text("status").default("pending_review").notNull(), // pending_review, approved, rejected
+  adminNotes: text("admin_notes"),
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  teacherRecognized: boolean("teacher_recognized").default(false).notNull(), // true when a teacher (not superuser) approved → show "TEACHER RECOGNIZED AND APPROVED MATERIAL" badge
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert schemas for peer mentorship system
 export const insertMentorProfileSchema = createInsertSchema(mentorProfiles).omit({
   id: true,
@@ -578,6 +788,35 @@ export const insertMentorshipSessionSchema = createInsertSchema(mentorshipSessio
 export const insertMentorRatingSchema = createInsertSchema(mentorRatings).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertMentorApplicationSchema = createInsertSchema(mentorApplications).omit({
+  id: true,
+  status: true,
+  reviewedBy: true,
+  reviewedAt: true,
+  adminNotes: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMentorMaterialSchema = createInsertSchema(mentorMaterials).omit({
+  id: true,
+  status: true,
+  reviewedBy: true,
+  reviewedAt: true,
+  adminNotes: true,
+  teacherRecognized: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// System settings (super admin): feature flags and moderation config
+export const systemSettings = pgTable("system_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertCommunityPostSchema = createInsertSchema(communityPosts).omit({
@@ -602,12 +841,16 @@ export type InsertStudyNote = z.infer<typeof insertStudyNoteSchema>;
 export type StudyNote = typeof studyNotes.$inferSelect;
 export type InsertGameScore = z.infer<typeof insertGameScoreSchema>;
 export type GameScore = typeof gameScores.$inferSelect;
+export type MathProblem = typeof mathProblems.$inferSelect;
+export type LanguageProblem = typeof languageProblems.$inferSelect;
 export type InsertTutorAgent = z.infer<typeof insertTutorAgentSchema>;
 export type TutorAgent = typeof tutorAgents.$inferSelect;
 export type InsertTutorSession = z.infer<typeof insertTutorSessionSchema>;
 export type TutorSession = typeof tutorSessions.$inferSelect;
 export type InsertTutorMessage = z.infer<typeof insertTutorMessageSchema>;
 export type TutorMessage = typeof tutorMessages.$inferSelect;
+export type InsertTutorQaCache = z.infer<typeof insertTutorQaCacheSchema>;
+export type TutorQaCache = typeof tutorQaCache.$inferSelect;
 export type InsertStudentProfile = z.infer<typeof insertStudentProfileSchema>;
 export type StudentProfile = typeof studentProfiles.$inferSelect;
 export type InsertBadge = z.infer<typeof insertBadgeSchema>;
@@ -634,7 +877,12 @@ export type InsertMentorshipSession = z.infer<typeof insertMentorshipSessionSche
 export type MentorshipSession = typeof mentorshipSessions.$inferSelect;
 export type InsertMentorRating = z.infer<typeof insertMentorRatingSchema>;
 export type MentorRating = typeof mentorRatings.$inferSelect;
+export type InsertMentorApplication = z.infer<typeof insertMentorApplicationSchema>;
+export type MentorApplication = typeof mentorApplications.$inferSelect;
+export type InsertMentorMaterial = z.infer<typeof insertMentorMaterialSchema>;
+export type MentorMaterial = typeof mentorMaterials.$inferSelect;
 export type InsertCommunityPost = z.infer<typeof insertCommunityPostSchema>;
 export type CommunityPost = typeof communityPosts.$inferSelect;
 export type InsertCommunityReply = z.infer<typeof insertCommunityReplySchema>;
 export type CommunityReply = typeof communityReplies.$inferSelect;
+export type SystemSetting = typeof systemSettings.$inferSelect;

@@ -1,12 +1,21 @@
-import { Router, NextFunction } from "express";
+import { Router, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { insertStudentProfileSchema } from "@shared/schema";
+import { authenticateToken, AuthRequest } from "../auth";
 
 export const progressRouter = Router();
 
-progressRouter.get("/profile/:userId", async (req, res, next: NextFunction) => {
+function canAccessProfile(req: AuthRequest, userId: number): boolean {
+  if (!req.user) return false;
+  return req.user.id === userId || req.user.role === "superuser";
+}
+
+progressRouter.get("/profile/:userId", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.userId);
+    if (Number.isNaN(userId) || !canAccessProfile(req, userId)) {
+      return res.status(403).json({ error: "You can only access your own profile" });
+    }
     const profile = await storage.getStudentProfile(userId);
     if (!profile) {
       return res.status(404).json({ error: "Student profile not found" });
@@ -17,9 +26,12 @@ progressRouter.get("/profile/:userId", async (req, res, next: NextFunction) => {
   }
 });
 
-progressRouter.post("/profile", async (req, res, next: NextFunction) => {
+progressRouter.post("/profile", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const validatedProfile = insertStudentProfileSchema.parse(req.body);
+    if (!canAccessProfile(req, validatedProfile.userId)) {
+      return res.status(403).json({ error: "You can only create your own profile" });
+    }
     const profile = await storage.createStudentProfile(validatedProfile);
     res.json(profile);
   } catch (error) {
@@ -27,9 +39,12 @@ progressRouter.post("/profile", async (req, res, next: NextFunction) => {
   }
 });
 
-progressRouter.put("/profile/:userId", async (req, res, next: NextFunction) => {
+progressRouter.put("/profile/:userId", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = parseInt(req.params.userId);
+    if (Number.isNaN(userId) || !canAccessProfile(req, userId)) {
+      return res.status(403).json({ error: "You can only update your own profile" });
+    }
     const updates = req.body;
     const profile = await storage.updateStudentProfile(userId, updates);
     res.json(profile);

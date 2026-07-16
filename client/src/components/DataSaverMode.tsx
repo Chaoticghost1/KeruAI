@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Wifi, WifiOff, Download, Upload, Info } from 'lucide-react';
 import { usePWA } from '@/lib/pwa-manager';
+import { OFFLINE_ENABLED } from '@/lib/offline-config';
 import { OfflineManager } from '@/lib/offline-storage';
 
 // Data Saver Context for global state management
@@ -23,39 +24,27 @@ export function DataSaverProvider({ children }: { children: React.ReactNode }) {
   const [isLowBandwidth, setIsLowBandwidth] = useState(false);
 
   useEffect(() => {
-    // Load settings from offline storage
+    if (!OFFLINE_ENABLED) return;
+
     const loadSettings = async () => {
       try {
         const settings = await OfflineManager.getSettings();
-        if (settings?.dataSaverMode) {
-          setDataSaverEnabled(settings.dataSaverMode);
-        }
+        if (settings?.dataSaverMode) setDataSaverEnabled(settings.dataSaverMode);
       } catch (error) {
         console.error('Failed to load data saver settings:', error);
       }
     };
-
-    // Check connection quality
     const checkBandwidth = () => {
       if ('connection' in navigator) {
         const connection = (navigator as any).connection;
-        const isLow = connection?.effectiveType === '2g' || 
-                     connection?.effectiveType === 'slow-2g' ||
-                     connection?.saveData === true;
+        const isLow = connection?.effectiveType === '2g' || connection?.effectiveType === 'slow-2g' || connection?.saveData === true;
         setIsLowBandwidth(isLow);
-        
-        // Auto-enable data saver on slow connections
-        if (isLow && !dataSaverEnabled) {
-          setDataSaverEnabled(true);
-        }
+        if (isLow && !dataSaverEnabled) setDataSaverEnabled(true);
       }
     };
-
-    // Monitor storage usage
     const updateDataUsage = async () => {
       try {
-        const usage = await OfflineManager.getStorageUsage();
-        setDataUsage(usage);
+        setDataUsage(await OfflineManager.getStorageUsage());
       } catch (error) {
         console.error('Failed to get storage usage:', error);
       }
@@ -64,26 +53,19 @@ export function DataSaverProvider({ children }: { children: React.ReactNode }) {
     loadSettings();
     checkBandwidth();
     updateDataUsage();
-
-    // Listen for connection changes
     if ('connection' in navigator) {
       (navigator as any).connection?.addEventListener('change', checkBandwidth);
     }
-
-    // Update storage usage periodically
-    const interval = setInterval(updateDataUsage, 30000); // Every 30 seconds
-
+    const interval = setInterval(updateDataUsage, 30000);
     return () => {
-      if ('connection' in navigator) {
-        (navigator as any).connection?.removeEventListener('change', checkBandwidth);
-      }
+      if ('connection' in navigator) (navigator as any).connection?.removeEventListener('change', checkBandwidth);
       clearInterval(interval);
     };
   }, [dataSaverEnabled]);
 
   const handleDataSaverToggle = async (enabled: boolean) => {
     setDataSaverEnabled(enabled);
-    
+    if (!OFFLINE_ENABLED) return;
     try {
       await OfflineManager.updateSettings({ dataSaverMode: enabled });
     } catch (error) {
@@ -119,7 +101,7 @@ export function DataSaverToggle() {
   const { isOnline } = usePWA();
 
   return (
-    <div className="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+    <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
       <div className="flex items-center space-x-2">
         {isOnline ? (
           <Wifi className={`h-4 w-4 ${isLowBandwidth ? 'text-orange-500' : 'text-green-500'}`} />
@@ -154,19 +136,15 @@ export function DataSaverPanel() {
   const [offlineContentSize, setOfflineContentSize] = useState<number>(0);
 
   useEffect(() => {
+    if (!OFFLINE_ENABLED) return;
     const getOfflineContentSize = async () => {
       try {
-        // Estimate offline content size
         const settings = await OfflineManager.getSettings();
-        if (settings) {
-          // This is a rough estimate - in a real implementation you'd calculate actual sizes
-          setOfflineContentSize(5.2); // MB
-        }
+        if (settings) setOfflineContentSize(5.2);
       } catch (error) {
         console.error('Failed to calculate offline content size:', error);
       }
     };
-
     getOfflineContentSize();
   }, []);
 
@@ -196,7 +174,7 @@ export function DataSaverPanel() {
       
       <CardContent className="space-y-4">
         {/* Connection Status */}
-        <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
           <div className="flex items-center gap-2">
             {isOnline ? (
               <Wifi className={`h-4 w-4 ${isLowBandwidth ? 'text-orange-500' : 'text-green-500'}`} />
@@ -229,7 +207,7 @@ export function DataSaverPanel() {
           </div>
           
           {dataSaverEnabled && (
-            <div className="text-xs text-slate-600 dark:text-slate-400 ml-1">
+            <div className="text-xs text-slate-600 ml-1">
               <Info className="h-3 w-3 inline mr-1" />
               Reduce calidad de imágenes y videos, desactiva auto-reproducción
             </div>
@@ -244,7 +222,7 @@ export function DataSaverPanel() {
           </div>
           
           {dataUsage.available && (
-            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+            <div className="w-full bg-slate-200 rounded-full h-2">
               <div 
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${Math.min((dataUsage.used / dataUsage.available) * 100, 100)}%` }}
@@ -252,7 +230,7 @@ export function DataSaverPanel() {
             </div>
           )}
           
-          <div className="text-xs text-slate-600 dark:text-slate-400">
+          <div className="text-xs text-slate-600">
             Contenido offline: {formatMB(offlineContentSize)}
           </div>
         </div>
@@ -268,7 +246,7 @@ export function DataSaverPanel() {
               <Download className="h-4 w-4" />
               Instalar Aplicación
             </button>
-            <div className="text-xs text-slate-600 dark:text-slate-400 text-center">
+            <div className="text-xs text-slate-600 text-center">
               Instala la app para mejor experiencia offline
             </div>
           </div>
@@ -276,11 +254,11 @@ export function DataSaverPanel() {
 
         {/* Data Saving Tips */}
         {(dataSaverEnabled || isLowBandwidth) && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+          <div className="p-3 bg-blue-50 rounded-lg">
+            <h4 className="text-sm font-medium text-blue-900 mb-2">
               Consejos para Ahorrar Datos:
             </h4>
-            <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+            <ul className="text-xs text-blue-800 space-y-1">
               <li>• Descarga contenido con WiFi</li>
               <li>• Usa modo offline cuando sea posible</li>
               <li>• Las imágenes se cargan en baja resolución</li>

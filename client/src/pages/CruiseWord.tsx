@@ -1,9 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, Compass, Users, Shield, UtensilsCrossed, Calendar, Ship, Trophy, Zap, Target, Brain, Award } from 'lucide-react';
+import { Star, Compass, Users, Shield, UtensilsCrossed, Calendar, Ship, Trophy, Zap, Target, Brain, Award, Upload, ListOrdered, Layers } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '@/hooks/use-auth';
+import { apiRequest } from '@/lib/queryClient';
+import { OFFLINE_ENABLED } from '@/lib/offline-config';
+import { OfflineManager } from '@/lib/offline-storage';
+import { CRUISEWORD_LEVELS, getCruiseWordLevelById, pickRandomLevelFromBand } from '@/data/cruiseWordLevels';
+import { PageLayout } from '@/components/PageLayout';
+
+const GAME_NAME = 'CruiseWord';
 
 type Language = 'en' | 'es';
 
@@ -33,7 +42,8 @@ const translations = {
       flashcard: "Flashcard",
       quiz: "Quick Quiz",
       memory: "Memory Game",
-      challenge: "Speed Challenge"
+      challenge: "Speed Challenge",
+      levels: "Level Challenge"
     } as Record<string, string>,
     startQuiz: "Start Quiz",
     checkAnswer: "Check Answer",
@@ -52,7 +62,22 @@ const translations = {
     congrats: "Congratulations!",
     perfectScore: "Perfect Score!",
     tryAgain: "Try Again",
-    playAgain: "Play Again"
+    playAgain: "Play Again",
+    myScores: "My recent scores",
+    leaderboard: "Leaderboard",
+    submitScore: "Submit score",
+    scoreSaved: "Score saved!",
+    savedOffline: "Saved offline; will sync when online.",
+    xpEarned: "+{n} XP",
+    newBadge: "New badge!",
+    levelUp: "Level up!",
+    noScoresYet: "No scores yet. Play and submit!",
+    rank: "Rank",
+    noLeaderboard: "No entries yet.",
+    startLevelChallenge: "Start Level Challenge",
+    question: "Question",
+    backToModes: "Back",
+    playAgainLevel: "Play again"
   },
   es: {
     title: "Entrenador de Vocabulario de Crucero",
@@ -60,7 +85,8 @@ const translations = {
       flashcard: "Tarjetas",
       quiz: "Quiz Rápido",
       memory: "Juego de Memoria",
-      challenge: "Desafío de Velocidad"
+      challenge: "Desafío de Velocidad",
+      levels: "Desafío por Niveles"
     } as Record<string, string>,
     startQuiz: "Iniciar Quiz",
     checkAnswer: "Verificar",
@@ -79,12 +105,47 @@ const translations = {
     congrats: "¡Felicitaciones!",
     perfectScore: "¡Puntuación Perfecta!",
     tryAgain: "Intentar de Nuevo",
-    playAgain: "Jugar de Nuevo"
+    playAgain: "Jugar de Nuevo",
+    myScores: "Mis puntuaciones recientes",
+    leaderboard: "Tabla de líderes",
+    submitScore: "Enviar puntuación",
+    scoreSaved: "¡Puntuación guardada!",
+    savedOffline: "Guardado sin conexión; se sincronizará al estar en línea.",
+    xpEarned: "+{n} XP",
+    newBadge: "¡Nueva insignia!",
+    levelUp: "¡Subiste de nivel!",
+    noScoresYet: "Aún no hay puntuaciones. ¡Juega y envía!",
+    rank: "Posición",
+    noLeaderboard: "Aún no hay entradas.",
+    startLevelChallenge: "Iniciar Desafío por Niveles",
+    question: "Pregunta",
+    backToModes: "Atrás",
+    playAgainLevel: "Jugar de nuevo"
   }
 };
 
+interface GameScoreRow {
+  id: number;
+  userId: number;
+  gameName: string;
+  score: number;
+  level: number;
+  completed: boolean;
+  playedAt: string;
+  displayName?: string;
+}
+
+interface SubmitRewards {
+  pointsEarned: number;
+  badgesEarned: { name: string; icon: string }[];
+  levelUp: boolean;
+}
+
 export default function CruiseWord() {
   const { language, setLanguage } = useLanguage();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = user?.id;
   const t = translations[language as Language] || translations.en;
   const [mode, setMode] = useState('flashcard');
   const [currentWord, setCurrentWord] = useState(0);
@@ -101,6 +162,129 @@ export default function CruiseWord() {
   const [speedActive, setSpeedActive] = useState(false);
   const [speedOptions, setSpeedOptions] = useState<SpeedOption[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
+  const speedRoundSubmitted = useRef(false);
+  const [lastSubmitResult, setLastSubmitResult] = useState<'ok' | 'offline' | null>(null);
+  const [lastSubmitRewards, setLastSubmitRewards] = useState<SubmitRewards | null>(null);
+  const [sessionLevel, setSessionLevel] = useState<number | null>(null);
+  const [sessionLevelData, setSessionLevelData] = useState<typeof CRUISEWORD_LEVELS[0] | null>(null);
+  const [levelAnswers, setLevelAnswers] = useState<Record<number, string>>({});
+
+  const { data: myScores = [] } = useQuery<GameScoreRow[]>({
+    queryKey: ['/api/games', 'scores', userId, GAME_NAME],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/games/scores?game=${GAME_NAME}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const { data: leaderboard = [] } = useQuery<(GameScoreRow & { displayName: string })[]>({
+    queryKey: ['/api/games', 'leaderboard', GAME_NAME],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/games/leaderboard/${GAME_NAME}?limit=10`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: gameProgress } = useQuery<{ level: number }>({
+    queryKey: ['/api/games', 'progress', GAME_NAME],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/games/progress/${GAME_NAME}`);
+      if (!res.ok) return { level: 1 };
+      return res.json();
+    },
+    enabled: mode === 'levels' && !!userId,
+  });
+
+  const submitScoreMutation = useMutation({
+    mutationFn: async (payload: { score: number; level?: number; completed?: boolean }) => {
+      const body = {
+        gameName: GAME_NAME,
+        score: payload.score,
+        level: payload.level ?? 1,
+        completed: payload.completed ?? true,
+      };
+      if (OFFLINE_ENABLED && !navigator.onLine && userId) {
+        await OfflineManager.saveGameScoreOffline({
+          userId,
+          gameName: GAME_NAME,
+          score: payload.score,
+          level: body.level,
+          completed: body.completed ?? true,
+          playedAt: new Date().toISOString(),
+        });
+        return { offline: true };
+      }
+      try {
+        const res = await apiRequest('POST', '/api/games/scores', body);
+        if (!res.ok) throw new Error('Failed to save score');
+        return res.json();
+      } catch (err) {
+        if (OFFLINE_ENABLED && userId && !navigator.onLine) {
+          await OfflineManager.saveGameScoreOffline({
+            userId,
+            gameName: GAME_NAME,
+            score: payload.score,
+            level: body.level,
+            completed: body.completed ?? true,
+            playedAt: new Date().toISOString(),
+          });
+          return { offline: true };
+        }
+        throw err;
+      }
+    },
+    onSuccess: (data) => {
+      if (data && (data as { offline?: boolean }).offline) {
+        setLastSubmitResult('offline');
+        setLastSubmitRewards(null);
+        setTimeout(() => setLastSubmitResult(null), 4000);
+        return;
+      }
+      setLastSubmitResult('ok');
+      const rewards = (data as { rewards?: SubmitRewards })?.rewards;
+      setLastSubmitRewards(rewards ?? null);
+      setTimeout(() => setLastSubmitRewards(null), 5000);
+      setTimeout(() => setLastSubmitResult(null), 3000);
+      queryClient.invalidateQueries({ queryKey: ['/api/games', 'scores', userId, GAME_NAME] });
+      queryClient.invalidateQueries({ queryKey: ['/api/games', 'leaderboard', GAME_NAME] });
+      queryClient.invalidateQueries({ queryKey: ['/api/games', 'progress', GAME_NAME] });
+      queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
+    },
+  });
+
+  const submitScore = (value: number, level?: number) => {
+    if (!userId || value < 0) return;
+    submitScoreMutation.mutate({ score: value, level: level ?? 1, completed: true });
+  };
+
+  const startLevelChallenge = () => {
+    const reachedLevel = gameProgress?.level ?? 1;
+    const chosen = pickRandomLevelFromBand(reachedLevel);
+    const levelData = getCruiseWordLevelById(chosen);
+    if (levelData) {
+      setSessionLevel(chosen);
+      setSessionLevelData(levelData);
+      setLevelAnswers({});
+      setScore(0);
+    }
+  };
+
+  const backLevelChallenge = () => {
+    setSessionLevel(null);
+    setSessionLevelData(null);
+    setLevelAnswers({});
+  };
+
+  useEffect(() => {
+    if (mode !== 'levels') {
+      setSessionLevel(null);
+      setSessionLevelData(null);
+      setLevelAnswers({});
+    }
+  }, [mode]);
 
   const cruiseWords = [
     {
@@ -229,15 +413,24 @@ export default function CruiseWord() {
     setSpeedOptions(options);
   };
 
-  // Timer para Speed Challenge
+  // Timer para Speed Challenge; submit score when round ends
   useEffect(() => {
     if (speedActive && speedTimer > 0) {
       const timer = setTimeout(() => setSpeedTimer(speedTimer - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (speedTimer === 0) {
+    } else if (speedTimer === 0 && speedActive) {
       setSpeedActive(false);
+      if (!speedRoundSubmitted.current && speedScore > 0) {
+        speedRoundSubmitted.current = true;
+        submitScore(speedScore);
+      }
     }
-  }, [speedTimer, speedActive]);
+  }, [speedTimer, speedActive, speedScore]);
+
+  // Reset speed submit ref when starting a new speed round
+  useEffect(() => {
+    if (speedActive) speedRoundSubmitted.current = false;
+  }, [speedActive]);
 
   // Partículas de celebración
   const createParticles = () => {
@@ -273,11 +466,14 @@ export default function CruiseWord() {
       const first = memoryCards.find(c => c.id === newFlipped[0]);
       const second = memoryCards.find(c => c.id === newFlipped[1]);
       if (first && second && first.matchId === second.matchId) {
+        const newScore = score + 10;
+        const newMatched = [...matchedPairs, first.matchId];
         setTimeout(() => {
-          setMatchedPairs([...matchedPairs, first.matchId]);
+          setMatchedPairs(newMatched);
           setFlippedMemory([]);
-          setScore(score + 10);
+          setScore(newScore);
           createParticles();
+          if (newMatched.length === 6 && newScore > 0) submitScore(newScore);
         }, 500);
       } else {
         setTimeout(() => setFlippedMemory([]), 1000);
@@ -327,9 +523,9 @@ export default function CruiseWord() {
               width: '100%'
             }}
           >
-            <CardContent className="p-12 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20">
-              <p className="text-2xl text-slate-700 dark:text-slate-200 mb-4">{word.definition[language as keyof typeof word.definition]}</p>
-              <Badge variant="outline" className="dark:border-slate-700">{word.hint[language as keyof typeof word.hint]}</Badge>
+            <CardContent className="p-12 bg-gradient-to-br from-blue-50 to-cyan-50">
+              <p className="text-2xl text-slate-700 mb-4">{word.definition[language as keyof typeof word.definition]}</p>
+              <Badge variant="outline" className="border-slate-200">{word.hint[language as keyof typeof word.hint]}</Badge>
             </CardContent>
           </div>
         </Card>
@@ -367,9 +563,9 @@ export default function CruiseWord() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg">
-            <p className="text-xl text-slate-700 dark:text-slate-300 mb-2">{word.definition[language as keyof typeof word.definition]}</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{word.hint[language as keyof typeof word.hint]}</p>
+          <div className="bg-blue-50 p-6 rounded-lg">
+            <p className="text-xl text-slate-700 mb-2">{word.definition[language as keyof typeof word.definition]}</p>
+            <p className="text-sm text-slate-500">{word.hint[language as keyof typeof word.hint]}</p>
           </div>
 
           {quizResult === null ? (
@@ -553,8 +749,117 @@ export default function CruiseWord() {
     );
   };
 
+  const renderLevelChallengeMode = () => {
+    const lang = language as 'en' | 'es';
+    if (!sessionLevelData) {
+      return (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Layers className="w-20 h-20 mx-auto mb-4 text-violet-600" />
+            <h3 className="text-2xl font-bold mb-4">{t.modes.levels}</h3>
+            <p className="text-slate-600 mb-6">
+              {language === 'es'
+                ? 'Se te asignará un nivel al azar según tu progreso (nivel actual ± 1).'
+                : 'You will be assigned a random level based on your progress (current level ± 1).'}
+            </p>
+            <Button onClick={startLevelChallenge} size="lg" className="bg-violet-600 hover:bg-violet-700">
+              {t.startLevelChallenge}
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+    const totalQuestions = sessionLevelData.words.length;
+    const answered = Object.keys(levelAnswers).length;
+    const progressPct = totalQuestions ? (answered / totalQuestions) * 100 : 0;
+    const levelScore = sessionLevelData.words.reduce(
+      (acc, w, i) => acc + (levelAnswers[i] === w.correct ? 100 : 0),
+      0
+    );
+
+    const selectLevelAnswer = (index: number, option: string, correct: string) => {
+      if (levelAnswers[index] !== undefined) return;
+      setLevelAnswers((prev) => ({ ...prev, [index]: option }));
+    };
+
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle>{sessionLevelData.name[lang]}</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">{sessionLevelData.desc[lang]}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={backLevelChallenge}>
+              {t.backToModes}
+            </Button>
+            {answered === totalQuestions && (
+              <Button
+                size="sm"
+                onClick={() => submitScore(levelScore, sessionLevel ?? undefined)}
+                disabled={!userId || submitScoreMutation.isPending}
+              >
+                {submitScoreMutation.isPending ? (language === 'es' ? 'Guardando...' : 'Saving...') : t.submitScore}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-violet-600 transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="rounded-lg border bg-slate-50 dark:bg-slate-900/50 p-4 text-center">
+            <span className="text-sm text-muted-foreground">{t.score}</span>
+            <p className="text-2xl font-bold text-violet-600">{levelScore}</p>
+          </div>
+          <div className="space-y-6">
+            {sessionLevelData.words.map((word, index) => (
+              <div key={index} className="space-y-2">
+                <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-3">
+                  <span className="text-xs text-muted-foreground">{t.question} {index + 1}</span>
+                  <p className="font-medium text-slate-800 dark:text-slate-200">{word.prompt[lang]}</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {word.options.map((opt) => (
+                    <Button
+                      key={opt}
+                      variant={levelAnswers[index] === opt ? 'default' : 'outline'}
+                      className="h-auto py-3 text-left justify-start"
+                      onClick={() => selectLevelAnswer(index, opt, word.correct)}
+                      disabled={levelAnswers[index] !== undefined}
+                    >
+                      {opt}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          {answered === totalQuestions && (
+            <div className="flex justify-center gap-2 pt-4">
+              <Button variant="outline" onClick={startLevelChallenge}>
+                {t.playAgainLevel}
+              </Button>
+              {userId && (
+                <Button
+                  onClick={() => submitScore(levelScore, sessionLevel ?? undefined)}
+                  disabled={submitScoreMutation.isPending}
+                >
+                  {submitScoreMutation.isPending ? (language === 'es' ? 'Guardando...' : 'Saving...') : t.submitScore}
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4 md:p-6 relative overflow-hidden">
+    <PageLayout maxWidth="6xl" className="relative overflow-hidden">
       {/* Partículas de celebración */}
       {particles.map((particle) => (
         <div
@@ -568,13 +873,19 @@ export default function CruiseWord() {
         />
       ))}
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto relative">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-between items-center mb-4">
             <div className="flex-1"></div>
-            <h1 className="text-5xl font-bold text-slate-900 dark:text-white flex-1">{t.title}</h1>
-            <div className="flex-1 flex justify-end">
+            <h1 className="text-5xl font-bold text-slate-900 flex-1">{t.title}</h1>
+            <div className="flex-1 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => window.location.href = '/games/cruiseword/learn'}
+              >
+                {language === 'en' ? '📚 Learn Path' : '📚 Ruta'}
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
@@ -586,12 +897,13 @@ export default function CruiseWord() {
         </div>
 
         {/* Mode Selector */}
-        <div className="grid grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-8">
           {[
             { id: 'flashcard', icon: Star, color: 'blue' },
             { id: 'quiz', icon: Brain, color: 'green' },
             { id: 'memory', icon: Target, color: 'purple' },
-            { id: 'challenge', icon: Zap, color: 'red' }
+            { id: 'challenge', icon: Zap, color: 'red' },
+            { id: 'levels', icon: Layers, color: 'violet' }
           ].map((modeOption) => {
             const Icon = modeOption.icon;
             return (
@@ -613,6 +925,7 @@ export default function CruiseWord() {
         {mode === 'quiz' && renderQuizMode()}
         {mode === 'memory' && renderMemoryMode()}
         {mode === 'challenge' && renderSpeedMode()}
+        {mode === 'levels' && renderLevelChallengeMode()}
 
         {/* Global Stats */}
         <Card className="mt-8 bg-gradient-to-r from-blue-600 to-cyan-600 text-white border-none">
@@ -634,9 +947,85 @@ export default function CruiseWord() {
                 <p className="text-sm text-blue-100">Matches</p>
               </div>
             </div>
+            {userId && (
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => submitScore(score)}
+                  disabled={score <= 0 || submitScoreMutation.isPending}
+                  className="gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  {submitScoreMutation.isPending ? (language === 'es' ? 'Guardando...' : 'Saving...') : t.submitScore}
+                </Button>
+                {lastSubmitResult === 'ok' && <p className="text-sm text-blue-100">{t.scoreSaved}</p>}
+                {lastSubmitResult === 'offline' && <p className="text-sm text-amber-200">{t.savedOffline}</p>}
+                {lastSubmitRewards && (
+                  <p className="text-sm text-blue-100 mt-1">
+                    {t.xpEarned.replace('{n}', String(lastSubmitRewards.pointsEarned))}
+                    {lastSubmitRewards.levelUp && ` · ${t.levelUp}`}
+                    {lastSubmitRewards.badgesEarned.length > 0 && ` · ${t.newBadge} ${lastSubmitRewards.badgesEarned.map((b) => b.icon).join(' ')}`}
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* My recent scores */}
+        {userId && (
+          <Card className="mt-6">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ListOrdered className="w-5 h-5" />
+                {t.myScores}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {myScores.length === 0 ? (
+                <p className="text-muted-foreground text-sm">{t.noScoresYet}</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {myScores.slice(0, 5).map((row, i) => (
+                    <li key={row.id} className="flex justify-between">
+                      <span>{row.score} pts</span>
+                      <span className="text-muted-foreground">
+                        {row.playedAt ? new Date(row.playedAt).toLocaleDateString(language === 'es' ? 'es-HN' : 'en-US', { dateStyle: 'short' }) : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Leaderboard */}
+        <Card className="mt-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Trophy className="w-5 h-5" />
+              {t.leaderboard}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {leaderboard.length === 0 ? (
+              <p className="text-muted-foreground text-sm">{t.noLeaderboard}</p>
+            ) : (
+              <ul className="space-y-2">
+                {leaderboard.map((row, i) => (
+                  <li key={row.id} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+                    <span className="font-medium text-muted-foreground w-6">{i + 1}</span>
+                    <span className="flex-1 truncate">{row.displayName ?? `User ${row.userId}`}</span>
+                    <Badge variant="secondary">{row.score}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PageLayout>
   );
 }

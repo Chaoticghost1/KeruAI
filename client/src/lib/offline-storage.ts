@@ -275,6 +275,12 @@ export class OfflineManager {
     ]).filter(item => item.url.includes('/api/auth')).delete();
   }
 
+  // Clear classes cache (user-specific, changes when creating classes - avoid stale data)
+  static async clearClassesCache() {
+    const entries = await offlineDb.contentCache.filter(c => c.url.includes('/api/classes')).toArray();
+    await Promise.all(entries.map(e => e.id != null ? offlineDb.contentCache.delete(e.id) : Promise.resolve()));
+  }
+
   // Database maintenance
   static async getStorageUsage(): Promise<{ used: number; available?: number }> {
     try {
@@ -293,18 +299,8 @@ export class OfflineManager {
   }
 }
 
-// Initialize offline database
+// Initialize offline database - DISABLED
 export const initializeOfflineStorage = async () => {
-  try {
-    await offlineDb.open();
-    
-    // Clear expired cache on startup
-    await OfflineManager.clearExpiredCache();
-    
-    console.log('Offline storage initialized successfully');
-    return true;
-  } catch (error) {
-    console.error('Failed to initialize offline storage:', error);
-    return false;
-  }
+  console.log('Offline storage is disabled');
+  return false;
 };

@@ -1,3 +1,4 @@
+import { OFFLINE_ENABLED } from './offline-config';
 import { offlineDb as db } from './offline-storage';
 
 export interface SyncResult {
@@ -52,6 +53,7 @@ export const syncService = {
   },
 
   startAutoSync() {
+    if (!OFFLINE_ENABLED) return;
     window.addEventListener('online', () => {
       console.log('Connection restored, syncing...');
       this.syncToServer();

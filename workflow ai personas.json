@@ -1,0 +1,371 @@
+{
+  "name": "Matemático Guía - Tutor Individual",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "matematico",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Normalización y clasificación\nconst input = items[0].json;\nconst body = input.body || input;\nconst message = body.studentMessage || '';\n\n// Normalizar para cache\nconst normalized = message.toLowerCase().trim().replace(/\\s+/g, ' ').replace(/[^\\w\\s]/g, '');\n\n// Hash simple (FNV-1a)\nfunction simpleHash(str) {\n  let hash = 2166136261;\n  for (let i = 0; i < str.length; i++) {\n    hash ^= str.charCodeAt(i);\n    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);\n  }\n  return (hash >>> 0).toString(16);\n}\n\nconst questionHash = simpleHash(normalized);\n\n// Análisis de complejidad ESPECÍFICO para matemáticas\nconst wordCount = message.split(/\\s+/).length;\nconst hasComplexMath = /derivad|integr|matriz|vector|ecuación\\s+diferencial|límite|teorema/i.test(message);\nconst hasAdvancedOperations = /\\^|√|∫|∑|lim|sen|cos|tan|log/i.test(message);\nconst difficulty = body.difficultyLevel || 'intermedio';\n\n// Matemático Guía: usa local LLM para aritmética básica y álgebra simple\nconst isEasyQuestion = (\n  wordCount < 25 && \n  difficulty === 'basico' && \n  !hasComplexMath &&\n  !hasAdvancedOperations\n) || body.forceLocalLLM === true;\n\nreturn items.map(item => ({\n  json: {\n    ...body,\n    agentKey: 'matematico_guia', // Forzar agentKey\n    questionHash,\n    normalized,\n    isEasyQuestion,\n    complexity: { \n      wordCount, \n      hasComplexMath, \n      hasAdvancedOperations \n    }\n  }\n}));"
+      },
+      "id": "normalize-2",
+      "name": "Analizar Pregunta",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.MATEMATICO_CACHE_URL || 'http://localhost:3001'}}/api/cache/check?hash={{$json.questionHash}}&sessionId={{$json.sessionId}}",
+        "options": {
+          "timeout": 2000
+        }
+      },
+      "id": "cache-3",
+      "name": "Check Matemático Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [640, 400],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.cached}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-cache-4",
+      "name": "Cache Hit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [840, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json.response)}}"
+      },
+      "id": "respond-cached-5",
+      "name": "Return Cached",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst subject = data.subject || 'matemáticas';\nconst difficulty = data.difficultyLevel || 'intermedio';\nconst gradeLevel = data.gradeLevel || 'secundaria';\nconst history = (data.conversationHistory || []).slice(-6);\nconst historyText = history.map(m => `${m.role === 'user' ? 'Estudiante' : 'Tutor'}: ${m.content}`).join('\\n');\n\n// Personalización basada en perfil del estudiante\nlet adaptations = '';\n\nif (data.studentProfile?.learningStyle === 'visual') {\n  adaptations += '- Usá diagramas, gráficos, representaciones visuales.\\n';\n  adaptations += '- Dibujá ejemplos: \"Imaginá que tenés...\"\\n';\n}\n\nif (data.studentProfile?.learningStyle === 'kinesthetic') {\n  adaptations += '- Usá objetos concretos: \"Si tenés 5 canicas...\"\\n';\n  adaptations += '- Ejemplos físicos y manipulables.\\n';\n}\n\nif (data.studentProfile?.strugglingAreas?.length) {\n  adaptations += `- Áreas difíciles: ${data.studentProfile.strugglingAreas.join(', ')}. Simplificá más en estos temas.\\n`;\n}\n\n// Adaptación por nivel de dificultad\nlet difficultyGuidance = '';\nif (difficulty === 'basico') {\n  difficultyGuidance = '- Usá pasos MUY pequeños\\n- Validá cada mini-paso\\n- Ejemplos concretos y cotidianos\\n';\n} else if (difficulty === 'avanzado') {\n  difficultyGuidance = '- Desafíos conceptuales\\n- Conexiones abstractas\\n- Fomenta exploración independiente\\n';\n}\n\n// System prompt COMPLETO para Matemático Guía\nconst systemPrompt = `IDENTIDAD Y ROL:\nVos sois \"Matemático Guía\", tutor experto en matemáticas para estudiantes de Honduras y Centroamérica. Tu objetivo es guiar razonamiento matemático, JAMÁS dar respuestas directas.\n\nPRINCIPIOS FUNDAMENTALES:\n1. JAMÁS proporciones la respuesta final o solución completa\n2. Hacé preguntas estratégicas que guíen al estudiante: \"¿Qué observás?\", \"¿Cuál es el primer paso?\"\n3. Usá ejemplos de vida hondureña: mercados, construcción, agricultura, distancias\n4. Celebrá el esfuerzo y razonamiento, no solo respuestas correctas\n5. Lenguaje conversacional con modismos hondureños (\"mirá\", \"fijate\", \"pues\")\n\nESTRUCTURA DE RESPUESTAS:\n1. Entendé qué intenta el estudiante\n2. Identificá dónde está la confusión\n3. Hacé UNA pregunta que lo encamine al siguiente paso\n4. Si sigue atascado después de 2-3 intentos, dá un hint (NUNCA la respuesta)\n5. Guíalo a verificar su razonamiento\n\nCUANDO EL ESTUDIANTE ESTÉ PERDIDO:\n- Dividí el problema en partes MÁS pequeñas\n- Preguntá: \"¿Cuál fue el primer paso?\"\n- Recordá conceptos previos: \"¿Recordás cuando vimos...?\"\n- Usá diagramas o ejemplos concretos\n- NUNCA des un paso sin que lo entiendan primero\n\nADAPTACIONES ESPECÍFICAS:\n${adaptations}\n\nGUÍA POR NIVEL:\n${difficultyGuidance}\n\nCONTEXTO ACTUAL:\n- Tema: ${subject}\n- Nivel dificultad: ${difficulty}\n- Grado: ${gradeLevel}\n\nÚLTIMOS INTERCAMBIOS:\n${historyText || 'Inicio de conversación nueva'}\n\nIMPORTANTE:\n- Respondé en español Honduras\n- Tono educativo, paciente, motivador\n- Máximo 3-4 oraciones por respuesta\n- Terminá SIEMPRE con una pregunta guía\n\nPREGUNTA ACTUAL DEL ESTUDIANTE:`;\n\nreturn items.map(item => ({\n  json: {\n    ...data,\n    systemPrompt,\n    userMessage: data.studentMessage\n  }\n}));"
+      },
+      "id": "build-prompt-6",
+      "name": "Build Matemático Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1040, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.isEasyQuestion}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "route-llm-7",
+      "name": "Easy Math?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1240, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.LOCAL_LLM_URL || 'http://localhost:11434/v1/chat/completions'}}",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "body": "={\"model\":\"qwen2.5:14b-instruct-q4_K_M\",\"messages\":[{\"role\":\"system\",\"content\":\"{{$json.systemPrompt}}\"},{\"role\":\"user\",\"content\":\"{{$json.userMessage}}\"}],\"max_tokens\":500,\"temperature\":0.7}",
+        "options": {
+          "timeout": 25000
+        }
+      },
+      "id": "local-llm-8",
+      "name": "Local LLM (Qwen)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1440, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "body": "={\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"{{$json.systemPrompt}}\"},{\"role\":\"user\",\"content\":\"{{$json.userMessage}}\"}],\"max_tokens\":700,\"temperature\":0.7}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "openai-9",
+      "name": "OpenAI (Complex Math)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1440, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.choices && $json.choices.length > 0}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-local-10",
+      "name": "Local Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1640, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "body": "={\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"{{$json.systemPrompt}}\"},{\"role\":\"user\",\"content\":\"{{$json.userMessage}}\"}],\"max_tokens\":700,\"temperature\":0.7}",
+        "options": {}
+      },
+      "id": "openai-fallback-11",
+      "name": "OpenAI Fallback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1840, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst llmResponse = data.choices?.[0]?.message?.content || '';\nconst tokensUsed = data.usage?.total_tokens || 0;\nconst modelUsed = data.model || 'unknown';\n\nconst isLocal = modelUsed.includes('qwen') || modelUsed.includes('local');\n\n// Response específica para Matemático Guía\nconst response = {\n  agent: 'matematico_guia',\n  message: llmResponse,\n  metadata: {\n    modelUsed: isLocal ? 'qwen2.5-14b-local' : 'gpt-4o-mini',\n    tokensUsed,\n    difficulty: data.difficultyLevel || 'intermedio',\n    subject: data.subject || 'matemáticas',\n    cached: false,\n    complexity: data.complexity,\n    timestamp: new Date().toISOString()\n  }\n};\n\nreturn items.map(item => ({\n  json: {\n    ...data,\n    response\n  }\n}));"
+      },
+      "id": "format-12",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2040, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.MATEMATICO_CACHE_URL || 'http://localhost:3001'}}/api/cache/save",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonParameters": true,
+        "body": "={\"questionHash\":\"{{$json.questionHash}}\",\"sessionId\":\"{{$json.sessionId}}\",\"question\":\"{{$json.studentMessage}}\",\"response\":{{JSON.stringify($json.response)}}}",
+        "options": {}
+      },
+      "id": "save-cache-13",
+      "name": "Save to Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [2240, 500],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json.response)}}"
+      },
+      "id": "respond-14",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2440, 500]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Analizar Pregunta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analizar Pregunta": {
+      "main": [
+        [
+          {
+            "node": "Check Matemático Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Matemático Cache": {
+      "main": [
+        [
+          {
+            "node": "Cache Hit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Hit?": {
+      "main": [
+        [
+          {
+            "node": "Return Cached",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Matemático Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Matemático Prompt": {
+      "main": [
+        [
+          {
+            "node": "Easy Math?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Easy Math?": {
+      "main": [
+        [
+          {
+            "node": "Local LLM (Qwen)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI (Complex Math)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Local LLM (Qwen)": {
+      "main": [
+        [
+          {
+            "node": "Local Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI (Complex Math)": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Local Success?": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Fallback": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Save to Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Cache": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionTimeout": 50
+  },
+  "staticData": null,
+  "tags": ["tutor", "matematico"],
+  "pinData": {},
+  "versionId": "1"
+}

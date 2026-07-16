@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Joyride, { 
   CallBackProps, 
   STATUS, 
@@ -10,6 +10,9 @@ import Joyride, {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   GraduationCap, 
   Wallet, 
@@ -28,40 +31,201 @@ import {
   Calculator
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { OFFLINE_ENABLED } from '@/lib/offline-config';
 import { OfflineManager } from '@/lib/offline-storage';
+import { apiRequest } from '@/lib/queryClient';
+import { translations } from '@/data/content';
 
-// Onboarding steps for Honduras educational platform
-const createOnboardingSteps = (userRole: string = 'student'): Step[] => {
-  const baseSteps: Step[] = [
+const LEARNING_STYLES = [
+  { value: 'visual', labelEn: 'Visual', labelEs: 'Visual' },
+  { value: 'auditory', labelEn: 'Auditory', labelEs: 'Auditorio' },
+  { value: 'kinesthetic', labelEn: 'Kinesthetic', labelEs: 'Kinestésico' },
+];
+
+const DIFFICULTY_LEVELS = [
+  { value: 1, labelEn: 'Beginner', labelEs: 'Principiante' },
+  { value: 2, labelEn: 'Intermediate', labelEs: 'Intermedio' },
+  { value: 3, labelEn: 'Advanced', labelEs: 'Avanzado' },
+];
+
+interface QuestionnaireState {
+  learningStyle: string;
+  preferredDifficulty: number;
+  subjectsInput: string;
+  strugglingAreasInput: string;
+  revisionAssistantNameInput: string;
+}
+
+type SetQuestionnaire = React.Dispatch<React.SetStateAction<QuestionnaireState>>;
+
+// Onboarding steps for Honduras educational platform (Option B: welcome + questionnaire for students, then tour)
+const createOnboardingSteps = (
+  userRole: string,
+  lang: 'es' | 'en',
+  questionnaire: QuestionnaireState,
+  setQuestionnaire: SetQuestionnaire
+): Step[] => {
+  const isEs = lang === 'es';
+  const t = {
+    welcomeTitle: isEs ? '¡Bienvenido a Keru.ai Suite!' : 'Welcome to Keru.ai Suite!',
+    welcomeBody: isEs
+      ? 'Una plataforma educativa diseñada especialmente para Honduras. Te guiaremos paso a paso para que aproveches todas las herramientas.'
+      : 'An educational platform designed especially for Honduras. We will guide you step by step so you can make the most of all the tools.',
+    welcomeTag: isEs ? 'Diseñado para el sistema educativo hondureño' : 'Designed for the Honduran education system',
+    platformTitle: isEs ? 'Plataforma Educativa Honduras' : 'Honduras Education Platform',
+    learningStyleTitle: isEs ? '¿Cómo aprendes mejor?' : 'How do you learn best?',
+    learningStyleLabel: isEs ? 'Estilo de aprendizaje' : 'Learning style',
+    learningStylePlaceholder: isEs ? 'Elige uno (opcional)' : 'Choose one (optional)',
+    difficultyTitle: isEs ? '¿Qué nivel prefieres?' : 'What level do you prefer?',
+    difficultyLabel: isEs ? 'Dificultad preferida' : 'Preferred difficulty',
+    subjectsTitle: isEs ? 'Materias que estudias' : 'Subjects you study',
+    subjectsLabel: isEs ? 'Materias (separadas por coma)' : 'Subjects (comma-separated)',
+    subjectsPlaceholder: isEs ? 'ej. Matemáticas, Ciencias, Español' : 'e.g. Math, Science, Language Arts',
+    strugglingTitle: isEs ? 'Áreas con las que luchas' : 'Areas you struggle with',
+    strugglingLabel: isEs ? 'Áreas (separadas por coma)' : 'Areas (comma-separated)',
+    strugglingPlaceholder: isEs ? 'ej. Álgebra, Ortografía' : 'e.g. Algebra, Spelling',
+  };
+  const dashboardT = translations[lang].dashboard as {
+    revisionAssistantNameLabel: string;
+    revisionAssistantInlineLabel: string;
+    revisionAssistantNameDesc: string;
+    revisionAssistantNamePlaceholder: string;
+  };
+
+  const steps: Step[] = [
     {
       target: 'body',
       content: (
         <div className="space-y-3">
-          <h2 className="text-lg font-bold text-slate-900">
-            ¡Bienvenido a Keru.ai Suite!
-          </h2>
-          <p className="text-slate-700">
-            Una plataforma educativa diseñada especialmente para Honduras. 
-            Te guiaremos paso a paso para que aproveches todas las herramientas.
-          </p>
+          <h2 className="text-lg font-bold text-slate-900">{t.welcomeTitle}</h2>
+          <p className="text-slate-700">{t.welcomeBody}</p>
           <div className="flex items-center gap-2 text-sm text-blue-600">
             <GraduationCap className="h-4 w-4" />
-            <span>Diseñado para el sistema educativo hondureño</span>
+            <span>{t.welcomeTag}</span>
           </div>
         </div>
       ),
       placement: 'center',
-      title: 'Plataforma Educativa Honduras'
+      title: t.platformTitle
     },
+  ];
+
+  // Option B: questionnaire steps for students (same questions as profile)
+  if (userRole === 'student') {
+    steps.push(
+      {
+        target: 'body',
+        title: t.learningStyleTitle,
+        content: (
+          <div className="space-y-3 min-w-[280px]">
+            <Label>{t.learningStyleLabel}</Label>
+            <Select
+              value={questionnaire.learningStyle || undefined}
+              onValueChange={(v) => setQuestionnaire((prev) => ({ ...prev, learningStyle: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t.learningStylePlaceholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {LEARNING_STYLES.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {isEs ? opt.labelEs : opt.labelEn}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ),
+        placement: 'center'
+      },
+      {
+        target: 'body',
+        title: t.difficultyTitle,
+        content: (
+          <div className="space-y-3 min-w-[280px]">
+            <Label>{t.difficultyLabel}</Label>
+            <Select
+              value={String(questionnaire.preferredDifficulty)}
+              onValueChange={(v) => setQuestionnaire((prev) => ({ ...prev, preferredDifficulty: Number(v) }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DIFFICULTY_LEVELS.map((opt) => (
+                  <SelectItem key={opt.value} value={String(opt.value)}>
+                    {isEs ? opt.labelEs : opt.labelEn}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ),
+        placement: 'center'
+      },
+      {
+        target: 'body',
+        title: t.subjectsTitle,
+        content: (
+          <div className="space-y-3 min-w-[280px]">
+            <Label>{t.subjectsLabel}</Label>
+            <Input
+              value={questionnaire.subjectsInput}
+              onChange={(e) => setQuestionnaire((prev) => ({ ...prev, subjectsInput: e.target.value }))}
+              placeholder={t.subjectsPlaceholder}
+            />
+          </div>
+        ),
+        placement: 'center'
+      },
+      {
+        target: 'body',
+        title: t.strugglingTitle,
+        content: (
+          <div className="space-y-3 min-w-[280px]">
+            <Label>{t.strugglingLabel}</Label>
+            <Input
+              value={questionnaire.strugglingAreasInput}
+              onChange={(e) => setQuestionnaire((prev) => ({ ...prev, strugglingAreasInput: e.target.value }))}
+              placeholder={t.strugglingPlaceholder}
+            />
+          </div>
+        ),
+        placement: 'center'
+      },
+      {
+        target: 'body',
+        title: dashboardT.revisionAssistantNameLabel,
+        content: (
+          <div className="space-y-3 min-w-[280px]">
+            <Label>{dashboardT.revisionAssistantInlineLabel}</Label>
+            <p className="text-xs text-slate-600">
+              {dashboardT.revisionAssistantNameDesc}
+            </p>
+            <Input
+              value={questionnaire.revisionAssistantNameInput}
+              onChange={(e) => setQuestionnaire((prev) => ({ ...prev, revisionAssistantNameInput: e.target.value }))}
+              placeholder={dashboardT.revisionAssistantNamePlaceholder}
+            />
+          </div>
+        ),
+        placement: 'center'
+      }
+    );
+  }
+
+  // Tour steps (nav and rest)
+  steps.push(
     {
       target: '[data-testid="nav-dashboard"]',
       content: (
         <div className="space-y-2">
-          <h3 className="font-semibold">Panel Principal</h3>
-          <p>Tu punto de inicio. Aquí verás tu progreso, tareas pendientes y resumen de actividades.</p>
+          <h3 className="font-semibold">{isEs ? 'Panel Principal' : 'Main Panel'}</h3>
+          <p>{isEs ? 'Tu punto de inicio. Aquí verás tu progreso, tareas pendientes y resumen de actividades.' : 'Your starting point. Here you will see your progress, pending tasks and activity summary.'}</p>
           <div className="flex items-center gap-1 text-xs text-green-600">
             <Home className="h-3 w-3" />
-            <span>Siempre puedes volver aquí</span>
+            <span>{isEs ? 'Siempre puedes volver aquí' : 'You can always return here'}</span>
           </div>
         </div>
       ),
@@ -132,11 +296,11 @@ const createOnboardingSteps = (userRole: string = 'student'): Step[] => {
       ),
       placement: 'right'
     }
-  ];
+  );
 
   // Add teacher-specific steps
   if (userRole === 'teacher' || userRole === 'superuser') {
-    baseSteps.push({
+    steps.push({
       target: '[data-testid="nav-admin"]',
       content: (
         <div className="space-y-2">
@@ -157,7 +321,7 @@ const createOnboardingSteps = (userRole: string = 'student'): Step[] => {
   }
 
   // Add offline and data saver steps
-  baseSteps.push(
+  steps.push(
     {
       target: '[data-testid="toggle-data-saver"]',
       content: (
@@ -204,11 +368,11 @@ const createOnboardingSteps = (userRole: string = 'student'): Step[] => {
         </div>
       ),
       placement: 'center',
-      title: 'Capacidades Offline'
+      title: isEs ? 'Capacidades Offline' : 'Offline Capabilities'
     }
   );
 
-  return baseSteps;
+  return steps;
 };
 
 // Custom Joyride styles for Honduras theme
@@ -268,22 +432,38 @@ interface OnboardingFlowProps {
   onComplete?: () => void;
 }
 
+function parseList(value: string): string[] {
+  return value.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 export function OnboardingFlow({ autoStart = false, onComplete }: OnboardingFlowProps) {
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const { user } = useAuth();
-  const [steps, setSteps] = useState<Step[]>([]);
+  const { language } = useLanguage();
+  const [questionnaire, setQuestionnaire] = useState<QuestionnaireState>({
+    learningStyle: '',
+    preferredDifficulty: 2,
+    subjectsInput: '',
+    strugglingAreasInput: '',
+    revisionAssistantNameInput: '',
+  });
+
+  const steps = useMemo(
+    () => createOnboardingSteps(user?.role || 'student', language, questionnaire, setQuestionnaire),
+    [user?.role, language, questionnaire]
+  );
 
   useEffect(() => {
-    // Check if user has completed onboarding
     const checkOnboardingStatus = async () => {
       try {
-        const settings = await OfflineManager.getSettings();
+        if (OFFLINE_ENABLED) {
+          await OfflineManager.getSettings();
+        }
         const hasCompletedOnboarding = localStorage.getItem('onboarding_completed') === 'true';
-        
+
         if (!hasCompletedOnboarding && autoStart) {
-          setSteps(createOnboardingSteps(user?.role || 'student'));
           setRun(true);
         }
       } catch (error) {
@@ -294,26 +474,48 @@ export function OnboardingFlow({ autoStart = false, onComplete }: OnboardingFlow
     checkOnboardingStatus();
   }, [autoStart, user]);
 
+  const saveProfileFromQuestionnaire = async () => {
+    if (!user?.id) return;
+    const payload = {
+      userId: user.id,
+      learningStyle: questionnaire.learningStyle || null,
+      preferredDifficulty: questionnaire.preferredDifficulty,
+      subjects: parseList(questionnaire.subjectsInput),
+      strugglingAreas: parseList(questionnaire.strugglingAreasInput),
+      revisionAssistantName: questionnaire.revisionAssistantNameInput.trim() || null,
+    };
+    try {
+      const existing = await apiRequest('GET', `/api/progress/profile/${user.id}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (existing) {
+        await apiRequest('PUT', `/api/progress/profile/${user.id}`, payload);
+      } else {
+        await apiRequest('POST', '/api/progress/profile', payload);
+      }
+    } catch (e) {
+      console.error('Failed to save onboarding profile', e);
+    }
+  };
+
   const handleJoyrideCallback = (data: CallBackProps) => {
     const { status, type, index, action } = data;
+    const isStudent = user?.role === 'student';
+    const lastQuestionnaireIndex = isStudent ? 5 : 0; // 0=welcome, 1-5=questionnaire for student (5=assistant name)
 
     if (type === 'step:after' || type === 'error:target_not_found') {
+      if (action === ACTIONS.NEXT && isStudent && index === lastQuestionnaireIndex) {
+        saveProfileFromQuestionnaire();
+      }
       setStepIndex(index + (action === ACTIONS.PREV ? -1 : 1));
     } else if (status === 'finished' || status === 'skipped') {
+      if (isStudent) saveProfileFromQuestionnaire();
       setRun(false);
       setIsCompleted(true);
-      
-      // Mark onboarding as completed
       localStorage.setItem('onboarding_completed', 'true');
-      
-      if (onComplete) {
-        onComplete();
-      }
+      if (onComplete) onComplete();
     }
   };
 
   const startOnboarding = () => {
-    setSteps(createOnboardingSteps(user?.role || 'student'));
     setStepIndex(0);
     setRun(true);
     setIsCompleted(false);
@@ -337,12 +539,12 @@ export function OnboardingFlow({ autoStart = false, onComplete }: OnboardingFlow
         stepIndex={stepIndex}
         styles={joyrideStyles}
         locale={{
-          back: 'Atrás',
-          close: 'Cerrar',
-          last: 'Finalizar',
-          next: 'Siguiente',
-          open: 'Abrir diálogo',
-          skip: 'Saltar',
+          back: language === 'es' ? 'Atrás' : 'Back',
+          close: language === 'es' ? 'Cerrar' : 'Close',
+          last: language === 'es' ? 'Finalizar' : 'Finish',
+          next: language === 'es' ? 'Siguiente' : 'Next',
+          open: language === 'es' ? 'Abrir diálogo' : 'Open dialog',
+          skip: language === 'es' ? 'Saltar' : 'Skip',
         }}
         floaterProps={{
           disableAnimation: true,
@@ -355,12 +557,12 @@ export function OnboardingFlow({ autoStart = false, onComplete }: OnboardingFlow
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5" />
-              Guía de Inicio
+              {language === 'es' ? 'Guía de Inicio' : 'Getting Started Guide'}
             </CardTitle>
             <CardDescription>
               {isCompleted 
-                ? 'Has completado la guía de inicio' 
-                : 'Aprende a usar la plataforma paso a paso'
+                ? (language === 'es' ? 'Has completado la guía de inicio' : 'You have completed the getting started guide')
+                : (language === 'es' ? 'Aprende a usar la plataforma paso a paso' : 'Learn to use the platform step by step')
               }
             </CardDescription>
           </CardHeader>
@@ -370,7 +572,7 @@ export function OnboardingFlow({ autoStart = false, onComplete }: OnboardingFlow
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-green-600">
                   <Check className="h-4 w-4" />
-                  <span className="text-sm">Guía completada</span>
+                  <span className="text-sm">{language === 'es' ? 'Guía completada' : 'Guide completed'}</span>
                 </div>
                 <Button 
                   onClick={restartOnboarding}
@@ -379,13 +581,13 @@ export function OnboardingFlow({ autoStart = false, onComplete }: OnboardingFlow
                   data-testid="button-restart-onboarding"
                 >
                   <RotateCcw className="h-4 w-4 mr-2" />
-                  Ver Guía Nuevamente
+                  {language === 'es' ? 'Ver Guía Nuevamente' : 'View Guide Again'}
                 </Button>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="text-sm text-slate-600">
-                  Te mostraremos las funciones principales de la plataforma educativa.
+                  {language === 'es' ? 'Te mostraremos las funciones principales de la plataforma educativa.' : 'We will show you the main features of the education platform.'}
                 </div>
                 <Button 
                   onClick={startOnboarding}
@@ -393,18 +595,18 @@ export function OnboardingFlow({ autoStart = false, onComplete }: OnboardingFlow
                   data-testid="button-start-onboarding"
                 >
                   <Play className="h-4 w-4 mr-2" />
-                  Comenzar Guía
+                  {language === 'es' ? 'Comenzar Guía' : 'Start Guide'}
                 </Button>
               </div>
             )}
 
             {/* Quick Stats */}
             <div className="pt-3 border-t space-y-2">
-              <h4 className="text-sm font-medium">Características Principales:</h4>
+              <h4 className="text-sm font-medium">{language === 'es' ? 'Características Principales:' : 'Main Features:'}</h4>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="flex items-center gap-1">
                   <GraduationCap className="h-3 w-3 text-blue-500" />
-                  <span>IA Educativa</span>
+                  <span>{language === 'es' ? 'IA Educativa' : 'AI Education'}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Calculator className="h-3 w-3 text-green-500" />
@@ -412,11 +614,11 @@ export function OnboardingFlow({ autoStart = false, onComplete }: OnboardingFlow
                 </div>
                 <div className="flex items-center gap-1">
                   <Ship className="h-3 w-3 text-purple-500" />
-                  <span>Juegos</span>
+                  <span>{language === 'es' ? 'Juegos' : 'Games'}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Globe className="h-3 w-3 text-orange-500" />
-                  <span>Exploración</span>
+                  <span>{language === 'es' ? 'Exploración' : 'Explore'}</span>
                 </div>
               </div>
             </div>
@@ -466,7 +668,7 @@ export function QuickTips() {
       </Button>
       
       {isVisible && (
-        <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <div className="space-y-2 p-3 bg-blue-50 rounded-lg">
           {tips.map((tip, index) => (
             <div key={index} className="flex items-start gap-2">
               <div className={`${tip.color} mt-0.5`}>
@@ -474,7 +676,7 @@ export function QuickTips() {
               </div>
               <div>
                 <div className="text-sm font-medium">{tip.title}</div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">
+                <div className="text-xs text-slate-600">
                   {tip.description}
                 </div>
               </div>

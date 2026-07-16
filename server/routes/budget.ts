@@ -48,3 +48,57 @@ budgetRouter.post("/transactions", authenticateToken, async (req: AuthRequest, r
     next(error);
   }
 });
+
+// Update budget category
+budgetRouter.put("/categories/:id", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { name, budget } = req.body;
+    const updates: Record<string, unknown> = {};
+    if (name !== undefined) updates.name = name;
+    if (budget !== undefined) updates.budget = budget;
+    const updated = await storage.updateBudgetCategory(id, req.user!.id, updates as { name?: string; budget?: string });
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete budget category
+budgetRouter.delete("/categories/:id", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const id = parseInt(req.params.id);
+    await storage.deleteBudgetCategory(id, req.user!.id);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update budget transaction
+budgetRouter.put("/transactions/:id", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { description, amount, date, categoryId } = req.body;
+    const updates: Record<string, unknown> = {};
+    if (description !== undefined) updates.description = description;
+    if (amount !== undefined) updates.amount = amount;
+    if (date !== undefined) updates.date = date;
+    if (categoryId !== undefined) updates.categoryId = categoryId;
+    const updated = await storage.updateBudgetTransaction(id, req.user!.id, updates as { description?: string; amount?: string; date?: string; categoryId?: number });
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete budget transaction
+budgetRouter.delete("/transactions/:id", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const id = parseInt(req.params.id);
+    await storage.deleteBudgetTransaction(id, req.user!.id);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});

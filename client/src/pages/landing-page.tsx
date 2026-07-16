@@ -1,4 +1,11 @@
 import { Link } from "wouter";
+import { BlurOrbs } from "@/components/BlurOrbs";
+import { useQuery } from "@tanstack/react-query";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { PublicLayout } from "@/components/PublicLayout";
+import { PublicNav } from "@/components/PublicNav";
+import { FeatureCard } from "@/components/FeatureCard";
+import { Section } from "@/components/Section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,10 +23,32 @@ import {
   DollarSign,
   Brain,
   Target,
-  Compass
+  Compass,
+  FileText,
+  Handshake,
+  Heart
 } from "lucide-react";
+import { format } from "date-fns";
+
+type LandingBlogPost = {
+  id: number;
+  title: string;
+  excerpt?: string;
+  category: string;
+  publishedAt?: string;
+};
 
 export default function LandingPage() {
+  const { t } = useLanguage();
+  const { data: landingData } = useQuery<{ data: LandingBlogPost[] }>({
+    queryKey: ["/api/blog/landing"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/blog/landing`);
+      if (!res.ok) throw new Error("Failed to load featured posts");
+      return res.json();
+    },
+  });
+  const featuredPosts = landingData?.data ?? [];
   const scrollToFeatures = () => {
     const featuresSection = document.getElementById('features');
     if (featuresSection) {
@@ -28,300 +57,301 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Navigation */}
-      <nav className="border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-gray-900/95 dark:border-gray-800">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2" data-testid="nav-logo">
-              <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Keru.ai Suite
-              </span>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <Link href="/auth">
-                <Button variant="ghost" data-testid="button-signin">Sign In</Button>
-              </Link>
-              <Link href="/auth">
-                <Button 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  data-testid="button-getstarted"
-                >
-                  Get Started
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <PublicLayout>
+      <PublicNav variant="landing" />
 
       {/* Hero Section */}
       <section className="pt-20 pb-16 sm:pt-24 sm:pb-20" data-testid="section-hero">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-4xl mx-auto">
-            <Badge variant="secondary" className="mb-4 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" data-testid="badge-platform">
-              All-in-One Platform
+            <Badge variant="secondary" className="mb-4 rounded-youth-lg bg-youth-primary/15 text-youth-primary border-youth-primary/30" data-testid="badge-platform">
+              {t.landingPage.allInOnePlatform}
             </Badge>
             
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6" data-testid="text-hero-title">
-              Keru.ai Suite: Your Complete
-              <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Learning & Life Management Platform
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6" data-testid="text-hero-title">
+              {t.landingPage.heroTitle}
+              <span className="block text-youth-primary">
+                {t.landingPage.heroTitleHighlight}
               </span>
             </h1>
             
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto" data-testid="text-hero-subtitle">
-              Master your studies with AI tutoring, manage your finances effortlessly, and explore the world with our comprehensive travel guide—all in one powerful suite.
+            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto" data-testid="text-hero-subtitle">
+              {t.landingPage.heroSubtitle}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/auth">
                 <Button 
                   size="lg" 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-8"
+                  className="rounded-youth-lg bg-youth-primary hover:opacity-90 text-lg px-8"
                   data-testid="button-hero-getstarted"
                 >
-                  Get Started
+                  {t.auth.getStarted}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="text-lg px-8 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="rounded-youth-lg text-lg px-8 border-youth-muted hover:bg-youth-muted/50"
                 onClick={scrollToFeatures}
                 data-testid="button-hero-learnmore"
               >
-                Learn More
+                {t.common.learnMore}
               </Button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-16 bg-white dark:bg-gray-800" data-testid="section-features">
+      <Section id="features" title={t.landingPage.featuresTitle} subtitle={t.landingPage.featuresSubtitle} className="bg-card" data-testid="section-features">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4" data-testid="text-features-title">
-              Three Powerful Tools, One Platform
-            </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto" data-testid="text-features-subtitle">
-              Everything you need to succeed in learning, finances, and travel
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-            {/* StudyBuddy */}
-            <Card className="border-2 border-blue-200 dark:border-blue-800 hover:shadow-xl transition-all duration-300" data-testid="card-studybuddy">
-              <CardHeader>
-                <div className="h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-                  <GraduationCap className="h-8 w-8 text-white" />
-                </div>
-                <CardTitle className="text-2xl text-gray-900 dark:text-white" data-testid="text-studybuddy-title">
-                  StudyBuddy
-                </CardTitle>
-                <CardDescription className="text-base text-gray-600 dark:text-gray-300" data-testid="text-studybuddy-desc">
-                  AI Study Assistant
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-gray-700 dark:text-gray-200 font-medium">
-                  Get personalized help from AI tutors in Math, Science, Languages, and more
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-start" data-testid="feature-studybuddy-1">
-                    <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">24/7 AI tutoring across all subjects</span>
-                  </li>
-                  <li className="flex items-start" data-testid="feature-studybuddy-2">
-                    <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Interactive learning with instant feedback</span>
-                  </li>
-                  <li className="flex items-start" data-testid="feature-studybuddy-3">
-                    <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Progress tracking and performance analytics</span>
-                  </li>
-                  <li className="flex items-start" data-testid="feature-studybuddy-4">
-                    <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Badges & rewards for achievements</span>
-                  </li>
-                </ul>
-                <div className="pt-4">
-                  <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+            <FeatureCard
+              icon={<GraduationCap className="h-8 w-8 text-youth-primary" />}
+              iconBgClassName="h-16 w-16 rounded-youth-lg bg-youth-primary/20"
+              title={t.landingPage.studybuddyTitle}
+              description={t.landingPage.studybuddyDesc}
+              borderClassName="rounded-youth-lg border-2 border-youth-primary/30 hover:border-youth-primary hover:shadow-xl transition-all duration-300 bg-youth-surface"
+              dataTestId="card-studybuddy"
+              children={
+                <div className="space-y-4 pt-2">
+                  <p className="text-foreground font-medium">{t.landingPage.studybuddyLead}</p>
+                  <ul className="space-y-3">
+                    <li className="flex items-start" data-testid="feature-studybuddy-1">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.studybuddyF1}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-studybuddy-2">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.studybuddyF2}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-studybuddy-3">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.studybuddyF3}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-studybuddy-4">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.studybuddyF4}</span>
+                    </li>
+                  </ul>
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <Brain className="h-4 w-4" />
-                    <span>Smart AI-powered learning</span>
+                    <span>{t.landingPage.studybuddyTag}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* BudgetPal */}
-            <Card className="border-2 border-green-200 dark:border-green-800 hover:shadow-xl transition-all duration-300" data-testid="card-budgetpal">
-              <CardHeader>
-                <div className="h-16 w-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-                  <Wallet className="h-8 w-8 text-white" />
-                </div>
-                <CardTitle className="text-2xl text-gray-900 dark:text-white" data-testid="text-budgetpal-title">
-                  BudgetPal
-                </CardTitle>
-                <CardDescription className="text-base text-gray-600 dark:text-gray-300" data-testid="text-budgetpal-desc">
-                  Personal Finance Tracker
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-gray-700 dark:text-gray-200 font-medium">
-                  Track your spending, set budgets, and achieve your financial goals
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-start" data-testid="feature-budgetpal-1">
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Category tracking for all expenses</span>
-                  </li>
-                  <li className="flex items-start" data-testid="feature-budgetpal-2">
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Set budget limits and get alerts</span>
-                  </li>
-                  <li className="flex items-start" data-testid="feature-budgetpal-3">
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Expense insights with visual charts</span>
-                  </li>
-                  <li className="flex items-start" data-testid="feature-budgetpal-4">
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Monthly summaries and reports</span>
-                  </li>
-                </ul>
-                <div className="pt-4">
-                  <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+              }
+            />
+            <FeatureCard
+              icon={<Wallet className="h-8 w-8 text-white" />}
+              iconBgClassName="h-16 w-16 rounded-youth-lg bg-youth-success/90 flex items-center justify-center"
+              title={t.landingPage.budgetpalTitle}
+              description={t.landingPage.budgetpalDesc}
+              borderClassName="rounded-youth-lg border-2 border-youth-muted/50 hover:border-youth-success hover:shadow-xl transition-all duration-300 bg-youth-surface"
+              dataTestId="card-budgetpal"
+              children={
+                <div className="space-y-4 pt-2">
+                  <p className="text-foreground font-medium">{t.landingPage.budgetpalLead}</p>
+                  <ul className="space-y-3">
+                    <li className="flex items-start" data-testid="feature-budgetpal-1">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.budgetpalF1}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-budgetpal-2">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.budgetpalF2}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-budgetpal-3">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.budgetpalF3}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-budgetpal-4">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.budgetpalF4}</span>
+                    </li>
+                  </ul>
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <DollarSign className="h-4 w-4" />
-                    <span>Smart financial management</span>
+                    <span>{t.landingPage.budgetpalTag}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Travel Blog */}
-            <Card className="border-2 border-purple-200 dark:border-purple-800 hover:shadow-xl transition-all duration-300" data-testid="card-travelblog">
-              <CardHeader>
-                <div className="h-16 w-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-                  <Ship className="h-8 w-8 text-white" />
+              }
+            />
+            <FeatureCard
+              icon={<Handshake className="h-8 w-8 text-youth-primary" />}
+              iconBgClassName="h-16 w-16 rounded-youth-lg bg-youth-primary/20 flex items-center justify-center"
+              title={t.landingPage.mentorshipTitle}
+              description={t.landingPage.mentorshipDesc}
+              borderClassName="rounded-youth-lg border-2 border-youth-muted/50 hover:border-youth-primary hover:shadow-xl transition-all duration-300 bg-youth-surface"
+              dataTestId="card-centro-mentores"
+              children={
+                <div className="space-y-4 pt-2">
+                  <p className="text-foreground font-medium">{t.landingPage.mentorshipLead}</p>
+                  <ul className="space-y-3">
+                    <li className="flex items-start" data-testid="feature-mentorship-1">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.mentorshipF1}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-mentorship-2">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.mentorshipF2}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-mentorship-3">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.mentorshipF3}</span>
+                    </li>
+                  </ul>
+                  <div className="pt-4 flex flex-col gap-2">
+                    <Link href="/mentorship">
+                      <Button variant="outline" className="w-full rounded-youth-lg border-youth-primary/50 text-youth-primary hover:bg-youth-primary/10">
+                        {t.landingPage.findMentor}
+                      </Button>
+                    </Link>
+                    <Link href="/auth?tab=signup&return=/mentor-apply">
+                      <Button className="w-full rounded-youth-lg bg-youth-primary hover:opacity-90">
+                        <Heart className="h-4 w-4 mr-2" />
+                        {t.landingPage.becomeMentor}
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
-                <CardTitle className="text-2xl text-gray-900 dark:text-white" data-testid="text-travelblog-title">
-                  Travel Blog
-                </CardTitle>
-                <CardDescription className="text-base text-gray-600 dark:text-gray-300" data-testid="text-travelblog-desc">
-                  Honduras Travel Guide
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-gray-700 dark:text-gray-200 font-medium">
-                  Discover travel tips, cruise information, and explore Honduras
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-start" data-testid="feature-travelblog-1">
-                    <CheckCircle className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Comprehensive travel guides</span>
-                  </li>
-                  <li className="flex items-start" data-testid="feature-travelblog-2">
-                    <CheckCircle className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Cruise deals and information</span>
-                  </li>
-                  <li className="flex items-start" data-testid="feature-travelblog-3">
-                    <CheckCircle className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Local insights and hidden gems</span>
-                  </li>
-                  <li className="flex items-start" data-testid="feature-travelblog-4">
-                    <CheckCircle className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 dark:text-gray-300">Adventure planning tools</span>
-                  </li>
-                </ul>
-                <div className="pt-4">
-                  <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+              }
+            />
+            <FeatureCard
+              icon={<Ship className="h-8 w-8 text-white" />}
+              iconBgClassName="h-16 w-16 rounded-youth-lg bg-youth-accent flex items-center justify-center"
+              title={t.landingPage.travelTitle}
+              description={t.landingPage.travelDesc}
+              borderClassName="rounded-youth-lg border-2 border-youth-muted/50 hover:border-youth-accent hover:shadow-xl transition-all duration-300 bg-youth-surface"
+              dataTestId="card-travelblog"
+              children={
+                <div className="space-y-4 pt-2">
+                  <p className="text-foreground font-medium">{t.landingPage.travelLead}</p>
+                  <ul className="space-y-3">
+                    <li className="flex items-start" data-testid="feature-travelblog-1">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.travelF1}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-travelblog-2">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.travelF2}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-travelblog-3">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.travelF3}</span>
+                    </li>
+                    <li className="flex items-start" data-testid="feature-travelblog-4">
+                      <CheckCircle className="h-5 w-5 text-youth-success mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{t.landingPage.travelF4}</span>
+                    </li>
+                  </ul>
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <Globe className="h-4 w-4" />
-                    <span>Explore Honduras with ease</span>
+                    <span>{t.landingPage.travelTag}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              }
+            />
           </div>
         </div>
-      </section>
+      </Section>
 
-      {/* How It Works Section */}
-      <section className="py-16 bg-gray-50 dark:bg-gray-900" data-testid="section-howitworks">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Simple, Powerful, Effective
-            </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Get started in minutes and experience the power of our integrated platform
-            </p>
+      {/* Featured Travel / Viajes y Cruceros Section - from blog (showOnLanding) */}
+      {featuredPosts.length > 0 && (
+        <Section className="bg-gradient-to-b from-white to-youth-muted/30" data-testid="section-featured-travel" title={t.landingPage.featuredTravelTitle} subtitle={t.landingPage.featuredTravelSubtitle}>
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {featuredPosts.map((post) => (
+                <Card key={post.id} className="border-2 border-purple-100 hover:shadow-lg transition-all duration-300 overflow-hidden" data-testid={`card-featured-${post.id}`}>
+                  <CardHeader className="pb-2">
+                    <Badge variant="secondary" className="w-fit mb-2">{post.category}</Badge>
+                    <CardTitle className="text-lg line-clamp-2">{post.title}</CardTitle>
+                    {post.publishedAt && (
+                      <p className="text-sm text-gray-500 flex items-center gap-1">
+                        <FileText className="h-4 w-4" />
+                        {format(new Date(post.publishedAt), "PP")}
+                      </p>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 text-sm line-clamp-3">
+                      {post.excerpt || t.landingPage.travelStoryPlaceholder}
+                    </p>
+                    <Link href="/auth">
+                      <Button variant="link" className="p-0 h-auto mt-2 text-purple-600">
+                        {t.landingPage.readMore} <ArrowRight className="h-4 w-4 ml-1 inline" />
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <div className="text-center mt-8">
+              <Link href="/auth">
+                <Button variant="outline" className="rounded-youth-lg border-youth-primary/50 text-youth-primary hover:bg-youth-primary/10">
+                  <Globe className="w-4 h-4 mr-2" />
+                  {t.landingPage.exploreTravelBlog}
+                </Button>
+              </Link>
+            </div>
           </div>
+        </Section>
+      )}
 
+      <Section className="bg-youth-muted/30" data-testid="section-howitworks" title={t.landingPage.howItWorksTitle} subtitle={t.landingPage.howItWorksSubtitle}>
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             <div className="text-center" data-testid="step-1">
-              <div className="h-16 w-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">1</span>
+              <div className="h-16 w-16 bg-youth-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-youth-primary">1</span>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Sign Up</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Create your free account in seconds
-              </p>
+              <h3 className="text-xl font-semibold text-foreground mb-2">{t.landingPage.step1Title}</h3>
+              <p className="text-muted-foreground">{t.landingPage.step1Desc}</p>
             </div>
 
             <div className="text-center" data-testid="step-2">
-              <div className="h-16 w-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-green-600 dark:text-green-400">2</span>
+              <div className="h-16 w-16 bg-youth-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-youth-success">2</span>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Choose Your Tool</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Access StudyBuddy, BudgetPal, or Travel Blog
-              </p>
+              <h3 className="text-xl font-semibold text-foreground mb-2">{t.landingPage.step2Title}</h3>
+              <p className="text-muted-foreground">{t.landingPage.step2Desc}</p>
             </div>
 
             <div className="text-center" data-testid="step-3">
-              <div className="h-16 w-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">3</span>
+              <div className="h-16 w-16 bg-youth-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-youth-accent">3</span>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Start Achieving</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Reach your learning, financial, and travel goals
-              </p>
+              <h3 className="text-xl font-semibold text-foreground mb-2">{t.landingPage.step3Title}</h3>
+              <p className="text-muted-foreground">{t.landingPage.step3Desc}</p>
             </div>
           </div>
         </div>
-      </section>
+      </Section>
 
-      {/* Call-to-Action Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600" data-testid="section-cta">
+      <section className="py-20 bg-gradient-to-r from-youth-primary to-youth-accent" data-testid="section-cta">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6" data-testid="text-cta-title">
-              Ready to Transform Your Life?
+              {t.landingPage.ctaTitle}
             </h2>
-            <p className="text-xl text-blue-100 mb-8" data-testid="text-cta-subtitle">
-              Join thousands of users who are already learning smarter, managing finances better, and exploring more.
+            <p className="text-xl text-white/90 mb-8" data-testid="text-cta-subtitle">
+              {t.landingPage.ctaSubtitle}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link href="/auth">
                 <Button 
                   size="lg" 
-                  className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-6"
+                  className="bg-white text-youth-primary hover:bg-gray-100 text-lg px-8 py-6 rounded-youth-lg"
                   data-testid="button-cta-signup"
                 >
-                  Sign Up Now
+                  {t.landingPage.signUpNow}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
               <Link href="/auth">
-                <span className="text-white hover:text-blue-100 transition-colors" data-testid="link-cta-signin">
-                  Already have an account? <span className="underline font-semibold">Sign In</span>
+                <span className="text-white hover:text-white/90 transition-colors" data-testid="link-cta-signin">
+                  {t.landingPage.alreadyHaveAccount} <span className="underline font-semibold">{t.landingPage.signInLink}</span>
                 </span>
               </Link>
             </div>
@@ -329,15 +359,15 @@ export default function LandingPage() {
             <div className="mt-12 grid grid-cols-3 gap-8 max-w-2xl mx-auto">
               <div className="text-center" data-testid="stat-users">
                 <div className="text-3xl font-bold text-white mb-1">10K+</div>
-                <div className="text-blue-100 text-sm">Active Users</div>
+                <div className="text-white/80 text-sm">{t.landingPage.statUsers}</div>
               </div>
               <div className="text-center" data-testid="stat-sessions">
                 <div className="text-3xl font-bold text-white mb-1">50K+</div>
-                <div className="text-blue-100 text-sm">Study Sessions</div>
+                <div className="text-white/80 text-sm">{t.landingPage.statSessions}</div>
               </div>
               <div className="text-center" data-testid="stat-satisfaction">
                 <div className="text-3xl font-bold text-white mb-1">98%</div>
-                <div className="text-blue-100 text-sm">Satisfaction Rate</div>
+                <div className="text-white/80 text-sm">{t.landingPage.statSatisfaction}</div>
               </div>
             </div>
           </div>
@@ -352,30 +382,30 @@ export default function LandingPage() {
               <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <BookOpen className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold">Keru.ai Suite</span>
+              <span className="text-xl font-bold">{t.landingPage.brandName}</span>
             </div>
             <p className="text-gray-400 mb-6">
-              Your Complete Learning & Life Management Platform
+              {t.landingPage.footerPlatform}
             </p>
             <div className="flex flex-wrap gap-4 justify-center text-sm text-gray-400">
               <Link href="/auth">
-                <span className="hover:text-white transition-colors" data-testid="link-footer-studybuddy">StudyBuddy</span>
+                <span className="hover:text-white transition-colors" data-testid="link-footer-studybuddy">{t.landingPage.studybuddyTitle}</span>
               </Link>
               <span>•</span>
               <Link href="/auth">
-                <span className="hover:text-white transition-colors" data-testid="link-footer-budgetpal">BudgetPal</span>
+                <span className="hover:text-white transition-colors" data-testid="link-footer-budgetpal">{t.landingPage.budgetpalTitle}</span>
               </Link>
               <span>•</span>
               <Link href="/auth">
-                <span className="hover:text-white transition-colors" data-testid="link-footer-travelblog">Travel Blog</span>
+                <span className="hover:text-white transition-colors" data-testid="link-footer-travelblog">{t.landingPage.travelTitle}</span>
               </Link>
             </div>
             <div className="mt-6 text-sm text-gray-500">
-              © 2024 Keru.ai Suite. All rights reserved.
+              {t.landingPage.footerCopyright}
             </div>
           </div>
         </div>
       </footer>
-    </div>
+    </PublicLayout>
   );
 }

@@ -9,12 +9,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, BookOpen, FileText, Image, Brain, Send, Eye } from 'lucide-react';
+import { Loader2, BookOpen, FileText, Image, Brain, Send, Eye, GraduationCap, Minimize2, MessageCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { Link } from 'wouter';
+import { PageLayout } from '@/components/PageLayout';
 
 interface RevisionMaterial {
   assignmentId: number;
   contentId: number;
+  teacherId?: number;
   status: string;
   assignedAt: string;
   dueDate?: string;
@@ -49,6 +53,7 @@ interface AIResponse {
 export default function StudentRevision() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [selectedMaterial, setSelectedMaterial] = useState<RevisionMaterial | null>(null);
   const [currentSession, setCurrentSession] = useState<string | null>(null);
@@ -58,24 +63,67 @@ export default function StudentRevision() {
     message: string;
     timestamp: string;
   }>>([]);
+  const [chatMinimized, setChatMinimized] = useState(true);
+  const [promptDismissed, setPromptDismissed] = useState(() =>
+    typeof localStorage !== 'undefined' ? localStorage.getItem('revision_assistant_name_prompt_dismissed') === 'true' : false
+  );
+  const [showInlineSetName, setShowInlineSetName] = useState(false);
+  const [inlineAssistantName, setInlineAssistantName] = useState('');
 
-  // Fetch revision materials
+  const { data: selectedTeachers = [] } = useQuery<{ id: number }[]>({
+    queryKey: ['/api/students/teachers'],
+    enabled: !!user,
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/students/teachers');
+      return res.json();
+    },
+  });
+
+  const { data: studentClassesData = [] } = useQuery<{ member?: { status?: string } }[]>({
+    queryKey: ['/api/classes/student', user?.id],
+    enabled: !!user && user?.role === 'student',
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/classes/student');
+      return res.json();
+    },
+  });
+
+  const { data: studentProfile } = useQuery<{ revisionAssistantName?: string | null } | null>({
+    queryKey: ['/api/progress', 'profile', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/progress/profile/${user!.id}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const hasTeachers = selectedTeachers.length > 0;
+  const hasApprovedClass = studentClassesData.some(
+    (item) => item?.member?.status === 'approved'
+  );
+  const showPrerequisites = hasTeachers === false || hasApprovedClass === false;
+
   const { data: materials = [], isLoading: materialsLoading, error: materialsError } = useQuery<RevisionMaterial[]>({
     queryKey: ['revision-materials'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/revision/materials');
+      const response = await apiRequest('GET', '/api/assignments/revision/materials');
       if (!response.ok) {
-        throw new Error('Failed to fetch revision materials');
+        const body = await response.json().catch(() => ({}));
+        const message = (body && typeof body.error === 'string') ? body.error : 'Failed to fetch revision materials';
+        const err = new Error(message) as Error & { status?: number };
+        err.status = response.status;
+        throw err;
       }
       return response.json();
     },
-    enabled: !!user
+    enabled: !!user && hasApprovedClass
   });
 
   // Start revision session mutation
   const startSessionMutation = useMutation({
     mutationFn: async ({ contentId, subject, topic }: { contentId: number; subject: string; topic?: string }) => {
-      const response = await apiRequest('POST', '/api/revision/session/start', {
+      const response = await apiRequest('POST', '/api/assignments/revision/session/start', {
         contentId,
         subject,
         topic: topic || 'General Review'
@@ -104,7 +152,7 @@ export default function StudentRevision() {
   // AI help mutation
   const aiHelpMutation = useMutation({
     mutationFn: async ({ contentId, question, sessionId }: { contentId: number; question: string; sessionId?: string }) => {
-      const response = await apiRequest('POST', '/api/revision/ai-help', {
+      const response = await apiRequest('POST', '/api/assignments/revision/ai-help', {
         contentId,
         question,
         sessionId
@@ -142,6 +190,34 @@ export default function StudentRevision() {
       });
     }
   });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (revisionAssistantName: string | null) => {
+      const res = await apiRequest('PUT', `/api/progress/profile/${user!.id}`, { revisionAssistantName });
+      if (!res.ok) throw new Error('Failed to update profile');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/progress', 'profile', user?.id] });
+      setShowInlineSetName(false);
+      setInlineAssistantName('');
+      toast({
+        title: t.dashboard.revisionAssistantNameSaved,
+        description: t.dashboard.revisionAssistantNameSavedDesc,
+      });
+    },
+    onError: () => {
+      toast({
+        title: t.dashboard.revisionAssistantSaveFailed,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleDismissAssistantNamePrompt = () => {
+    localStorage.setItem('revision_assistant_name_prompt_dismissed', 'true');
+    setPromptDismissed(true);
+  };
 
   const startRevisionSession = (material: RevisionMaterial) => {
     setSelectedMaterial(material);
@@ -192,47 +268,220 @@ export default function StudentRevision() {
     }
   };
 
+  const is403 = materialsError && (materialsError as Error & { status?: number }).status === 403;
+  const errorMessage = materialsError instanceof Error ? materialsError.message : '';
+
+  if (showPrerequisites) {
+    return (
+      <PageLayout maxWidth="7xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">{t.nav.revision}</h1>
+          <p className="mt-2 text-lg text-muted-foreground">{t.dashboard.revisionMaterialsDesc}</p>
+        </div>
+        <Card className="border-2 border-youth-primary/50 bg-youth-primary/5 rounded-youth-lg mb-8">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <GraduationCap className="h-5 w-5 text-youth-primary" />
+              {t.dashboard.getStarted}
+            </CardTitle>
+            <CardDescription>
+              {!hasTeachers
+                ? t.dashboard.getStartedNoTeachersClass
+                : !hasApprovedClass
+                  ? t.dashboard.getStartedNoApprovedClass
+                  : t.dashboard.getStartedNoTeachers}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="rounded-youth-lg bg-youth-primary hover:opacity-90 text-white">
+              <Link href="/classes">{t.dashboard.revisionGoToClasses}</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </PageLayout>
+    );
+  }
+
   if (materialsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading revision materials...</span>
-      </div>
+      <PageLayout maxWidth="7xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">{t.nav.revision}</h1>
+          <p className="mt-2 text-lg text-muted-foreground">{t.dashboard.revisionMaterialsDesc}</p>
+        </div>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">{t.dashboard.revisionLoading}</span>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (materialsError && (is403 || errorMessage.toLowerCase().includes('approve') || errorMessage.toLowerCase().includes('class'))) {
+    return (
+      <PageLayout maxWidth="7xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">{t.nav.revision}</h1>
+          <p className="mt-2 text-lg text-muted-foreground">{t.dashboard.revisionMaterialsDesc}</p>
+        </div>
+        <Card className="border-2 border-youth-primary/50 bg-youth-primary/5 rounded-youth-lg mb-8">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <GraduationCap className="h-5 w-5 text-youth-primary" />
+              {t.dashboard.revisionErrorTitle}
+            </CardTitle>
+            <CardDescription>{errorMessage}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="rounded-youth-lg bg-youth-primary hover:opacity-90 text-white">
+              <Link href="/classes">{t.dashboard.revisionGoToClasses}</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </PageLayout>
     );
   }
 
   if (materialsError) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Error Loading Materials</h2>
-          <p className="text-gray-600">Failed to load your revision materials. Please try again.</p>
+      <PageLayout maxWidth="7xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">{t.nav.revision}</h1>
+          <p className="mt-2 text-lg text-muted-foreground">{t.dashboard.revisionMaterialsDesc}</p>
         </div>
-      </div>
+        <Card className="border-2 border-destructive/30 bg-destructive/5 rounded-youth-lg">
+          <CardHeader className="pb-2">
+            <CardTitle>{t.dashboard.revisionErrorTitle}</CardTitle>
+            <CardDescription>
+              {materialsError instanceof Error ? materialsError.message : 'Unknown error'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link href="/classes">{t.dashboard.revisionGoToClasses}</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Revision Materials</h1>
-          <p className="mt-2 text-lg text-gray-600">
-            Study your assigned materials with AI assistance
+    <PageLayout maxWidth="7xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground">{t.nav.revision}</h1>
+        <p className="mt-2 text-lg text-muted-foreground">{t.dashboard.revisionMaterialsDesc}</p>
+        {hasTeachers && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            <Link href="/classes" className="underline hover:text-youth-primary">
+              {t.dashboard.revisionYourTeachersClasses}
+            </Link>
+            {' '}({selectedTeachers.length} {t.dashboard.revisionTeachersLabel},{' '}
+            {studentClassesData.filter((c) => c?.member?.status === 'approved').length} {t.dashboard.revisionClassesLabel})
           </p>
-        </div>
+        )}
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {materials.length > 0 && studentProfile != null && !studentProfile.revisionAssistantName?.trim() && !promptDismissed && (
+        <Card className="mb-6 border-youth-primary/30 bg-youth-primary/5">
+          <CardContent className="pt-6">
+            {!showInlineSetName ? (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <p className="text-sm text-foreground">
+                  {t.dashboard.revisionAssistantPromptMessage}
+                </p>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDismissAssistantNamePrompt}
+                  >
+                    {t.dashboard.revisionAssistantLater}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-youth-primary hover:opacity-90"
+                    onClick={() => setShowInlineSetName(true)}
+                  >
+                    {t.dashboard.revisionAssistantSetName}
+                  </Button>
+                  <Button size="sm" variant="ghost" asChild>
+                    <Link href="/profile">{t.dashboard.revisionAssistantGoToProfile}</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <div className="flex-1 space-y-1">
+                  <label className="text-sm font-medium">
+                    {t.dashboard.revisionAssistantInlineLabel}
+                  </label>
+                  <Input
+                    value={inlineAssistantName}
+                    onChange={(e) => setInlineAssistantName(e.target.value)}
+                    placeholder={t.dashboard.revisionAssistantNamePlaceholder}
+                    className="max-w-xs"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setShowInlineSetName(false); setInlineAssistantName(''); }}
+                  >
+                    {t.dashboard.revisionAssistantCancel}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-youth-primary hover:opacity-90"
+                    onClick={() => updateProfileMutation.mutate(inlineAssistantName.trim() || null)}
+                    disabled={updateProfileMutation.isPending}
+                  >
+                    {updateProfileMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      t.dashboard.revisionAssistantSave
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Materials List */}
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>Your Materials</CardTitle>
+                <CardTitle>{t.dashboard.revisionYourMaterials}</CardTitle>
                 <CardDescription>
-                  {materials.length} revision materials available
+                  {materials.length} {t.dashboard.revisionCountAvailable}
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {materials.length === 0 && selectedTeachers.length === 0 && !materialsLoading && (
+                  <div className="py-8 text-center space-y-4">
+                    <GraduationCap className="w-12 h-12 mx-auto text-slate-400" />
+                    <p className="text-slate-600 font-medium">
+                      {t.dashboard.revisionStartHere}
+                    </p>
+                    <p className="text-slate-600 text-sm">
+                      {t.dashboard.revisionEmptyAddTeacherFirst}
+                    </p>
+                    <Button asChild variant="default">
+                      <Link href="/classes">{t.dashboard.revisionGoToClasses}</Link>
+                    </Button>
+                  </div>
+                )}
+                {materials.length === 0 && selectedTeachers.length > 0 && !materialsLoading && (
+                  <div className="py-8 text-center space-y-2 text-slate-600">
+                    <p>{t.dashboard.revisionEmptyTeacherNotAssigned}</p>
+                    <p className="text-sm">{t.dashboard.revisionEmptyJoinAndAsk}</p>
+                  </div>
+                )}
+                {materials.length > 0 && (
                 <ScrollArea className="h-96">
                   <div className="space-y-3">
                     {materials.map((material) => (
@@ -273,142 +522,187 @@ export default function StudentRevision() {
                     ))}
                   </div>
                 </ScrollArea>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Content Viewer & AI Assistant */}
+          {/* Book: full width (screen-wide). Chat is floating + minimizable. */}
           <div className="lg:col-span-2">
             {selectedMaterial ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Content Viewer */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      {getContentIcon(selectedMaterial.content.contentType)}
-                      <span>{selectedMaterial.content.title}</span>
-                    </CardTitle>
-                    <CardDescription>
-                      {selectedMaterial.content.subject} • {selectedMaterial.content.contentType.toUpperCase()}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
+              <>
+                <section className="w-full rounded-xl shadow-lg border border-stone-200/80 bg-amber-50/40 overflow-hidden relative">
+                  <div className="px-6 sm:px-8 py-5 border-b border-stone-200/60 bg-white/60 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {getContentIcon(selectedMaterial.content.contentType)}
+                        <h2 className="text-xl font-bold text-foreground">
+                          {selectedMaterial.content.title}
+                        </h2>
+                        <span className="text-sm text-muted-foreground">
+                          {selectedMaterial.content.subject} • {selectedMaterial.content.contentType.toUpperCase()}
+                        </span>
+                      </div>
                       {selectedMaterial.content.description && (
-                        <div>
-                          <h4 className="font-semibold text-sm text-gray-700 mb-2">Description</h4>
-                          <p className="text-sm text-gray-600">{selectedMaterial.content.description}</p>
-                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground max-w-3xl">
+                          {selectedMaterial.content.description}
+                        </p>
                       )}
-                      
                       {selectedMaterial.content.fileUrl && (
-                        <div>
-                          <h4 className="font-semibold text-sm text-gray-700 mb-2">File</h4>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => window.open(selectedMaterial.content.fileUrl, '_blank')}
-                            data-testid="view-content-button"
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Content
-                          </Button>
-                        </div>
-                      )}
-                      
-                      {selectedMaterial.content.extractedText && (
-                        <div>
-                          <h4 className="font-semibold text-sm text-gray-700 mb-2">Content Preview</h4>
-                          <ScrollArea className="h-32 bg-gray-50 p-3 rounded">
-                            <p className="text-xs text-gray-600">
-                              {selectedMaterial.content.extractedText.substring(0, 300)}
-                              {selectedMaterial.content.extractedText.length > 300 && '...'}
-                            </p>
-                          </ScrollArea>
-                        </div>
-                      )}
-                      
-                      {selectedMaterial.content.tags.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold text-sm text-gray-700 mb-2">Tags</h4>
-                          <div className="flex flex-wrap gap-1">
-                            {selectedMaterial.content.tags.map((tag, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mt-2 -ml-2 text-muted-foreground hover:text-foreground"
+                          onClick={() => window.open(selectedMaterial.content.fileUrl, '_blank')}
+                          data-testid="view-content-button"
+                        >
+                          <Eye className="h-4 w-4 mr-1.5" />
+                          Open in new tab
+                        </Button>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* AI Assistant */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Brain className="h-5 w-5" />
-                      <span>AI Study Assistant</span>
-                    </CardTitle>
-                    <CardDescription>
-                      Ask questions about the content to enhance your understanding
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Conversation History */}
-                      <ScrollArea className="h-64 bg-gray-50 p-3 rounded">
-                        {aiConversation.length === 0 ? (
-                          <div className="text-center text-gray-500 text-sm">
-                            Start by asking a question about the content
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {aiConversation.map((message, index) => (
-                              <div key={index} className={`${
-                                message.type === 'user' ? 'text-right' : 'text-left'
-                              }`}>
-                                <div className={`inline-block max-w-[80%] p-2 rounded text-sm ${
-                                  message.type === 'user' 
-                                    ? 'bg-blue-500 text-white' 
-                                    : 'bg-white text-gray-800 border'
-                                }`}>
-                                  {message.message}
+                    {/* Chat trigger and panel: top-right of book header */}
+                    <div className="relative flex-shrink-0">
+                      {chatMinimized ? (
+                        <Button
+                          size="lg"
+                          className="h-11 w-11 rounded-full shadow-md bg-youth-primary hover:opacity-90 text-white p-0"
+                          onClick={() => setChatMinimized(false)}
+                          title="Ask about this material"
+                        >
+                          <MessageCircle className="h-5 w-5" />
+                        </Button>
+                      ) : (
+                        <div className="absolute top-0 right-0 z-10 w-[320px] sm:w-[360px] rounded-youth-lg border-2 border-youth-muted/50 bg-card shadow-xl">
+                          <Card className="rounded-youth-lg border-0 shadow-none">
+                            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                              <div>
+                                <CardTitle className="flex items-center space-x-2 text-base">
+                                  <Brain className="h-5 w-5 text-youth-primary" />
+                                  <span>Ask about this material</span>
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                  Questions about the content
+                                </CardDescription>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 shrink-0"
+                                onClick={() => setChatMinimized(true)}
+                                title="Minimize"
+                              >
+                                <Minimize2 className="h-4 w-4" />
+                              </Button>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-3">
+                                <ScrollArea className="h-56 bg-youth-muted/30 p-2 rounded-lg">
+                                  {aiConversation.length === 0 ? (
+                                    <div className="text-center text-muted-foreground text-xs py-6">
+                                      Start by asking a question about the content
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {aiConversation.map((message, index) => (
+                                        <div
+                                          key={index}
+                                          className={
+                                            message.type === 'user' ? 'text-right' : 'text-left'
+                                          }
+                                        >
+                                          <div
+                                            className={`inline-block max-w-[90%] p-2 rounded-lg text-xs ${
+                                              message.type === 'user'
+                                                ? 'bg-youth-primary text-white'
+                                                : 'bg-background text-foreground border'
+                                            }`}
+                                          >
+                                            {message.message}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </ScrollArea>
+                                <div className="space-y-1.5">
+                                  <Textarea
+                                    placeholder="Ask a question..."
+                                    value={aiQuestion}
+                                    onChange={(e) => setAiQuestion(e.target.value)}
+                                    disabled={aiHelpMutation.isPending}
+                                    className="min-h-[72px] text-sm"
+                                    data-testid="ai-question-input"
+                                  />
+                                  <Button
+                                    onClick={askAI}
+                                    disabled={!aiQuestion.trim() || aiHelpMutation.isPending}
+                                    className="w-full rounded-youth-lg bg-youth-primary hover:opacity-90 text-sm"
+                                    data-testid="ask-ai-button"
+                                  >
+                                    {aiHelpMutation.isPending ? (
+                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    ) : (
+                                      <Send className="h-4 w-4 mr-2" />
+                                    )}
+                                    Ask AI Assistant
+                                  </Button>
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </ScrollArea>
-
-                      {/* Question Input */}
-                      <div className="space-y-2">
-                        <Textarea
-                          placeholder="Ask a question about the content..."
-                          value={aiQuestion}
-                          onChange={(e) => setAiQuestion(e.target.value)}
-                          disabled={aiHelpMutation.isPending}
-                          data-testid="ai-question-input"
-                        />
-                        <Button 
-                          onClick={askAI}
-                          disabled={!aiQuestion.trim() || aiHelpMutation.isPending}
-                          className="w-full"
-                          data-testid="ask-ai-button"
-                        >
-                          {aiHelpMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : (
-                            <Send className="h-4 w-4 mr-2" />
-                          )}
-                          Ask AI Assistant
-                        </Button>
-                      </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                  <div className="min-h-[60vh]">
+                    {selectedMaterial.content.fileUrl &&
+                     (selectedMaterial.content.contentType || '').toLowerCase() === 'pdf' ? (
+                      <iframe
+                        title={selectedMaterial.content.title}
+                        src={selectedMaterial.content.fileUrl}
+                        className="w-full min-h-[70vh] border-0"
+                      />
+                    ) : selectedMaterial.content.extractedText ? (
+                      <ScrollArea className="h-[70vh]">
+                        <div className="px-6 sm:px-8 py-6 max-w-3xl mx-auto">
+                          <p className="text-base leading-relaxed text-stone-700 whitespace-pre-wrap font-[inherit]">
+                            {selectedMaterial.content.extractedText}
+                          </p>
+                          {Array.isArray(selectedMaterial.content.tags) &&
+                           selectedMaterial.content.tags.length > 0 && (
+                            <div className="mt-8 pt-4 border-t border-stone-200 flex flex-wrap gap-1.5">
+                              {selectedMaterial.content.tags.map((tag, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    ) : (
+                      <div className="px-6 sm:px-8 py-12 text-center text-muted-foreground">
+                        {selectedMaterial.content.fileUrl ? (
+                          <>
+                            <p className="mb-4">This file cannot be embedded. Open it in a new tab to read.</p>
+                            <Button
+                              variant="outline"
+                              onClick={() => window.open(selectedMaterial.content.fileUrl, '_blank')}
+                              data-testid="view-content-button"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Content
+                            </Button>
+                          </>
+                        ) : (
+                          <p>No text content available for this material.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </>
             ) : (
               <Card>
                 <CardContent className="flex items-center justify-center h-96">
@@ -424,7 +718,6 @@ export default function StudentRevision() {
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

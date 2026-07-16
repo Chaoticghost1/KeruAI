@@ -1,5 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 
+/** Type-safe error message for catch (error: unknown) */
+export function getErrorMessage(err: unknown, fallback = "Internal Server Error"): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return fallback;
+}
+
 export interface ApiError extends Error {
   statusCode?: number;
   details?: any;

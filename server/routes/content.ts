@@ -74,7 +74,7 @@ contentRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superuser'
       contentType,
       subject,
       gradeLevel,
-      tags: tags ? JSON.parse(tags) : [],
+      tags: (tags && tags.trim()) ? JSON.parse(tags) : [],
       filePath: req.file?.path,
       fileUrl: req.file ? `/uploads/${req.file.filename}` : undefined,
       htmlContent,

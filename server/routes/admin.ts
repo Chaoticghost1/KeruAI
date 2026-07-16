@@ -1,4 +1,6 @@
 import { Router, Response, NextFunction } from "express";
+import { getErrorMessage } from "../middleware/error-handler";
+import { getModerationFromStorage, getBadWordLeaderboard, type ModerationSettings } from "../moderation";
 import { storage } from "../storage";
 import { insertBotPersonaSchema } from "@shared/schema";
 import {
@@ -9,16 +11,27 @@ import {
 
 export const adminRouter = Router();
 
-// GET /users - List all users
+// GET /users - List users with pagination (supports limit, offset, search)
 adminRouter.get("/users", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user || req.user.role !== 'superuser') {
       return res.status(403).json({ error: 'Unauthorized' });
     }
-    
-    const users = await storage.getAllUsers();
-    const sanitizedUsers = users.map(({ password, ...user }) => user);
-    res.json(sanitizedUsers);
+
+    const limitParam = req.query.limit != null ? parseInt(req.query.limit as string) : 20;
+    const offsetParam = req.query.offset != null ? parseInt(req.query.offset as string) : 0;
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+
+    if (isNaN(limitParam) || limitParam < 1 || limitParam > 100) {
+      return res.status(400).json({ error: 'Invalid limit: must be 1-100' });
+    }
+    if (isNaN(offsetParam) || offsetParam < 0) {
+      return res.status(400).json({ error: 'Invalid offset: must be >= 0' });
+    }
+
+    const result = await storage.getAllUsersPaginated(limitParam, offsetParam, search);
+    const sanitizedData = result.data.map(({ password, ...user }) => user);
+    res.json({ data: sanitizedData, total: result.total });
   } catch (error) {
     next(error);
   }
@@ -154,24 +167,173 @@ adminRouter.delete("/users/:id", authenticateToken, authorizeRoles('superuser'),
   }
 });
 
-// PATCH /system/features - Toggle system features
+const DEFAULT_FEATURES: Record<string, boolean> = {
+  revision_materials: true,
+  studybuddy_ai: true,
+  budget_tracker: true,
+  games: true,
+  content_management: true,
+  travel_blog: true,
+  dao_access: true,
+  admin_panel: true,
+};
+
+async function getFeaturesFromStorage(): Promise<Record<string, boolean>> {
+  const stored = await storage.getSystemSetting('features');
+  if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+    return { ...DEFAULT_FEATURES, ...(stored as Record<string, boolean>) };
+  }
+  return { ...DEFAULT_FEATURES };
+}
+
+// GET /system/features - Get current feature flags (admin: full; used to populate System Settings)
+adminRouter.get("/system/features", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const features = await getFeaturesFromStorage();
+    res.json(features);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /system/features - Toggle system features (persisted)
 adminRouter.patch("/system/features", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user || req.user.role !== 'superuser') {
       return res.status(403).json({ error: 'Unauthorized' });
     }
-    
     const { feature, enabled } = req.body;
-
-    if (!feature) {
+    if (!feature || typeof feature !== 'string') {
       return res.status(400).json({ error: "Feature name is required" });
     }
-
     if (typeof enabled !== 'boolean') {
       return res.status(400).json({ error: "enabled must be a boolean" });
     }
+    const features = await getFeaturesFromStorage();
+    features[feature] = enabled;
+    await storage.setSystemSetting('features', features);
+    res.json({ success: true, message: `Feature ${feature} ${enabled ? 'enabled' : 'disabled'}`, features });
+  } catch (error) {
+    next(error);
+  }
+});
 
-    res.json({ success: true, message: `Feature ${feature} ${enabled ? 'enabled' : 'disabled'}` });
+// GET /system/moderation - Get moderation settings (superuser only)
+adminRouter.get("/system/moderation", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const moderation = await getModerationFromStorage();
+    res.json(moderation);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /system/moderation - Update moderation settings (superuser only)
+adminRouter.patch("/system/moderation", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const body = (req.body || {}) as Partial<ModerationSettings>;
+    const current = await getModerationFromStorage();
+    const num = (v: unknown): number => {
+      if (typeof v === 'number' && !isNaN(v)) return Math.max(0, v);
+      if (typeof v === 'string') return Math.max(0, parseInt(v, 10) || 0);
+      return 0;
+    };
+    const arr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+    const updated: ModerationSettings = {
+      blockedUsernamePatterns: body.blockedUsernamePatterns !== undefined ? arr(body.blockedUsernamePatterns) : current.blockedUsernamePatterns,
+      blockedEmailPatterns: body.blockedEmailPatterns !== undefined ? arr(body.blockedEmailPatterns) : current.blockedEmailPatterns,
+      blockedWords: body.blockedWords !== undefined ? arr(body.blockedWords) : current.blockedWords ?? [],
+      signupRateLimitPerIpPerHour: body.signupRateLimitPerIpPerHour !== undefined ? num(body.signupRateLimitPerIpPerHour) : current.signupRateLimitPerIpPerHour,
+      chatMessagesPerUserPerMinute: body.chatMessagesPerUserPerMinute !== undefined ? num(body.chatMessagesPerUserPerMinute) : current.chatMessagesPerUserPerMinute,
+    };
+    await storage.setSystemSetting('moderation', updated);
+    res.json(updated);
+  } catch (error: unknown) {
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to save moderation settings') });
+  }
+});
+
+// GET /system/api-keys - Status only (set/not_set), never returns actual keys (superuser only)
+adminRouter.get("/system/api-keys", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const stored = await storage.getSystemSetting('api_keys');
+    const s = stored && typeof stored === 'object' && !Array.isArray(stored) ? (stored as Record<string, string>) : {};
+    const openai = typeof s.openai === 'string' && s.openai.trim().length > 0;
+    const perplexity = typeof s.perplexity === 'string' && s.perplexity.trim().length > 0;
+    res.json({
+      openai: openai ? 'set' : (process.env.OPENAI_API_KEY ? 'env' : 'not_set'),
+      perplexity: perplexity ? 'set' : (process.env.PERPLEXITY_API_KEY ? 'env' : 'not_set'),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /system/api-keys - Update API keys (superuser only). Send openai/perplexity to set; omit or send empty string to clear (use env).
+adminRouter.patch("/system/api-keys", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const body = (req.body || {}) as { openai?: string; perplexity?: string };
+    let current: Record<string, string> | undefined;
+    try {
+      const raw = await storage.getSystemSetting('api_keys');
+      current = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, string>) : undefined;
+    } catch {
+      current = undefined;
+    }
+    const prev: Record<string, string> = current ? { ...current } : {};
+    if (body.openai !== undefined) prev.openai = typeof body.openai === 'string' ? body.openai.trim() : '';
+    if (body.perplexity !== undefined) prev.perplexity = typeof body.perplexity === 'string' ? body.perplexity.trim() : '';
+    await storage.setSystemSetting('api_keys', prev);
+    return res.json({
+      openai: prev.openai ? 'set' : (process.env.OPENAI_API_KEY ? 'env' : 'not_set'),
+      perplexity: prev.perplexity ? 'set' : (process.env.PERPLEXITY_API_KEY ? 'env' : 'not_set'),
+    });
+  } catch (error: unknown) {
+    let message = getErrorMessage(error, 'Failed to save API keys');
+    if (message.includes('system_settings')) {
+      message = 'Database table system_settings is missing. Run: npm run db:push (or run migrations/add-system-settings.sql on your database).';
+    }
+    return res.status(500).json({ error: message });
+  }
+});
+
+// GET /system/bad-words-leaderboard - Users who attempted blocked words most (superuser only)
+adminRouter.get("/system/bad-words-leaderboard", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const rows = await getBadWordLeaderboard();
+    const enriched = await Promise.all(
+      rows.map(async (r) => {
+        const u = await storage.getUser(r.userId);
+        return {
+          userId: r.userId,
+          username: u?.username ?? null,
+          firstName: u?.firstName ?? null,
+          lastName: u?.lastName ?? null,
+          count: r.count,
+          lastWord: r.lastWord,
+          lastAt: r.lastAt,
+        };
+      })
+    );
+    res.json(enriched);
   } catch (error) {
     next(error);
   }
@@ -219,13 +381,71 @@ adminRouter.get("/chat-analytics", authenticateToken, authorizeRoles('superuser'
   }
 });
 
-// GET /bot-personas - List all bot personas
+// GET /analytics/detailed - Full analytics for superuser only (heavy payload)
+adminRouter.get("/analytics/detailed", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const analytics = await storage.getSuperuserAnalytics();
+    res.json(analytics);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /class-chat-archives - List archives (superuser only). Optional limit, offset, search (returns { data, total }).
+adminRouter.get("/class-chat-archives", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const limitParam = req.query.limit != null ? parseInt(req.query.limit as string) : undefined;
+    const offsetParam = req.query.offset != null ? parseInt(req.query.offset as string) : undefined;
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    if (limitParam !== undefined || offsetParam !== undefined || search) {
+      const limit = Math.min(Math.max(limitParam ?? 10, 1), 100);
+      const offset = Math.max(offsetParam ?? 0, 0);
+      const result = await storage.getClassChatArchivesPaginated(limit, offset, search);
+      return res.json(result);
+    }
+    const archives = await storage.getClassChatArchives();
+    res.json(archives);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /class-chat-archives/:id - Get one archive (superuser only)
+adminRouter.get("/class-chat-archives/:id", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Invalid archive ID' });
+    const archive = await storage.getClassChatArchive(id);
+    if (!archive) return res.status(404).json({ error: 'Archive not found' });
+    res.json(archive);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /bot-personas - List bot personas (optional pagination: ?limit=&offset= returns { data, total }; no params returns full array)
 adminRouter.get("/bot-personas", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user || !['superuser', 'teacher'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
-    
+    const limitParam = req.query.limit != null ? parseInt(req.query.limit as string) : undefined;
+    const offsetParam = req.query.offset != null ? parseInt(req.query.offset as string) : undefined;
+    if (limitParam !== undefined || offsetParam !== undefined) {
+      const limit = Math.min(Math.max(limitParam ?? 10, 1), 100);
+      const offset = Math.max(offsetParam ?? 0, 0);
+      const result = await storage.getBotPersonasPaginated(limit, offset);
+      return res.json(result);
+    }
     const personas = await storage.getBotPersonas();
     res.json(personas);
   } catch (error) {
@@ -251,14 +471,17 @@ adminRouter.post("/bot-personas", authenticateToken, authorizeRoles('superuser',
     }
     
     const personaData = { ...req.body };
-    
+    // DB column is "key"; API accepts "agentKey"
+    if (personaData.agentKey != null && personaData.agentKey !== '') {
+      personaData.key = personaData.agentKey;
+    }
     if (typeof personaData.subjects === 'string') {
       const subjectsArray = personaData.subjects.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       personaData.subjects = subjectsArray.length > 0 ? subjectsArray : null;
     } else if (!personaData.subjects) {
       personaData.subjects = null;
     }
-    
+
     personaData.createdById = req.user.id;
     const persona = await storage.createBotPersona(personaData);
     res.json({ success: true, persona });
@@ -377,6 +600,7 @@ adminRouter.post("/blog-posts", authenticateToken, authorizeRoles('superuser', '
       authorId: req.user.id,
       category: category || 'uncategorized',
       isPublished: req.body.isPublished || false,
+      showOnLanding: !!req.body.showOnLanding,
       createdAt: new Date()
     };
     
@@ -418,6 +642,11 @@ adminRouter.put("/blog-posts/:id", authenticateToken, authorizeRoles('superuser'
     }
     
     const updates = { ...req.body };
+    if (typeof updates.showOnLanding === 'boolean') {
+      updates.showOnLanding = updates.showOnLanding;
+    } else {
+      updates.showOnLanding = !!updates.showOnLanding;
+    }
     
     if (updates.tags && typeof updates.tags === 'string') {
       updates.tags = updates.tags.split(',').map((t: string) => t.trim()).filter((t: string) => t);
@@ -521,6 +750,160 @@ adminRouter.get("/submissions", authenticateToken, authorizeRoles('superuser', '
       const submissions = await storage.getAllContentSubmissions(published);
       res.json(submissions);
     }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /mentor-applications - List mentor applications (superuser only; optional limit/offset for pagination)
+adminRouter.get("/mentor-applications", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const status = req.query.status as string | undefined;
+    const limitParam = req.query.limit != null ? parseInt(req.query.limit as string) : undefined;
+    const offsetParam = req.query.offset != null ? parseInt(req.query.offset as string) : undefined;
+    if (limitParam !== undefined || offsetParam !== undefined) {
+      const limit = Math.min(Math.max(limitParam ?? 10, 1), 100);
+      const offset = Math.max(offsetParam ?? 0, 0);
+      const result = await storage.getMentorApplicationsPaginated(status, limit, offset);
+      return res.json(result);
+    }
+    const applications = await storage.getMentorApplications(status);
+    res.json(applications);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /mentor-applications/:id - Approve or reject mentor application (superuser only)
+adminRouter.patch("/mentor-applications/:id", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'superuser') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ error: "Invalid application ID" });
+    }
+    const { status, adminNotes, createAccount } = req.body;
+    if (!status || !['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: "Status must be 'approved' or 'rejected'" });
+    }
+    const application = await storage.getMentorApplication(id);
+    if (!application) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+    const updates: Record<string, unknown> = {
+      status,
+      reviewedBy: req.user.id,
+      reviewedAt: new Date(),
+      adminNotes: adminNotes || application.adminNotes,
+    };
+    if (status === 'approved' && createAccount) {
+      const { hashPassword } = await import("../auth");
+      let user = await storage.getUserByEmail(application.email);
+      if (!user) {
+        const usernameBase = application.email.replace(/@.*$/, '').replace(/\W/g, '');
+        let username = usernameBase;
+        let suffix = 0;
+        while (await storage.getUserByUsername(username)) {
+          suffix++;
+          username = `${usernameBase}${suffix}`;
+        }
+        const tempPassword = Math.random().toString(36).slice(-10) + 'A1!';
+        user = await storage.createUser({
+          username,
+          email: application.email,
+          password: await hashPassword(tempPassword),
+          role: 'teacher',
+          firstName: application.fullName.split(' ')[0] || application.fullName,
+          lastName: application.fullName.split(' ').slice(1).join(' ') || '',
+          phoneNumber: application.phone || undefined,
+          isVerified: true,
+        });
+        updates.userId = user.id;
+        const profile = await storage.createMentorProfile({
+          userId: user.id,
+          subjects: application.subjects,
+          bio: application.experience || application.credentials || '',
+          gradeLevel: application.gradeLevel || undefined,
+          hourlyRate: application.hourlyRate || '0',
+          isVerified: true,
+        });
+        (updates as Record<string, unknown>).tempPassword = tempPassword;
+        (updates as Record<string, unknown>).createdProfileId = profile.id;
+      } else {
+        updates.userId = user.id;
+        const existingProfile = await storage.getMentorProfile(user.id);
+        if (!existingProfile) {
+          await storage.createMentorProfile({
+            userId: user.id,
+            subjects: application.subjects,
+            bio: application.experience || application.credentials || '',
+            gradeLevel: application.gradeLevel || undefined,
+            hourlyRate: application.hourlyRate || '0',
+            isVerified: true,
+          });
+        } else {
+          await storage.updateMentorProfile(user.id, { isVerified: true });
+        }
+      }
+    }
+    const { tempPassword, createdProfileId, ...dbUpdates } = updates as Record<string, unknown>;
+    const updated = await storage.updateMentorApplication(id, dbUpdates as Parameters<typeof storage.updateMentorApplication>[1]);
+    const response: Record<string, unknown> = { ...updated };
+    if (tempPassword) response.tempPassword = tempPassword;
+    if (createdProfileId) response.createdProfileId = createdProfileId;
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /mentor-materials - List mentor materials (for admin approval)
+adminRouter.get("/mentor-materials", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || !['superuser', 'teacher'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const status = req.query.status as string | undefined;
+    const mentorId = req.query.mentorId ? parseInt(req.query.mentorId as string) : undefined;
+    const materials = await storage.getMentorMaterials(mentorId, status);
+    res.json(materials);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /mentor-materials/:id - Approve or reject mentor material
+adminRouter.patch("/mentor-materials/:id", authenticateToken, authorizeRoles('superuser', 'teacher'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || !['superuser', 'teacher'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) {
+      return res.status(400).json({ error: "Invalid material ID" });
+    }
+    const { status, adminNotes } = req.body;
+    if (!status || !['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: "Status must be 'approved' or 'rejected'" });
+    }
+    const material = await storage.getMentorMaterial(id);
+    if (!material) {
+      return res.status(404).json({ error: "Material not found" });
+    }
+    const isTeacherApproval = req.user.role === 'teacher' && status === 'approved';
+    const updated = await storage.updateMentorMaterial(id, {
+      status,
+      adminNotes: adminNotes || material.adminNotes,
+      reviewedBy: req.user.id,
+      reviewedAt: new Date(),
+      ...(isTeacherApproval ? { teacherRecognized: true } : {}),
+    });
+    res.json(updated);
   } catch (error) {
     next(error);
   }

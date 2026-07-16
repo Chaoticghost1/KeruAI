@@ -1,8 +1,14 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { useQuery, useMutation, UseMutationResult, useQueryClient } from "@tanstack/react-query";
+// #region agent log (guarded by VITE_DEBUG_AGENT_INGEST; leave unset in production)
+const _dbg = import.meta.env.VITE_DEBUG_AGENT_INGEST
+  ? (m: string, d?: object) => fetch('http://127.0.0.1:7242/ingest/5a811126-3bcf-4744-9ff0-298a7797a469', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'client/use-auth.tsx', message: m, data: d || {}, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H3' }) }).catch(() => {})
+  : () => {};
+// #endregion
 import { User, InsertUser } from "@shared/schema";
 import { apiRequest } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { OFFLINE_ENABLED } from "@/lib/offline-config";
 import { OfflineManager } from "@/lib/offline-storage";
 
 type AuthResponse = {
@@ -43,12 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
       try {
+        _dbg('/me fetch starting', {});
         const response = await apiRequest("GET", "/api/auth/me");
+        _dbg('/me response', { status: response.status });
         if (response.status === 401) {
           return null;
         }
-        return await response.json();
-      } catch (error) {
+        const data = await response.json();
+        _dbg('/me parsed', { userId: data?.id });
+        return data;
+      } catch (error: any) {
+        _dbg('/me error', { err: error?.message });
         return null;
       }
     },
@@ -66,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await response.json();
     },
     onSuccess: (data: { user: User; tokens: { accessToken: string; refreshToken: string } }) => {
+      _dbg('login mutation success', { userId: data.user.id });
       // Store tokens in localStorage
       localStorage.setItem('accessToken', data.tokens.accessToken);
       localStorage.setItem('refreshToken', data.tokens.refreshToken);
@@ -136,17 +148,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.setQueryData(["/api/auth/me"], null);
     queryClient.clear();
     
-    // 5. Clear async caches in background (don't wait)
+    // 5. Clear all browser caches (async, best-effort)
     (async () => {
       try {
-        await OfflineManager.clearAllContentCache();
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+        }
       } catch (e) {
-        console.warn('Failed to clear offline cache:', e);
-      }
-      
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
+        console.warn('Failed to clear service worker caches:', e);
       }
     })();
     
@@ -156,6 +166,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      try {
+        await apiRequest("POST", "/api/auth/logout");
+      } catch {
+        // Ignore: revoke on server best-effort; always clear local state
+      }
       performLogout();
     },
     onSuccess: () => {

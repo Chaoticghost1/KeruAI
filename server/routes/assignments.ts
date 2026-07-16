@@ -7,6 +7,7 @@ import {
   requireVerification,
   AuthRequest
 } from "../auth";
+import { debug } from "../lib/debug-study-materials";
 import { AITutorService } from "../ai-service.js";
 import multer from 'multer';
 import path from 'path';
@@ -49,10 +50,13 @@ export const assignmentsRouter = Router();
 
 assignmentsRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { studentId, contentId } = req.body;
-    
-    if (!studentId || !contentId) {
-      return res.status(400).json({ error: "Student ID and content ID are required" });
+    debug("POST /assignments", "body received", { body: req.body });
+    const studentId = typeof req.body.studentId === 'number' ? req.body.studentId : parseInt(req.body.studentId, 10);
+    const contentId = typeof req.body.contentId === 'number' ? req.body.contentId : parseInt(req.body.contentId, 10);
+
+    if (!Number.isInteger(studentId) || studentId < 1 || !Number.isInteger(contentId) || contentId < 1) {
+      debug("POST /assignments", "validation failed", { studentId, contentId });
+      return res.status(400).json({ error: "Student ID and content ID are required and must be positive integers" });
     }
 
     const assignment = await storage.createStudentAssignment({
@@ -61,8 +65,10 @@ assignmentsRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superu
       status: 'assigned'
     });
 
+    debug("POST /assignments", "created", { assignmentId: assignment.id, studentId, contentId });
     res.status(201).json(assignment);
   } catch (error) {
+    debug("POST /assignments", "error", { error: error instanceof Error ? error.message : String(error) });
     next(error);
   }
 });
@@ -122,36 +128,76 @@ assignmentsRouter.post("/:id/grade", authenticateToken, authorizeRoles('teacher'
 
 assignmentsRouter.get("/revision/materials", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const assignments = await storage.getStudentAssignments(req.user!.id);
-    
+    const studentId = req.user!.id;
+    const selectedRows = await storage.getStudentTeachers(studentId);
+    const selectedTeacherIds = new Set(selectedRows.map((r) => r.teacherId));
+
+    debug("GET /revision/materials", "student context", {
+      studentId,
+      selectedTeacherIds: [...selectedTeacherIds],
+      selectedTeacherCount: selectedTeacherIds.size,
+    });
+
+    if (selectedTeacherIds.size === 0) {
+      debug("GET /revision/materials", "empty: no teachers selected", {});
+      return res.json([]);
+    }
+
+    const hasApprovedClass = await storage.hasAnyApprovedClass(studentId);
+    debug("GET /revision/materials", "approved class check", { hasApprovedClass });
+
+    if (!hasApprovedClass) {
+      debug("GET /revision/materials", "403: no approved class", {});
+      return res.status(403).json({ error: "Your teacher must approve you in a class before you can access study materials" });
+    }
+    const assignments = await storage.getStudentAssignments(studentId);
+    debug("GET /revision/materials", "assignments", {
+      count: assignments.length,
+      assignmentIds: assignments.map((a) => ({ id: a.id, contentId: a.contentId })),
+    });
+
     const materialsWithContent = await Promise.all(
       assignments.map(async (assignment) => {
         const content = await storage.getContentSubmission(assignment.contentId);
+        if (!content || !selectedTeacherIds.has(content.teacherId)) {
+          debug("GET /revision/materials", "assignment filtered out (no content or teacher not in selected)", {
+            assignmentId: assignment.id,
+            contentId: assignment.contentId,
+            hasContent: !!content,
+            contentTeacherId: content?.teacherId,
+            inSelected: content ? selectedTeacherIds.has(content.teacherId) : false,
+          });
+          return null;
+        }
         return {
           assignmentId: assignment.id,
           contentId: assignment.contentId,
+          teacherId: content.teacherId,
           status: assignment.status,
           assignedAt: assignment.assignedAt,
           dueDate: assignment.dueDate,
           grade: assignment.grade,
-          content: content ? {
+          content: {
             id: content.id,
             title: content.title,
             description: content.description,
             contentType: content.contentType,
             subject: content.subject,
             gradeLevel: content.gradeLevel,
-            tags: content.tags,
+            tags: Array.isArray(content.tags) ? content.tags : [],
             fileUrl: content.fileUrl,
-            extractedText: content.extractedText,
+            extractedText: content.extractedText ?? '',
             htmlContent: content.htmlContent
-          } : null
+          }
         };
       })
     );
 
-    res.json(materialsWithContent.filter(m => m.content));
+    const filtered = materialsWithContent.filter((m): m is NonNullable<typeof m> => m !== null);
+    debug("GET /revision/materials", "response", { materialsCount: filtered.length });
+    res.json(filtered);
   } catch (error) {
+    debug("GET /revision/materials", "error", { error: error instanceof Error ? error.message : String(error) });
     next(error);
   }
 });
@@ -185,6 +231,10 @@ assignmentsRouter.get("/revision/content/:contentId", authenticateToken, authori
 
 assignmentsRouter.post("/revision/session/start", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const hasApprovedClass = await storage.hasAnyApprovedClass(req.user!.id);
+    if (!hasApprovedClass) {
+      return res.status(403).json({ error: "Your teacher must approve you in a class before you can access study materials" });
+    }
     const { contentId, subject, topic } = req.body;
     
     if (!contentId || !subject) {
@@ -218,6 +268,10 @@ assignmentsRouter.post("/revision/session/start", authenticateToken, authorizeRo
 
 assignmentsRouter.post("/revision/ai-help", authenticateToken, authorizeRoles('student'), requireVerification, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const hasApprovedClass = await storage.hasAnyApprovedClass(req.user!.id);
+    if (!hasApprovedClass) {
+      return res.status(403).json({ error: "Your teacher must approve you in a class before you can access study materials" });
+    }
     const { contentId, question, sessionId } = req.body;
     
     if (!contentId || !question) {
@@ -236,13 +290,27 @@ assignmentsRouter.post("/revision/ai-help", authenticateToken, authorizeRoles('s
       return res.status(404).json({ error: "Content not found" });
     }
 
+    const studentProfile = await storage.getStudentProfile(req.user!.id);
+    const profileContext = studentProfile ? {
+      learningStyle: studentProfile.learningStyle,
+      preferredDifficulty: studentProfile.preferredDifficulty,
+      subjects: studentProfile.subjects,
+      strugglingAreas: studentProfile.strugglingAreas,
+      revisionAssistantName: studentProfile.revisionAssistantName ?? undefined
+    } : undefined;
+
+    // Get user's language preference from profile or default to 'en'
+    const userLanguage = studentProfile?.language || 'en';
+    
     const aiResponse = await AITutorService.generateTutorResponse(
       'math_buddy',
       question,
       content.subject,
-      1,
+      studentProfile?.preferredDifficulty ?? 2,
       [],
-      'en'
+      userLanguage,
+      undefined,
+      profileContext
     );
 
     const enhancedResponse = {

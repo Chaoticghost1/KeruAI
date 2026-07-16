@@ -16,26 +16,88 @@ gamesRouter.get("/scores", authenticateToken, async (req: AuthRequest, res: Resp
   }
 });
 
-// Create game score
-gamesRouter.post("/scores", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Get game progress (reached level = max level from scores; for CruiseWord Level Challenge band)
+gamesRouter.get("/progress/:gameName", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const scoreData = { ...req.body, userId: req.user!.id };
-    const validatedScore = insertGameScoreSchema.parse(scoreData);
-    const score = await storage.createGameScore(validatedScore);
-    res.json(score);
+    const gameName = req.params.gameName;
+    const progress = await storage.getGameProgress(req.user!.id, gameName);
+    res.json(progress);
   } catch (error) {
     next(error);
   }
 });
 
-// Get leaderboard (public - no authentication required)
+// Create game score and award profile/streak/badges
+gamesRouter.post("/scores", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const scoreData = { ...req.body, userId: req.user!.id };
+    const validatedScore = insertGameScoreSchema.parse(scoreData);
+    const score = await storage.createGameScore(validatedScore);
+    const rewards = await storage.awardGameScoreRewards(req.user!.id, {
+      gameName: validatedScore.gameName,
+      score: validatedScore.score
+    });
+    res.json({ ...score, rewards });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get leaderboard with display names (public - no authentication required)
 gamesRouter.get("/leaderboard/:gameName", async (req, res, next: NextFunction) => {
   try {
     const gameName = req.params.gameName;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const topScores = await storage.getTopScores(gameName, limit);
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+    const topScores = await storage.getTopScoresWithDisplayNames(gameName, limit);
     res.json(topScores);
   } catch (error) {
+    next(error);
+  }
+});
+
+// Get MathMaster problems for a level (authenticated)
+gamesRouter.get("/problems/mathmaster/:level", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const level = parseInt(req.params.level, 10);
+    if (isNaN(level) || level < 1 || level > 6) {
+      return res.status(400).json({ error: "Level must be between 1 and 6" });
+    }
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const problems = await storage.getMathProblems(level, limit);
+    res.json(problems);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[games] getMathProblems error:", err.message, err);
+    if (err.message?.includes("does not exist") || err.message?.includes("relation")) {
+      return res.status(503).json({
+        error: "Games database not set up",
+        hint: "Run: npm run setup:games",
+      });
+    }
+    next(error);
+  }
+});
+
+// Get LinguaPlay problems for a level and mode (authenticated)
+gamesRouter.get("/problems/linguaplay/:level", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const level = parseInt(req.params.level, 10);
+    if (isNaN(level) || level < 1 || level > 6) {
+      return res.status(400).json({ error: "Level must be between 1 and 6" });
+    }
+    const mode = (req.query.mode as string) || "vocabulary";
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const problems = await storage.getLanguageProblems(level, mode, limit);
+    res.json(problems);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[games] getLanguageProblems error:", err.message, err);
+    if (err.message?.includes("does not exist") || err.message?.includes("relation")) {
+      return res.status(503).json({
+        error: "Games database not set up",
+        hint: "Run: npm run setup:games",
+      });
+    }
     next(error);
   }
 });

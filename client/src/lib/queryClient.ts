@@ -1,15 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { OfflineManager } from "./offline-storage";
 
-async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
-  }
-}
-
-// Configure API base URL for web interface only (Telegram bot has separate config)
-// In development, API requests go through the same server (Vite middleware mode)
+// Configure API base URL - empty = same origin (Vite dev proxy)
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export async function apiRequest(
@@ -18,63 +9,26 @@ export async function apiRequest(
   body?: any,
   additionalHeaders?: Record<string, string>
 ): Promise<Response> {
-  // Ensure URL is absolute
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
-  
-  // Honduras-first: Check for offline/data saver conditions
-  const settings = await OfflineManager.getSettings();
-  const dataSaverEnabled = settings?.dataSaverMode || false;
-  
-  // For GET requests, try cache first if offline or data saver enabled
-  // NEVER use cache for auth endpoints - they must always hit the network
-  const isAuthEndpoint = fullUrl.includes('/api/auth');
-  if (method === 'GET' && (!navigator.onLine || dataSaverEnabled) && !isAuthEndpoint) {
-    const cachedData = await OfflineManager.getCachedContent(fullUrl);
-    if (cachedData) {
-      console.log('Serving from cache (Honduras data saver/offline):', fullUrl);
-      return new Response(JSON.stringify(cachedData), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-  
-  // Get auth token from localStorage
   const token = localStorage.getItem('accessToken');
-  
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...additionalHeaders,
   };
-  
-  // Honduras-first: Add data saver headers for low-bandwidth optimization
-  if (dataSaverEnabled) {
-    headers['Save-Data'] = '1';
-    // Note: Accept-Encoding is handled automatically by the browser
-  }
-  
-  // Add authorization header if token exists
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
-  console.log('API Request:', { method, fullUrl, API_BASE_URL });
-  
-  let res: Response;
-  try {
-    res = await fetch(fullUrl, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  } catch (fetchError: any) {
-    console.error('API Request failed:', { error: fetchError, fullUrl, method });
-    throw new Error(`Network error: ${fetchError?.message || 'Failed to connect to server'}`);
-  }
 
-  // Handle token expiration
+  let res = await fetch(fullUrl, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store',
+  });
+
+  // Token refresh on 401
   if (res.status === 401 && token) {
-    // Try to refresh token if available
     const refreshToken = localStorage.getItem('refreshToken');
     if (refreshToken) {
       try {
@@ -83,29 +37,19 @@ export async function apiRequest(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refreshToken }),
         });
-        
         if (refreshRes.ok) {
           const { tokens } = await refreshRes.json();
           localStorage.setItem('accessToken', tokens.accessToken);
           localStorage.setItem('refreshToken', tokens.refreshToken);
-          
-          // Retry original request with new token
           headers['Authorization'] = `Bearer ${tokens.accessToken}`;
-          const retryRes = await fetch(fullUrl, {
+          res = await fetch(fullUrl, {
             method,
             headers,
             body: body ? JSON.stringify(body) : undefined,
+            cache: 'no-store',
           });
-          
-          if (!retryRes.ok) {
-            const text = await retryRes.text();
-            throw new Error(`${retryRes.status}: ${text}`);
-          }
-          
-          return retryRes;
         }
-      } catch (refreshError) {
-        // Refresh failed, clear tokens
+      } catch {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
       }
@@ -113,34 +57,8 @@ export async function apiRequest(
   }
 
   if (!res.ok) {
-    // Honduras-first: For GET requests, try serving from cache if network fails
-    // NEVER serve cached auth data - auth must always reflect server state
-    if (method === 'GET' && !isAuthEndpoint) {
-      const cachedData = await OfflineManager.getCachedContent(fullUrl);
-      if (cachedData) {
-        console.log('Network failed, serving from cache:', fullUrl);
-        return new Response(JSON.stringify(cachedData), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    }
-    
     const text = await res.text();
     throw new Error(`${res.status}: ${text}`);
-  }
-
-  // Honduras-first: Cache successful GET responses for offline use
-  // NEVER cache auth endpoints - they contain sensitive user session data
-  if (method === 'GET' && res.ok && !isAuthEndpoint) {
-    try {
-      const responseClone = res.clone();
-      const data = await responseClone.json();
-      const cacheHours = dataSaverEnabled ? 48 : 24; // Cache longer in data saver mode
-      await OfflineManager.cacheContent(fullUrl, data, cacheHours);
-    } catch (cacheError) {
-      console.warn('Failed to cache response:', cacheError);
-    }
   }
 
   return res;
@@ -152,13 +70,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Handle both string URLs and hierarchical array keys
-    // Array: ['/api/progress', 'profile', userId] → '/api/progress/profile/123'
-    // String: '/api/users' → '/api/users'
     const url = Array.isArray(queryKey) && queryKey.length > 1
       ? queryKey.filter(segment => segment !== undefined && segment !== null).join('/')
       : queryKey[0] as string;
-    
     try {
       const res = await apiRequest('GET', url);
       return await res.json();
@@ -176,7 +90,8 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 0, // Always consider data stale
+      gcTime: 0, // Don't cache data
       retry: false,
     },
     mutations: {

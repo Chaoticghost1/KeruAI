@@ -1,38 +1,36 @@
 # Keru.ai Suite
 
-A comprehensive multi-language educational and productivity platform designed for Honduras and Central America.
-
-> **Full Documentation:** See [DOCUMENTATION.md](./DOCUMENTATION.md) for complete technical documentation including architecture, API reference, and project health report.
+A multi-language educational and productivity platform for Honduras and Central America, combining AI tutoring, personal finance, travel content, and gamified learning.
 
 ---
 
 ## Overview
 
-Keru.ai Suite combines AI-powered tutoring, personal finance management, travel information, and gamified learning into a unified platform optimized for low-bandwidth environments.
+Keru.ai Suite provides:
 
-### Target Audience
-- **Students** - AI tutoring aligned with Honduran curriculum
-- **Teachers** - Content management and student progress tracking
-- **Administrators** - User management and analytics
-- **Young Adults** - Budget tracking and career resources
+- **AI Study Buddy** — 3 tutors (Math Buddy, Dr. Nova, Professor Quill) powered by OpenAI
+- **BudgetPal** — Personal finance with Lempiras support
+- **CruiseWord** — Vocabulary game for cruise/travel terminology
+- **Travel Blog** — Cruise and travel content
+- **Admin Panel** — User, content, and persona management
+- **Gamification** — Badges, levels, streaks, XP
+
+**Target:** Students, teachers, young adults in Honduras and Central America (Spanish-first, English-supported)
 
 ---
 
-## Features
+## Where We're At (Feb 2026)
 
-### Core Features (Working)
-- **AI Study Buddy** - 3 specialized AI tutors (Math Buddy, Dr. Nova, Professor Quill)
-- **BudgetPal** - Personal finance with Lempiras currency support
-- **CruiseWord Game** - Vocabulary learning with cruise ship terminology
-- **Travel Blog** - Cruise and travel content
-- **Admin Panel** - User, content, and blog management
-- **Gamification** - Badges, levels, streaks, and XP
+| Area | Status |
+|------|--------|
+| **Core features** | Auth, AI tutors, BudgetPal, CruiseWord, Blog admin, Gamification — ✅ Working |
+| **Student Revision** | ✅ Wired to assignments API; requires verified student |
+| **Mentorship** | ✅ Full API + MentorshipHub UI wired |
+| **Blog (public)** | ✅ `/api/blog/posts` + Blog page fetches and displays published posts |
+| **DAO** | Static placeholder (no backend) |
+| **Next priorities** | Error boundaries, automated tests, email service (verification/reset) |
 
-### Additional Features
-- Multi-language support (Spanish/English)
-- Role-based access control (student, teacher, superuser)
-- Offline-first PWA design
-- JWT authentication
+See [docs/PROJECT_HEALTH.md](./docs/PROJECT_HEALTH.md) for details.
 
 ---
 
@@ -40,107 +38,59 @@ Keru.ai Suite combines AI-powered tutoring, personal finance management, travel 
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React, TypeScript, Tailwind CSS, Shadcn/UI |
+| Frontend | React, TypeScript, Vite, Tailwind, shadcn/ui |
 | Backend | Express.js, TypeScript |
 | Database | PostgreSQL (Neon), Drizzle ORM |
 | AI | OpenAI GPT-4, Perplexity fallback |
-| Offline | IndexedDB, Service Worker, Workbox |
+| Offline | Disabled (caching removed; fresh data) |
 
 ---
 
 ## Quick Start
 
-```bash
-# Install dependencies
-npm install
+See **[QUICK_START.md](QUICK_START.md)** for minimal steps. Summary:
 
-# Start development server
-npm run dev
+```bash
+npm install && cp .env.example .env
+npm run db:push && npm run create-admin && npm run dev
 ```
 
-Visit `http://localhost:5000`
+Then open `http://localhost:5000`. Admin user: `admin` / `admin@keru.ai` / `admin123`.
+
+For full setup, env vars, and troubleshooting (including cache/data issues), see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ---
 
-## Project Status
+## Documentation
 
-| Category | Status |
-|----------|--------|
-| Working Features | 20+ core features |
-| Authentication | JWT with role-based access |
-| Database | PostgreSQL with Drizzle ORM |
-| PWA | Offline-first with service worker |
-| Internationalization | Spanish/English via shared context |
+| Link | Description |
+|------|-------------|
+| [QUICK_START.md](QUICK_START.md) | Get running in a few steps |
+| [docs/](docs/) | Full documentation index |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, env vars, troubleshooting |
+| [docs/PROJECT_HEALTH.md](docs/PROJECT_HEALTH.md) | Feature status, technical debt |
 
-See the **Project Health Report** in [DOCUMENTATION.md](./DOCUMENTATION.md#project-health-report) for full details.
+---
 
-## Recent Updates (January 2026)
+## Project Structure
 
-- **Icon Migration**: All components now use lucide-react + react-icons/fa
-- **Language Context**: Consolidated to shared LanguageContext across all pages
-- **Service Worker**: Cache version v5 for stale asset cleanup
-- **CSS Fixes**: Removed global border-border override
-
-## Troubleshooting
-
-### Vite Cache Errors
-If you see "chunk-XXXX.js not found" errors:
-```bash
-rm -rf node_modules/.vite && npm run dev
 ```
-Then hard refresh: `Ctrl+Shift+R` (Windows) or `Cmd+Shift+R` (Mac)
-
-### Service Worker Issues
-Unregister via DevTools → Application → Service Workers → Unregister
-
----
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `DOCUMENTATION.md` | Complete technical documentation |
-| `replit.md` | Replit-specific project notes |
-| `shared/schema.ts` | Database models and types |
-| `server/routes/` | API endpoints |
-| `client/src/pages/` | Frontend pages |
-
----
-
-## Database
-
-Main tables:
-- `users` - Authentication and profiles
-- `botPersonas` - AI tutor configurations
-- `tutorSessions` / `tutorMessages` - Chat history
-- `budgetCategories` / `budgetTransactions` - Finance tracking
-- `studentProfiles` / `userProgress` - Gamification data
-
-```bash
-# Push schema to database
-npm run db:push
+├── client/           # React frontend
+├── server/           # Express API
+├── shared/           # Schema, personas, badges
+├── telegram-bot/     # Telegram bot (separate deployment)
+├── scripts/          # Utility scripts
+└── docs/             # All documentation
 ```
 
 ---
 
 ## Environment Variables
 
-Required:
-- `DATABASE_URL` - PostgreSQL connection string
-- `JWT_SECRET` - JWT signing secret
-- `OPENAI_API_KEY` - OpenAI API key
+Required: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`  
+Optional: `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, `TELEGRAM_BOT_TOKEN`
 
-Optional:
-- `PERPLEXITY_API_KEY` - Fallback AI provider
-- `GITHUB_TOKEN` - GitHub integration
-
----
-
-## Documentation
-
-- [Full Technical Documentation](./DOCUMENTATION.md)
-- [Telegram Bot Deployment](./TELEGRAM_DEPLOYMENT.md)
-- [Deployment Conflicts Resolved](./DEPLOYMENT_CONFLICTS_RESOLVED.md)
+See [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md#4-environment-variables) for full list.
 
 ---
 

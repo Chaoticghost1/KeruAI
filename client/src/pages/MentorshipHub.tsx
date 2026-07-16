@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,16 +10,47 @@ import {
   Users, Star, Clock, MessageSquare, Award, Heart, BookOpen, TrendingUp, 
   Video, Calendar, Search, Filter, CheckCircle, MapPin, GraduationCap,
   Sparkles, Crown, Zap, Globe, DollarSign, ArrowRight, UserCheck, 
-  Target, Trophy, Briefcase, Mail, Phone
+  Target, Trophy, Briefcase, Mail, Phone, Loader2, Upload, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Link, useLocation } from 'wouter';
+import { useAuth } from '../hooks/use-auth';
+import { useMentorsPaginated, MENTORS_PAGE_SIZE, useCreateMentorProfile, useCreateMentorshipRequest, useMentorshipRequests, useMentorshipSessions, useMentorMaterials, useUploadMentorMaterial, useMyMentorProfile, useUpdateMentorProfile } from '../hooks/use-mentorship';
+import { PageLayout } from '@/components/PageLayout';
+import { PageHeader } from '@/components/PageHeader';
+
+const SIGNUP_URL = '/auth?return=/mentorship&tab=signup';
 
 export default function MentorshipHub() {
   const { language, setLanguage } = useLanguage();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState('find-mentor');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('');
   const [selectedPrice, setSelectedPrice] = useState('');
+  const [mentorPage, setMentorPage] = useState(1);
+
+  const filters = {
+    subject: selectedSubject || undefined,
+    gradeLevel: selectedGrade ? parseInt(selectedGrade) : undefined,
+    isVolunteer: selectedPrice === 'free' ? true : undefined,
+  };
+  const { data: mentorsResponse, isLoading: mentorsLoading } = useMentorsPaginated(filters, mentorPage);
+  const apiMentors = Array.isArray(mentorsResponse?.data) ? mentorsResponse.data : [];
+  const totalMentors = mentorsResponse?.total ?? 0;
+  const totalMentorPages = Math.max(1, Math.ceil(totalMentors / MENTORS_PAGE_SIZE));
+  useEffect(() => { setMentorPage(1); }, [selectedSubject, selectedGrade, selectedPrice]);
+  const createMentor = useCreateMentorProfile();
+  const createRequest = useCreateMentorshipRequest();
+  const { data: requests = [] } = useMentorshipRequests(false);
+  const { data: sessions = [] } = useMentorshipSessions();
+  const { data: myMaterials = [] } = useMentorMaterials();
+  const uploadMaterial = useUploadMentorMaterial();
+  const { data: myMentorProfile } = useMyMentorProfile();
+  const updateMentorProfile = useUpdateMentorProfile();
+  const isMentor = !!myMentorProfile;
+  const [materialForm, setMaterialForm] = useState({ title: '', description: '', subject: '', contentType: 'pdf', gradeLevel: '' });
 
   const [mentorFormData, setMentorFormData] = useState({
     subjects: '',
@@ -29,6 +60,7 @@ export default function MentorshipHub() {
     availability: '',
     experience: ''
   });
+  const [mentorProfileEdit, setMentorProfileEdit] = useState({ subjects: '', bio: '', hourlyRate: '' });
 
   const t = {
     title: language === 'es' ? 'Centro de Mentores' : 'Mentorship Hub',
@@ -37,61 +69,37 @@ export default function MentorshipHub() {
       : 'Connect with certified Honduran teachers for personalized 1:1 tutoring',
     findMentor: language === 'es' ? 'Buscar Mentor' : 'Find Mentor',
     becomeMentor: language === 'es' ? 'Ser Mentor' : 'Become Mentor',
+    myMentorProfile: language === 'es' ? 'Mi Perfil de Mentor' : 'My Mentor Profile',
     mySessions: language === 'es' ? 'Mis Sesiones' : 'My Sessions',
     community: language === 'es' ? 'Comunidad' : 'Community',
+    applyAsMentor: language === 'es' ? 'Aplicar como Mentor (formulario público)' : 'Apply as Mentor (public form)',
   };
 
-  // Sample mentor data with realistic profiles
-  const sampleMentors = [
-    {
-      id: 1,
-      name: 'Prof. María Rodríguez',
-      subjects: ['Matemáticas', 'Física'],
-      rating: 4.9,
-      reviews: 156,
-      sessions: 340,
-      hourlyRate: 150,
-      location: 'Tegucigalpa',
-      verified: true,
-      experience: '12 años',
-      availability: 'Lun-Vie 2pm-8pm',
-      image: '👩‍🏫',
-      badge: 'Top Mentor',
-      bio: 'Ingeniera con maestría en educación. Especializada en preparación universitaria.'
-    },
-    {
-      id: 2,
-      name: 'Lic. Carlos Mejía',
-      subjects: ['Química', 'Biología'],
-      rating: 4.8,
-      reviews: 98,
-      sessions: 210,
-      hourlyRate: 0,
-      location: 'San Pedro Sula',
-      verified: true,
-      experience: '8 años',
-      availability: 'Sáb-Dom 10am-4pm',
-      image: '👨‍🔬',
-      badge: 'Voluntario',
-      bio: 'Químico farmacéutico apasionado por enseñar ciencias a jóvenes.'
-    },
-    {
-      id: 3,
-      name: 'Profa. Ana Castillo',
-      subjects: ['Español', 'Literatura'],
-      rating: 5.0,
-      reviews: 203,
-      sessions: 450,
-      hourlyRate: 120,
-      location: 'La Ceiba',
-      verified: true,
-      experience: '15 años',
-      availability: 'Lun-Sáb 9am-6pm',
-      image: '👩‍💼',
-      badge: 'Elite',
-      bio: 'Licenciada en Letras. Preparación para exámenes de admisión.'
-    }
+  // Map API mentors to UI shape; when API returns empty, show 3 mock profiles: 1 mentor, 1 voluntario, 1 top mentor (platform verified)
+  const sampleMentorsFallback = [
+    { id: 1, name: 'Lic. Roberto Martínez', subjects: ['Matemáticas', 'Estadística'], rating: 4.5, reviews: 42, sessions: 89, hourlyRate: 120, location: 'Tegucigalpa', verified: false, experience: '5 años', availability: 'Lun-Vie 4pm-7pm', image: '👨‍🏫', badge: language === 'es' ? 'Mentor' : 'Mentor', bio: 'Profesor de matemáticas con experiencia en secundaria y bachillerato.' },
+    { id: 2, name: 'Lic. Carlos Mejía', subjects: ['Química', 'Biología'], rating: 4.8, reviews: 98, sessions: 210, hourlyRate: 0, location: 'San Pedro Sula', verified: true, experience: '8 años', availability: 'Sáb-Dom 10am-4pm', image: '👨‍🔬', badge: language === 'es' ? 'Voluntario' : 'Volunteer', bio: 'Químico farmacéutico apasionado por enseñar ciencias.' },
+    { id: 3, name: 'Prof. María Rodríguez', subjects: ['Matemáticas', 'Física'], rating: 4.9, reviews: 156, sessions: 340, hourlyRate: 150, location: 'Tegucigalpa', verified: true, experience: '12 años', availability: 'Lun-Vie 2pm-8pm', image: '👩‍🏫', badge: language === 'es' ? 'Top Mentor' : 'Top Mentor', bio: 'Ingeniera con maestría en educación. Verificada por la plataforma.' },
   ];
+  const mentors = apiMentors.length > 0
+    ? apiMentors.map((m) => ({
+        id: m.id,
+        userId: m.userId,
+        name: m.mentorName || 'Mentor',
+        subjects: Array.isArray(m.subjects) ? m.subjects : [m.subjects].filter(Boolean),
+        rating: parseFloat(m.rating) || 0,
+        reviews: m.totalRatings || 0,
+        sessions: 0,
+        hourlyRate: parseFloat(m.hourlyRate || '0') || 0,
+        location: 'Honduras',
+        verified: m.isVerified,
+        experience: '-',
+        availability: language === 'es' ? 'Flexible' : 'Flexible',
+        image: '👩‍🏫',
+        badge: parseFloat(m.hourlyRate || '0') === 0 ? (language === 'es' ? 'Voluntario' : 'Volunteer') : 'Top Mentor',
+        bio: m.bio || '',
+      }))
+    : sampleMentorsFallback;
 
   const stats = [
     { icon: Users, value: '247', label: language === 'es' ? 'Mentores Activos' : 'Active Mentors', color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -101,55 +109,54 @@ export default function MentorshipHub() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Floating background orbs */}
+    <PageLayout maxWidth="7xl">
+      {/* Floating background orbs - youth tokens */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-pulse" style={{animationDelay: '2s'}}></div>
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-youth-primary/10 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-youth-accent/10 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-youth-primary/5 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{animationDelay: '2s'}}></div>
       </div>
 
       <div className="relative z-10">
-        {/* Header */}
-        <div className="border-b border-slate-200/60 backdrop-blur-2xl bg-white/70 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                  <GraduationCap className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    {t.title}
-                  </h1>
-                  <p className="text-xs text-slate-500">{t.subtitle}</p>
-                </div>
+        <PageHeader
+          sticky
+          size="compact"
+          title={
+            <div className="flex items-center space-x-3">
+              <div className="h-11 w-11 rounded-youth-lg bg-youth-primary/20 flex items-center justify-center">
+                <GraduationCap className="h-6 w-6 text-youth-primary" />
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="rounded-xl text-slate-600 hover:text-blue-600 hover:bg-blue-50"
-                onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}
-              >
-                {language === 'es' ? '🇺🇸 EN' : '🇭🇳 ES'}
-              </Button>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">{t.title}</h1>
+                <p className="text-xs text-muted-foreground">{t.subtitle}</p>
+              </div>
             </div>
-          </div>
-        </div>
+          }
+          actions={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-youth-lg text-muted-foreground hover:text-youth-primary hover:bg-youth-primary/10"
+              onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}
+            >
+              {language === 'es' ? '🇺🇸 EN' : '🇭🇳 ES'}
+            </Button>
+          }
+        />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <div className="pt-8 space-y-8">
           {/* Hero Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.map((stat, i) => (
-              <Card key={i} className="border-0 shadow-lg bg-white/80 backdrop-blur-xl hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+              <Card key={i} className="rounded-youth-lg border-2 border-youth-muted/50 bg-card hover:border-youth-primary/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <div className={`h-12 w-12 rounded-xl ${stat.bg} flex items-center justify-center`}>
+                    <div className={`h-12 w-12 rounded-youth-lg ${stat.bg} flex items-center justify-center`}>
                       <stat.icon className={`h-6 w-6 ${stat.color}`} />
                     </div>
                   </div>
-                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                  <p className="text-xs text-slate-500 mt-1">{stat.label}</p>
+                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
                 </CardContent>
               </Card>
             ))}
@@ -157,22 +164,28 @@ export default function MentorshipHub() {
 
           {/* Main Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-xl">
+            <Card className="rounded-youth-lg border-2 border-youth-muted/50 bg-card">
               <CardContent className="p-2">
-                <TabsList className="grid w-full grid-cols-4 bg-slate-100/50 p-1 rounded-xl">
-                  <TabsTrigger value="find-mentor" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
+                <TabsList className={`grid w-full ${isMentor ? 'grid-cols-5' : 'grid-cols-4'} bg-youth-muted/50 p-1 rounded-youth-lg`}>
+                  <TabsTrigger value="find-mentor" className="rounded-lg data-[state=active]:bg-card data-[state=active]:border-youth-primary/30 data-[state=active]:shadow-md">
                     <Search className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">{t.findMentor}</span>
                   </TabsTrigger>
-                  <TabsTrigger value="become-mentor" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
+                  {isMentor && (
+                    <TabsTrigger value="my-mentor-profile" className="rounded-lg data-[state=active]:bg-card data-[state=active]:border-youth-primary/30 data-[state=active]:shadow-md">
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      <span className="hidden sm:inline">{t.myMentorProfile}</span>
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="become-mentor" className="rounded-lg data-[state=active]:bg-card data-[state=active]:border-youth-primary/30 data-[state=active]:shadow-md">
                     <BookOpen className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">{t.becomeMentor}</span>
                   </TabsTrigger>
-                  <TabsTrigger value="my-sessions" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
+                  <TabsTrigger value="my-sessions" className="rounded-lg data-[state=active]:bg-card data-[state=active]:border-youth-primary/30 data-[state=active]:shadow-md">
                     <Calendar className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">{t.mySessions}</span>
                   </TabsTrigger>
-                  <TabsTrigger value="community" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md">
+                  <TabsTrigger value="community" className="rounded-lg data-[state=active]:bg-card data-[state=active]:border-youth-primary/30 data-[state=active]:shadow-md">
                     <Trophy className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">{t.community}</span>
                   </TabsTrigger>
@@ -183,7 +196,7 @@ export default function MentorshipHub() {
             {/* Find Mentor Tab */}
             <TabsContent value="find-mentor" className="space-y-6">
               {/* Search & Filters */}
-              <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-xl">
+              <Card className="rounded-youth-lg border-2 border-youth-muted/50 bg-card">
                 <CardHeader>
                   <CardTitle className="flex items-center text-lg">
                     <Filter className="mr-2 h-5 w-5 text-blue-600" />
@@ -238,7 +251,10 @@ export default function MentorshipHub() {
 
               {/* Mentor Cards */}
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sampleMentors.map((mentor) => (
+                {mentorsLoading ? (
+                  <div className="col-span-full flex justify-center py-12"><Loader2 className="h-10 w-10 animate-spin text-blue-500" /></div>
+                ) : (
+                mentors.map((mentor) => (
                   <Card key={mentor.id} className="border-0 shadow-xl bg-white/80 backdrop-blur-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/5 to-transparent rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
                     <CardContent className="p-6 relative">
@@ -316,22 +332,135 @@ export default function MentorshipHub() {
                             </div>
                           )}
                         </div>
-                        <Button size="sm" className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all">
-                          <Video className="h-4 w-4 mr-2" />
+                        <Button size="sm" className="bg-youth-primary hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all" onClick={() => { if ('userId' in mentor) createRequest.mutate({ mentorId: mentor.userId, subject: mentor.subjects[0] || 'General', description: language === 'es' ? `Solicitud de mentoría con ${mentor.name}` : `Mentorship request with ${mentor.name}` }); }} disabled={createRequest.isPending || !('userId' in mentor)}>
+                          {createRequest.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Video className="h-4 w-4 mr-2" />}
                           {language === 'es' ? 'Reservar' : 'Book'}
                         </Button>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                )))}
               </div>
+              {totalMentorPages > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-6">
+                  <Button variant="outline" className="rounded-youth-lg" onClick={() => setMentorPage((p) => Math.max(1, p - 1))} disabled={mentorPage <= 1}>
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    {language === 'es' ? 'Anterior' : 'Previous'}
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {language === 'es' ? 'Página' : 'Page'} {mentorPage} {language === 'es' ? 'de' : 'of'} {totalMentorPages}
+                  </span>
+                  <Button variant="outline" className="rounded-youth-lg" onClick={() => setMentorPage((p) => Math.min(totalMentorPages, p + 1))} disabled={mentorPage >= totalMentorPages}>
+                    {language === 'es' ? 'Siguiente' : 'Next'}
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
             </TabsContent>
+
+            {/* My Mentor Profile Tab - only when user has mentor profile */}
+            {isMentor && (
+              <TabsContent value="my-mentor-profile" className="space-y-6">
+                <Card className="rounded-youth-lg border-2 border-youth-muted/50 bg-card">
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <UserCheck className="h-5 w-5 mr-2 text-blue-600" />
+                      {t.myMentorProfile}
+                    </CardTitle>
+                    <CardDescription>
+                      {language === 'es' ? 'Edita tu perfil de mentor y materiales' : 'Edit your mentor profile and materials'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {myMentorProfile && (
+                      <>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-2 text-slate-700">{language === 'es' ? 'Materias' : 'Subjects'}</label>
+                            <Input
+                              value={mentorProfileEdit.subjects || (Array.isArray(myMentorProfile.subjects) ? myMentorProfile.subjects.join(', ') : (myMentorProfile.subjects || ''))}
+                              onChange={(e) => setMentorProfileEdit(s => ({ ...s, subjects: e.target.value }))}
+                              className="bg-slate-50"
+                              placeholder="Math, Physics, etc."
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2 text-slate-700">{language === 'es' ? 'Tarifa/hora (L)' : 'Rate/hour (L)'}</label>
+                            <Input
+                              type="number"
+                              value={mentorProfileEdit.hourlyRate !== '' ? mentorProfileEdit.hourlyRate : (myMentorProfile.hourlyRate || '0')}
+                              onChange={(e) => setMentorProfileEdit(s => ({ ...s, hourlyRate: e.target.value }))}
+                              className="bg-slate-50"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-2 text-slate-700">{language === 'es' ? 'Biografía' : 'Bio'}</label>
+                          <Textarea
+                            value={mentorProfileEdit.bio !== '' ? mentorProfileEdit.bio : (myMentorProfile.bio || '')}
+                            onChange={(e) => setMentorProfileEdit(s => ({ ...s, bio: e.target.value }))}
+                            rows={4}
+                            className="bg-slate-50"
+                          />
+                        </div>
+                        <Button
+                          onClick={() => {
+                            const subj = mentorProfileEdit.subjects !== '' ? mentorProfileEdit.subjects : (Array.isArray(myMentorProfile.subjects) ? myMentorProfile.subjects.join(', ') : (myMentorProfile.subjects || ''));
+                            const rate = mentorProfileEdit.hourlyRate !== '' ? mentorProfileEdit.hourlyRate : (myMentorProfile.hourlyRate || '0');
+                            const bio = mentorProfileEdit.bio !== '' ? mentorProfileEdit.bio : (myMentorProfile.bio || '');
+                            updateMentorProfile.mutate({
+                              subjects: subj.split(',').map(s => s.trim()).filter(Boolean),
+                              hourlyRate: rate,
+                              bio,
+                            });
+                          }}
+                          disabled={updateMentorProfile.isPending}
+                        >
+                          {updateMentorProfile.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                          {language === 'es' ? 'Guardar cambios' : 'Save changes'}
+                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={myMentorProfile.isVerified ? 'default' : 'secondary'}>
+                            {myMentorProfile.isVerified ? (language === 'es' ? 'Verificado' : 'Verified') : (language === 'es' ? 'Pendiente' : 'Pending')}
+                          </Badge>
+                          <span className="text-sm text-slate-500">Rating: {myMentorProfile.rating || '-'}</span>
+                        </div>
+                        <div className="pt-4 border-t">
+                          <h4 className="font-semibold mb-2 flex items-center"><Upload className="h-4 w-4 mr-2" />{language === 'es' ? 'Materiales' : 'Materials'}</h4>
+                          {myMaterials.length > 0 ? (
+                            (myMaterials as any[]).map((m: any) => (
+                              <div key={m.id} className="flex justify-between py-2 text-sm">
+                                <span>{m.title} ({m.status})</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-slate-500">{language === 'es' ? 'No has subido materiales aún.' : "You haven't uploaded materials yet."}</p>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
 
             {/* Become Mentor Tab */}
             <TabsContent value="become-mentor">
               <div className="grid lg:grid-cols-3 gap-6">
+                {/* Link to public mentor apply */}
+                <Card className="rounded-youth-lg border-2 border-youth-muted/50 bg-card lg:col-span-3">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <p className="text-sm text-slate-600">
+                      {language === 'es' ? '¿Prefieres aplicar con credenciales y diploma? Usa el formulario público.' : 'Prefer to apply with credentials and diploma? Use the public form.'}
+                    </p>
+                    <Link href="/mentor-apply">
+                      <Button variant="outline" size="sm">{t.applyAsMentor}</Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+
                 {/* Benefits Card */}
-                <Card className="border-0 shadow-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white lg:col-span-1">
+                <Card className="rounded-youth-lg border-2 border-youth-primary/30 bg-youth-primary text-white lg:col-span-1">
                   <CardContent className="p-6">
                     <Crown className="h-12 w-12 mb-4 text-yellow-300" />
                     <h3 className="text-xl font-bold mb-4">
@@ -363,7 +492,7 @@ export default function MentorshipHub() {
                 </Card>
 
                 {/* Application Form */}
-                <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-xl lg:col-span-2">
+                <Card className="rounded-youth-lg border-2 border-youth-muted/50 bg-card lg:col-span-2">
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <Award className="h-5 w-5 mr-2 text-yellow-500" />
@@ -495,10 +624,57 @@ export default function MentorshipHub() {
                       </div>
                     </div>
 
-                    <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/30 text-white border-0 py-6 text-lg">
-                      <Heart className="h-5 w-5 mr-2" />
+                    <Button className="w-full bg-youth-success hover:opacity-90 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/30 text-white border-0 py-6 text-lg" onClick={() => createMentor.mutate({ subjects: mentorFormData.subjects.split(',').map((s) => s.trim()).filter(Boolean), bio: mentorFormData.bio || undefined, gradeLevel: mentorFormData.gradeLevel ? parseInt(mentorFormData.gradeLevel) : undefined, hourlyRate: mentorFormData.hourlyRate || '0' })} disabled={!mentorFormData.subjects || createMentor.isPending}>
+                      {createMentor.isPending ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Heart className="h-5 w-5 mr-2" />}
                       {language === 'es' ? 'Enviar Solicitud' : 'Submit Application'}
                     </Button>
+
+                    {/* Upload teaching material (for approved mentors) */}
+                    <div className="mt-8 pt-6 border-t border-slate-200">
+                      <h4 className="font-semibold text-slate-800 mb-3 flex items-center">
+                        <Upload className="h-4 w-4 mr-2" />
+                        {language === 'es' ? 'Subir material de enseñanza' : 'Upload teaching material'}
+                      </h4>
+                      <p className="text-sm text-slate-500 mb-3">
+                        {language === 'es' ? 'El material será revisado por el administrador antes de publicarse.' : 'Material will be reviewed by admin before publishing.'}
+                      </p>
+                      <div className="grid gap-3">
+                        <Input placeholder={language === 'es' ? 'Título' : 'Title'} value={materialForm.title} onChange={(e) => setMaterialForm({ ...materialForm, title: e.target.value })} className="bg-slate-50" />
+                        <Input placeholder={language === 'es' ? 'Materia' : 'Subject'} value={materialForm.subject} onChange={(e) => setMaterialForm({ ...materialForm, subject: e.target.value })} className="bg-slate-50" />
+                        <Select value={materialForm.contentType} onValueChange={(v) => setMaterialForm({ ...materialForm, contentType: v })}>
+                          <SelectTrigger className="bg-slate-50"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pdf">PDF</SelectItem>
+                            <SelectItem value="image">Image</SelectItem>
+                            <SelectItem value="html">HTML</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <input type="file" accept=".pdf,.jpg,.jpeg,.png,.html" className="text-sm" onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !materialForm.title || !materialForm.subject) return;
+                          const fd = new FormData();
+                          fd.append('file', file);
+                          fd.append('title', materialForm.title);
+                          fd.append('description', materialForm.description);
+                          fd.append('subject', materialForm.subject);
+                          fd.append('contentType', materialForm.contentType);
+                          if (materialForm.gradeLevel) fd.append('gradeLevel', materialForm.gradeLevel);
+                          await uploadMaterial.mutateAsync(fd);
+                          setMaterialForm({ title: '', description: '', subject: '', contentType: 'pdf', gradeLevel: '' });
+                          e.target.value = '';
+                        }} />
+                        {myMaterials.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-slate-500 mb-1">{language === 'es' ? 'Tus materiales:' : 'Your materials:'}</p>
+                            {(myMaterials as any[]).map((m: any) => (
+                              <div key={m.id} className="flex justify-between items-center text-sm py-1">
+                                <span>{m.title} ({m.status})</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -508,42 +684,69 @@ export default function MentorshipHub() {
             <TabsContent value="my-sessions">
               <div className="space-y-6">
                 {/* Upcoming Sessions */}
-                <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-xl">
+                <Card className="rounded-youth-lg border-2 border-youth-muted/50 bg-card">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center">
                         <Calendar className="mr-2 h-5 w-5 text-blue-600" />
                         {language === 'es' ? 'Sesiones Próximas' : 'Upcoming Sessions'}
                       </div>
-                      <Button size="sm" className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0">
+                      <Button size="sm" className="bg-youth-primary hover:opacity-90 text-white border-0">
                         <Video className="h-4 w-4 mr-2" />
                         {language === 'es' ? 'Nueva Sesión' : 'New Session'}
                       </Button>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-12">
-                      <div className="h-20 w-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
-                        <Calendar className="h-10 w-10 text-blue-300" />
+                    {requests.length === 0 && sessions.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="h-20 w-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
+                          <Calendar className="h-10 w-10 text-blue-300" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-600 mb-2">
+                          {language === 'es' ? 'No hay sesiones programadas' : 'No sessions scheduled'}
+                        </h3>
+                        <p className="text-sm text-slate-500 mb-6">
+                          {language === 'es' 
+                            ? 'Reserva tu primera sesión con un mentor' 
+                            : 'Book your first session with a mentor'}
+                        </p>
+                        <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0" onClick={() => setActiveTab('find-mentor')}>
+                          {language === 'es' ? 'Buscar Mentores' : 'Find Mentors'}
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
                       </div>
-                      <h3 className="text-lg font-semibold text-slate-600 mb-2">
-                        {language === 'es' ? 'No hay sesiones programadas' : 'No sessions scheduled'}
-                      </h3>
-                      <p className="text-sm text-slate-500 mb-6">
-                        {language === 'es' 
-                          ? 'Reserva tu primera sesión con un mentor' 
-                          : 'Book your first session with a mentor'}
-                      </p>
-                      <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0">
-                        {language === 'es' ? 'Buscar Mentores' : 'Find Mentors'}
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {requests.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-700 mb-2">{language === 'es' ? 'Solicitudes' : 'Requests'}</h4>
+                            {requests.map((r) => (
+                              <div key={r.id} className="p-3 rounded-lg bg-slate-50 mb-2 flex justify-between items-center">
+                                <span className="text-sm">{r.subject} — {r.description?.slice(0, 40)}...</span>
+                                <Badge variant={r.status === 'accepted' ? 'default' : r.status === 'pending' ? 'secondary' : 'outline'}>{r.status}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {sessions.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-700 mb-2">{language === 'es' ? 'Sesiones' : 'Sessions'}</h4>
+                            {sessions.map((s: { id: number; subject: string; status: string }) => (
+                              <div key={s.id} className="p-3 rounded-lg bg-blue-50 mb-2 flex justify-between items-center">
+                                <span className="text-sm">{s.subject}</span>
+                                <Badge>{s.status}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
                 {/* Session History */}
-                <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-xl">
+                <Card className="rounded-youth-lg border-2 border-youth-muted/50 bg-card">
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <Clock className="mr-2 h-5 w-5 text-slate-600" />
@@ -664,7 +867,7 @@ export default function MentorshipHub() {
               </div>
 
               {/* Success Stories */}
-              <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-xl">
+              <Card className="rounded-youth-lg border-2 border-youth-muted/50 bg-card">
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <Sparkles className="mr-2 h-5 w-5 text-purple-600" />
@@ -727,20 +930,37 @@ export default function MentorshipHub() {
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90 shadow-2xl border-0 font-semibold whitespace-nowrap">
-                    <Video className="h-5 w-5 mr-2" />
-                    {language === 'es' ? 'Reservar Sesión' : 'Book Session'}
-                  </Button>
-                  <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 font-semibold whitespace-nowrap">
-                    <Heart className="h-5 w-5 mr-2" />
-                    {language === 'es' ? 'Ser Voluntario' : 'Volunteer'}
-                  </Button>
+                  {!user ? (
+                    <>
+                      <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90 shadow-2xl border-0 font-semibold whitespace-nowrap" onClick={() => setLocation(SIGNUP_URL)}>
+                        <Video className="h-5 w-5 mr-2" />
+                        {language === 'es' ? 'Reservar Sesión' : 'Book Session'}
+                      </Button>
+                      <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 font-semibold whitespace-nowrap" onClick={() => setLocation(SIGNUP_URL)}>
+                        <Heart className="h-5 w-5 mr-2" />
+                        {language === 'es' ? 'Ser Voluntario' : 'Volunteer'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90 shadow-2xl border-0 font-semibold whitespace-nowrap" onClick={() => setActiveTab('find-mentor')}>
+                        <Video className="h-5 w-5 mr-2" />
+                        {language === 'es' ? 'Reservar Sesión' : 'Book Session'}
+                      </Button>
+                      <Link href="/mentor-apply">
+                        <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 font-semibold whitespace-nowrap">
+                          <Heart className="h-5 w-5 mr-2" />
+                          {language === 'es' ? 'Ser Voluntario' : 'Volunteer'}
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
