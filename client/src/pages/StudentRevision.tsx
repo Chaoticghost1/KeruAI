@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Link } from 'wouter';
 import { PageLayout } from '@/components/PageLayout';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { RevisionPacks } from '@/components/RevisionPacks';
 
 interface RevisionMaterial {
   assignmentId: number;
@@ -450,6 +452,17 @@ export default function StudentRevision() {
         </Card>
       )}
 
+      <Tabs defaultValue="materials" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="materials" data-testid="tab-materials">{t.dashboard.revisionYourMaterials}</TabsTrigger>
+          <TabsTrigger value="packs" data-testid="tab-packs">Practice Packs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="packs">
+          <RevisionPacks />
+        </TabsContent>
+
+        <TabsContent value="materials">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Materials List */}
           <div className="lg:col-span-1">
@@ -718,6 +731,8 @@ export default function StudentRevision() {
             )}
           </div>
         </div>
+        </TabsContent>
+      </Tabs>
     </PageLayout>
   );
 }

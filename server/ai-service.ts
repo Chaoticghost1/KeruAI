@@ -380,6 +380,62 @@ Provide a helpful tutoring response that includes factual, up-to-date informatio
   }
 
   /**
+   * Generate structured practice questions for Student Revision v2.
+   * Returns an array of { question, options?, answer, explanation? } objects.
+   * Falls back to a simple templated question if the AI is unavailable.
+   */
+  static async generatePracticeQuestions(
+    subject: string,
+    opts: { topic?: string; difficulty?: number; count?: number; language?: string } = {}
+  ): Promise<Array<{ question: string; options?: string[]; answer: string; explanation?: string }>> {
+    const count = Math.min(Math.max(opts.count ?? 5, 1), 20);
+    const difficulty = opts.difficulty ?? 2;
+    const language = opts.language === "en" ? "en" : "es";
+    const topicLine = opts.topic ? ` about ${opts.topic}` : "";
+
+    const prompt = `Generate ${count} practice ${subject} questions${topicLine} at difficulty ${difficulty}/3 for a student in Honduras.
+Return ONLY a JSON array (no markdown), each item: { "question": string, "options": string[4] (for multiple choice) or null, "answer": string, "explanation": string }.
+Language: ${language === "en" ? "English" : "Spanish"}.`;
+
+    try {
+      const { openai: openaiKey } = await getApiKeys();
+      const client = openaiKey ? new OpenAI({ apiKey: openaiKey }) : openai;
+      const response = await client.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          { role: "system", content: "You are a curriculum question generator. Output valid JSON only." },
+          { role: "user", content: prompt },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 2000,
+      });
+      const content = response.choices[0].message.content;
+      if (!content) throw new Error("No content from OpenAI");
+      // The model may wrap the array in an object; extract the array.
+      const parsed = JSON.parse(content);
+      const arr = Array.isArray(parsed) ? parsed : parsed.questions ?? parsed.items ?? [];
+      if (!Array.isArray(arr)) throw new Error("Unexpected practice question shape");
+      return arr.slice(0, count).map((q: any) => ({
+        question: String(q.question ?? ""),
+        options: Array.isArray(q.options) ? q.options.map(String) : undefined,
+        answer: String(q.answer ?? ""),
+        explanation: q.explanation ? String(q.explanation) : undefined,
+      }));
+    } catch (error) {
+      console.warn("generatePracticeQuestions failed, using fallback:", error);
+      // Deterministic fallback so revision still works offline of AI.
+      return Array.from({ length: count }, (_, i) => ({
+        question:
+          language === "en"
+            ? `Practice ${subject} question #${i + 1}${opts.topic ? " on " + opts.topic : ""}. (AI unavailable — review your notes.)`
+            : `Pregunta de práctica de ${subject} #${i + 1}${opts.topic ? " sobre " + opts.topic : ""}. (IA no disponible — repasa tus apuntes.)`,
+        answer: language === "en" ? "Review your class material." : "Repasa tu material de clase.",
+        explanation: undefined,
+      }));
+    }
+  }
+
+  /**
    * Retrieve top-N curriculum chunks as grounded context for a tutoring session.
    * Returns empty string when no matching material exists (caller falls back to generic GPT).
    */

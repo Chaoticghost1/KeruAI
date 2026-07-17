@@ -1,6 +1,6 @@
 # API Reference
 
-> Auto-generated from route handlers. **Last updated:** July 2026. 119 endpoints.
+> Auto-generated from route handlers. **Last updated:** July 2026. 124 endpoints.
 
 ## Base URL
 
@@ -197,6 +197,20 @@ All endpoints are prefixed with the server origin (e.g. `http://127.0.0.1:5000`)
 | POST | `/api/study/notes` | Yes | study.ts |
 | DELETE | `/api/study/notes/:id` | Yes | study.ts |
 | PUT | `/api/study/notes/:id` | Yes | study.ts |
+
+---
+
+## Revision (Practice Packs)
+
+Student Revision v2: AI practice generation + spaced-repetition revision packs. See [REVISION.md](./REVISION.md).
+
+| Method | Path | Auth | File |
+|--------|------|------|------|
+| POST | `/api/study/practice` | Yes | study.ts |
+| GET | `/api/revision/packs` | Yes | study.ts |
+| GET | `/api/revision/packs/:id` | Yes | study.ts |
+| POST | `/api/revision/packs/:id/offline` | Yes | study.ts |
+| POST | `/api/revision/packs/:id/items/:itemId/review` | Yes | study.ts |
 
 ---
 

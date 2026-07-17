@@ -255,6 +255,13 @@ Sensitive routes add their own limiters/middleware:
 - **Frontend:** StudyBuddy page has subject/topic/grade selectors + a "Curriculum Mode" toggle.
 - See [RAG.md](./RAG.md) for full detail.
 
+### Student Revision v2 — Practice Packs (Task Group 2)
+- **Tables:** `practice_question_generations` (each generated question + source_type), `revision_packs` (per-student, grouped by subject/topic), `revision_pack_items` (question + `scheduling_info`).
+- **Generation sources:** AI (`POST /api/study/practice`), missed game questions (`POST /api/games/scores` with `missedQuestions[]`), and weak assignments (`POST /api/assignments/:id/grade`, grade < 60%). Games/assignments share `server/lib/revision.ts#buildRevisionPackFromMissed`.
+- **Spaced repetition:** `server/lib/spaced-repetition.ts` (Leitner/SM-2-style) drives review scheduling via `POST /api/revision/packs/:id/items/:itemId/review`.
+- **Frontend:** `RevisionPacks` component (flashcard study + rate + offline download) on a "Practice Packs" tab in StudentRevision; "Generate Practice" button in StudyBuddy; IndexedDB `revisionPacks` store in `offline-storage.ts`.
+- See [REVISION.md](./REVISION.md) for full detail.
+
 ---
 
 ## 7. Offline & PWA

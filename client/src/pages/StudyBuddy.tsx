@@ -16,7 +16,9 @@ import { usePersonas } from '../hooks/use-personas';
 import { SyncStatus } from '../components/SyncStatus';
 import { PageLayout } from '@/components/PageLayout';
 import type { StudentProfile } from '@/types/profile';
-import { Send, GraduationCap, Sparkles, ChevronRight } from 'lucide-react';
+import { Send, GraduationCap, Sparkles, ChevronRight, Brain, Loader2 } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { useToast } from '@/hooks/use-toast';
 
 interface TutorAgent {
   id: number;
@@ -54,6 +56,8 @@ export default function StudyBuddy() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [selectedAgent, setSelectedAgent] = useState<TutorAgent | null>(null);
   const [currentSession, setCurrentSession] = useState<TutorSession | null>(null);
   const [messageInput, setMessageInput] = useState('');
@@ -149,6 +153,40 @@ export default function StudyBuddy() {
       queryClient.invalidateQueries({ queryKey: ['tutorSessions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/progress'] });
     }
+  });
+
+  // Generate a practice pack from the selected subject/topic, then go to revision.
+  const generatePracticeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/study/practice', {
+        subject: selectedSubject,
+        topic: topic || undefined,
+        difficulty: difficultyLevel,
+        count: 5,
+        language: t.language === 'en' ? 'en' : 'es',
+      });
+      if (!response.ok) throw new Error('Failed to generate practice');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/revision/packs'] });
+      toast({
+        title: t.language === 'es' ? 'Práctica generada' : 'Practice generated',
+        description: t.language === 'es'
+          ? 'Encuéntrala en la sección de Repaso.'
+          : 'Find it in your Revision section.',
+      });
+      setLocation('/revision');
+    },
+    onError: () => {
+      toast({
+        title: t.language === 'es' ? 'Error' : 'Error',
+        description: t.language === 'es'
+          ? 'No se pudo generar la práctica.'
+          : 'Could not generate practice.',
+        variant: 'destructive',
+      });
+    },
   });
 
   const startSession = () => {
@@ -396,6 +434,21 @@ export default function StudyBuddy() {
                         : (t.language === 'es' ? 'Comenzar Sesión de Tutoría' : 'Start Tutoring Session')
                       }
                       <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={() => generatePracticeMutation.mutate()}
+                      disabled={!selectedSubject || generatePracticeMutation.isPending}
+                      className="w-full rounded-xl py-5 text-base font-medium"
+                      data-testid="generate-practice-button"
+                    >
+                      {generatePracticeMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Brain className="mr-2 h-4 w-4" />
+                      )}
+                      {t.language === 'es' ? 'Generar Práctica' : 'Generate Practice'}
                     </Button>
                   </div>
                 </CardContent>

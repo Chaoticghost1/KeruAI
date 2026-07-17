@@ -30,6 +30,9 @@ import {
   contentSubmissions,
   contentSources,
   contentChunks,
+  practiceQuestionGenerations,
+  revisionPacks,
+  revisionPackItems,
   studentAssignments,
   type TutorAgent,
   type InsertTutorAgent,
@@ -54,6 +57,12 @@ import {
   type InsertContentSource,
   type ContentChunk,
   type InsertContentChunk,
+  type PracticeQuestionGeneration,
+  type InsertPracticeGeneration,
+  type RevisionPack,
+  type InsertRevisionPack,
+  type RevisionPackItem,
+  type InsertRevisionPackItem,
   type StudentAssignment,
   type InsertStudentAssignment,
   classes,
@@ -310,6 +319,17 @@ export interface IStorage {
     language?: string;
     limit?: number;
   }): Promise<ContentChunk[]>;
+
+  // Student Revision v2: practice generations + packs
+  createPracticeGeneration(gen: InsertPracticeGeneration): Promise<PracticeQuestionGeneration>;
+  getPracticeGeneration(id: number): Promise<PracticeQuestionGeneration | undefined>;
+  createRevisionPack(pack: InsertRevisionPack): Promise<RevisionPack>;
+  updateRevisionPack(id: number, updates: Partial<RevisionPack>): Promise<RevisionPack>;
+  getRevisionPacks(userId: number): Promise<RevisionPack[]>;
+  getRevisionPack(userId: number, packId: number): Promise<(RevisionPack & { items: (RevisionPackItem & { question: PracticeQuestionGeneration | null })[] }) | undefined>;
+  addRevisionPackItem(item: InsertRevisionPackItem): Promise<RevisionPackItem>;
+  updateRevisionPackItem(id: number, updates: Partial<RevisionPackItem>): Promise<RevisionPackItem>;
+  setPackOfflineReady(packId: number, offlineReady: boolean): Promise<RevisionPack>;
 
   // Student assignment methods
   createStudentAssignment(assignment: InsertStudentAssignment): Promise<StudentAssignment>;
@@ -1277,6 +1297,85 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
       .where(and(...conditions))
       .orderBy(contentChunks.chunkIndex)
       .limit(limit);
+  }
+
+  // ---- Student Revision v2: practice generations + packs ----
+
+  async createPracticeGeneration(gen: InsertPracticeGeneration): Promise<PracticeQuestionGeneration> {
+    const [created] = await db.insert(practiceQuestionGenerations).values(gen).returning();
+    return created;
+  }
+
+  async getPracticeGeneration(id: number): Promise<PracticeQuestionGeneration | undefined> {
+    const [row] = await db.select().from(practiceQuestionGenerations).where(eq(practiceQuestionGenerations.id, id));
+    return row;
+  }
+
+  async createRevisionPack(pack: InsertRevisionPack): Promise<RevisionPack> {
+    const [created] = await db.insert(revisionPacks).values(pack).returning();
+    return created;
+  }
+
+  async updateRevisionPack(id: number, updates: Partial<RevisionPack>): Promise<RevisionPack> {
+    const [updated] = await db
+      .update(revisionPacks)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(revisionPacks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getRevisionPacks(userId: number): Promise<RevisionPack[]> {
+    return await db
+      .select()
+      .from(revisionPacks)
+      .where(eq(revisionPacks.userId, userId))
+      .orderBy(desc(revisionPacks.createdAt));
+  }
+
+  async getRevisionPack(userId: number, packId: number): Promise<(RevisionPack & { items: (RevisionPackItem & { question: PracticeQuestionGeneration | null })[] }) | undefined> {
+    const [pack] = await db
+      .select()
+      .from(revisionPacks)
+      .where(and(eq(revisionPacks.id, packId), eq(revisionPacks.userId, userId)));
+    if (!pack) return undefined;
+    const rows = await db
+      .select()
+      .from(revisionPackItems)
+      .leftJoin(
+        practiceQuestionGenerations,
+        eq(revisionPackItems.practiceGenerationId, practiceQuestionGenerations.id),
+      )
+      .where(eq(revisionPackItems.packId, packId))
+      .orderBy(revisionPackItems.id);
+    const items = rows.map((row) => ({
+      ...row.revision_pack_items,
+      question: row.practice_question_generations,
+    }));
+    return { ...pack, items };
+  }
+
+  async addRevisionPackItem(item: InsertRevisionPackItem): Promise<RevisionPackItem> {
+    const [created] = await db.insert(revisionPackItems).values(item).returning();
+    // keep pack item count in sync
+    await db
+      .update(revisionPacks)
+      .set({ itemCount: sql`${revisionPacks.itemCount} + 1`, updatedAt: new Date() })
+      .where(eq(revisionPacks.id, item.packId));
+    return created;
+  }
+
+  async updateRevisionPackItem(id: number, updates: Partial<RevisionPackItem>): Promise<RevisionPackItem> {
+    const [updated] = await db
+      .update(revisionPackItems)
+      .set(updates)
+      .where(eq(revisionPackItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async setPackOfflineReady(packId: number, offlineReady: boolean): Promise<RevisionPack> {
+    return this.updateRevisionPack(packId, { offlineReady });
   }
 
   // Class group methods

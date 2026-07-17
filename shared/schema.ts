@@ -530,6 +530,66 @@ export const contentChunksRelations = relations(contentChunks, ({ one }) => ({
   source: one(contentSources, { fields: [contentChunks.sourceId], references: [contentSources.id] }),
 }));
 
+// ---------------------------------------------------------------------------
+// Student Revision v2: practice generations + revision packs (spaced repetition)
+// ---------------------------------------------------------------------------
+
+export const practiceQuestionGenerations = pgTable("practice_question_generations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  subject: text("subject").notNull(),
+  topic: text("topic"),
+  difficulty: integer("difficulty").default(2).notNull(), // 1-3
+  sourceType: text("source_type").notNull().default("ai"), // 'ai' | 'teacher' | 'game' | 'assignment'
+  rawPrompt: text("raw_prompt"),
+  rawAnswer: text("raw_answer"),
+  structuredQuestion: jsonb("structured_question"), // { question, options?, answer, explanation? }
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("pqg_user_idx").on(table.userId),
+  subjectIdx: index("pqg_subject_idx").on(table.subject),
+}));
+
+export const revisionPacks = pgTable("revision_packs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  subject: text("subject").notNull(),
+  topic: text("topic"),
+  title: text("title"),
+  itemCount: integer("item_count").default(0).notNull(),
+  offlineReady: boolean("offline_ready").default(false).notNull(),
+  metadata: jsonb("metadata"), // { questions, sourceTypes, generatedAt }
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  packUserIdx: index("rp_user_idx").on(table.userId),
+}));
+
+export const revisionPackItems = pgTable("revision_pack_items", {
+  id: serial("id").primaryKey(),
+  packId: integer("pack_id").references(() => revisionPacks.id, { onDelete: "cascade" }).notNull(),
+  practiceGenerationId: integer("practice_generation_id").references(() => practiceQuestionGenerations.id, { onDelete: "set null" }),
+  type: text("type").notNull().default("question"), // 'question' | 'flashcard'
+  schedulingInfo: jsonb("scheduling_info"), // { nextReviewAt, difficulty, lastReviewedAt, repetitions }
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  packItemIdx: index("rpi_pack_idx").on(table.packId),
+}));
+
+export const practiceQuestionGenerationsRelations = relations(practiceQuestionGenerations, ({ many }) => ({
+  packItems: many(revisionPackItems),
+}));
+
+export const revisionPacksRelations = relations(revisionPacks, ({ one, many }) => ({
+  user: one(users, { fields: [revisionPacks.userId], references: [users.id] }),
+  items: many(revisionPackItems),
+}));
+
+export const revisionPackItemsRelations = relations(revisionPackItems, ({ one }) => ({
+  pack: one(revisionPacks, { fields: [revisionPackItems.packId], references: [revisionPacks.id] }),
+  generation: one(practiceQuestionGenerations, { fields: [revisionPackItems.practiceGenerationId], references: [practiceQuestionGenerations.id] }),
+}));
+
 export const studentAssignmentsRelations = relations(studentAssignments, ({ one }) => ({
   student: one(users, {
     fields: [studentAssignments.studentId],
@@ -961,3 +1021,25 @@ export type InsertContentSource = z.infer<typeof insertContentSourceSchema>;
 export type ContentSource = typeof contentSources.$inferSelect;
 export type InsertContentChunk = z.infer<typeof insertContentChunkSchema>;
 export type ContentChunk = typeof contentChunks.$inferSelect;
+
+// Revision v2 insert/select schemas & types
+export const insertPracticeGenerationSchema = createInsertSchema(practiceQuestionGenerations).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertRevisionPackSchema = createInsertSchema(revisionPacks).omit({
+  id: true,
+  itemCount: true,
+  updatedAt: true,
+  createdAt: true,
+});
+export const insertRevisionPackItemSchema = createInsertSchema(revisionPackItems).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertPracticeGeneration = z.infer<typeof insertPracticeGenerationSchema>;
+export type PracticeQuestionGeneration = typeof practiceQuestionGenerations.$inferSelect;
+export type InsertRevisionPack = z.infer<typeof insertRevisionPackSchema>;
+export type RevisionPack = typeof revisionPacks.$inferSelect;
+export type InsertRevisionPackItem = z.infer<typeof insertRevisionPackItemSchema>;
+export type RevisionPackItem = typeof revisionPackItems.$inferSelect;

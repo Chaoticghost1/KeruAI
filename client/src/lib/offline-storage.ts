@@ -66,6 +66,17 @@ export interface AppSettings {
   userId?: number;
 }
 
+export interface OfflineRevisionPack {
+  id?: number;
+  packId: number;
+  subject: string;
+  topic?: string | null;
+  title?: string | null;
+  itemCount: number;
+  data: any;
+  cachedAt: string;
+}
+
 // IndexedDB database for offline storage
 export class OfflineDatabase extends Dexie {
   studyNotes!: Table<OfflineStudyNote>;
@@ -74,6 +85,7 @@ export class OfflineDatabase extends Dexie {
   gameScores!: Table<OfflineGameScore>;
   contentCache!: Table<OfflineContentCache>;
   settings!: Table<AppSettings>;
+  revisionPacks!: Table<OfflineRevisionPack>;
 
   constructor() {
     super('HondurasEducationalPlatform');
@@ -85,6 +97,10 @@ export class OfflineDatabase extends Dexie {
       gameScores: '++id, localId, userId, gameName, synced, playedAt',
       contentCache: '++id, url, cachedAt, expiresAt',
       settings: '++id, userId'
+    });
+
+    this.version(2).stores({
+      revisionPacks: '++id, &packId, subject, cachedAt'
     });
   }
 }
@@ -297,6 +313,36 @@ export class OfflineManager {
     
     return { used: 0 };
   }
+}
+
+// Revision pack offline storage (TG2 → used by TG3 offline mode)
+export async function saveRevisionPackOffline(pack: {
+  id: number;
+  subject: string;
+  topic?: string | null;
+  title?: string | null;
+  itemCount: number;
+  items?: unknown[];
+}): Promise<void> {
+  const record: OfflineRevisionPack = {
+    packId: pack.id,
+    subject: pack.subject,
+    topic: pack.topic ?? null,
+    title: pack.title ?? null,
+    itemCount: pack.itemCount,
+    data: pack,
+    cachedAt: new Date().toISOString(),
+  };
+  await offlineDb.revisionPacks.where('packId').equals(pack.id).delete();
+  await offlineDb.revisionPacks.add(record);
+}
+
+export async function getOfflineRevisionPacks(): Promise<OfflineRevisionPack[]> {
+  return await offlineDb.revisionPacks.orderBy('cachedAt').reverse().toArray();
+}
+
+export async function getOfflineRevisionPack(packId: number): Promise<OfflineRevisionPack | undefined> {
+  return await offlineDb.revisionPacks.where('packId').equals(packId).first();
 }
 
 // Initialize offline database - DISABLED

@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { insertGameScoreSchema } from "@shared/schema";
 import { authenticateToken, AuthRequest } from "../auth";
+import { buildRevisionPackFromMissed } from "../lib/revision";
 
 export const gamesRouter = Router();
 
@@ -37,6 +38,25 @@ gamesRouter.post("/scores", authenticateToken, async (req: AuthRequest, res: Res
       gameName: validatedScore.gameName,
       score: validatedScore.score
     });
+
+    // Revision hook: push missed questions into a revision pack (source_type = 'game').
+    const missed = Array.isArray(req.body.missedQuestions) ? req.body.missedQuestions : [];
+    if (missed.length > 0) {
+      const subject = validatedScore.gameName === "mathmaster" ? "matematicas"
+        : validatedScore.gameName === "linguaplay" ? "idiomas" : validatedScore.gameName;
+      try {
+        await buildRevisionPackFromMissed({
+          userId: req.user!.id,
+          subject,
+          title: `Repaso: ${validatedScore.gameName}`,
+          sourceType: "game",
+          missed,
+        });
+      } catch (revErr) {
+        console.warn("Revision pack from game failed (non-fatal):", revErr);
+      }
+    }
+
     res.json({ ...score, rewards });
   } catch (error) {
     next(error);

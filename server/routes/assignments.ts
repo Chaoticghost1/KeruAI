@@ -9,6 +9,7 @@ import {
 } from "../auth";
 import { debug } from "../lib/debug-study-materials";
 import { AITutorService } from "../ai-service.js";
+import { buildRevisionPackFromMissed } from "../lib/revision";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -120,6 +121,37 @@ assignmentsRouter.post("/:id/grade", authenticateToken, authorizeRoles('teacher'
     }
 
     const graded = await storage.gradeAssignment(assignmentId, grade, feedback);
+
+    // Revision hook: a weak grade (< 60%) generates AI practice for the
+    // assignment's subject/topic and bundles it into a revision pack.
+    try {
+      const numericGrade = Number(grade);
+      if (Number.isFinite(numericGrade) && numericGrade < 60) {
+        const assignment = await storage.getStudentAssignment(assignmentId);
+        if (assignment) {
+          const content = await storage.getContentSubmission(assignment.contentId);
+          const subject = content?.subject || "general";
+          const topic = content?.title || null;
+          const questions = await AITutorService.generatePracticeQuestions(subject, {
+            topic: topic ?? undefined,
+            difficulty: 2,
+            count: 5,
+            language: "es",
+          });
+          await buildRevisionPackFromMissed({
+            userId: assignment.studentId,
+            subject,
+            topic,
+            title: `Repaso: ${topic ?? subject}`,
+            sourceType: "assignment",
+            missed: questions,
+          });
+        }
+      }
+    } catch (revErr) {
+      console.warn("Revision pack from assignment failed (non-fatal):", revErr);
+    }
+
     res.json(graded);
   } catch (error) {
     next(error);
