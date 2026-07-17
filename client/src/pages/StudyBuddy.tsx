@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { apiRequest } from '@/lib/queryClient';
@@ -58,6 +59,8 @@ export default function StudyBuddy() {
   const [messageInput, setMessageInput] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [topic, setTopic] = useState('');
+  const [gradeLevel, setGradeLevel] = useState('');
+  const [curriculumMode, setCurriculumMode] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState(2);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -156,6 +159,8 @@ export default function StudyBuddy() {
       agentId: selectedAgent.id,
       subject: selectedSubject,
       topic: topic || null,
+      gradeLevel: gradeLevel || undefined,
+      curriculumMode,
       difficultyLevel,
       isActive: true,
       language: t.language // Include user's language preference
@@ -170,7 +175,9 @@ export default function StudyBuddy() {
       sender: 'student',
       message: messageInput.trim(),
       messageType: 'text',
-      language: t.language // Include user's language preference
+      language: t.language, // Include user's language preference
+      curriculumMode,
+      gradeLevel: gradeLevel || undefined,
     });
   };
 
@@ -347,6 +354,36 @@ export default function StudyBuddy() {
                             : 'e.g. quadratic equations, cell biology'
                         }
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-foreground">
+                        {t.language === 'es' ? 'Grado (Opcional)' : 'Grade Level (Optional)'}
+                      </label>
+                      <Select value={gradeLevel} onValueChange={setGradeLevel}>
+                        <SelectTrigger className="rounded-lg">
+                          <SelectValue placeholder={t.language === 'es' ? 'Selecciona un grado' : 'Select a grade'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {['1','2','3','4','5','6','7','8','9','10','11','12'].map((g) => (
+                            <SelectItem key={g} value={g}>{t.language === 'es' ? `Grado ${g}` : `Grade ${g}`}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2.5">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {t.language === 'es' ? 'Modo Plan de Estudios' : 'Curriculum Mode'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t.language === 'es'
+                            ? 'Usa el material subido por tus profesores como contexto'
+                            : 'Use material uploaded by your teachers as context'}
+                        </p>
+                      </div>
+                      <Switch checked={curriculumMode} onCheckedChange={setCurriculumMode} />
                     </div>
 
                     <Button 

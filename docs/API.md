@@ -1,6 +1,6 @@
 # API Reference
 
-> Auto-generated from route handlers. **Last updated:** July 2026. 116 endpoints.
+> Auto-generated from route handlers. **Last updated:** July 2026. 119 endpoints.
 
 ## Base URL
 
@@ -126,7 +126,10 @@ All endpoints are prefixed with the server origin (e.g. `http://127.0.0.1:5000`)
 | POST | `/api/content/` | Yes | content.ts |
 | DELETE | `/api/content/:id` | Yes | content.ts |
 | POST | `/api/content/:id/publish` | Yes | content.ts |
+| GET | `/api/content/chunks` | Yes | content.ts |
 | GET | `/api/content/my` | Yes | content.ts |
+| GET | `/api/content/sources/my` | Yes | content.ts |
+| POST | `/api/content/upload` | Yes | content.ts |
 
 ---
 

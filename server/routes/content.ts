@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from "express";
 import { storage } from "../storage";
-import { insertContentSubmissionSchema } from "@shared/schema";
+import { insertContentSubmissionSchema, insertContentSourceSchema } from "@shared/schema";
 import {
   authenticateToken,
   authorizeRoles,
@@ -8,6 +8,7 @@ import {
   AuthRequest
 } from "../auth";
 import { ContentProcessor } from "../content-processor.js";
+import { processAndChunk, buildRagContext } from "../lib/content-chunker.js";
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -169,3 +170,118 @@ contentRouter.post("/:id/publish", authenticateToken, authorizeRoles('teacher', 
     next(error);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Curriculum-aligned RAG endpoints
+// ---------------------------------------------------------------------------
+
+const RAG_FILE_TYPES = /pdf|jpeg|jpg|png|gif|txt|html/;
+
+/**
+ * POST /api/content/upload
+ * Upload teacher material (pdf/image/plain), extract text, chunk it, and persist
+ * content_sources + content_chunks for RAG retrieval.
+ */
+contentRouter.post("/upload", authenticateToken, authorizeRoles('teacher', 'superuser'), requireVerification, upload.single('file'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { subject, topic, gradeLevel, language, fileType } = req.body;
+    if (!subject) return res.status(400).json({ error: "Subject is required" });
+    if (!req.file) return res.status(400).json({ error: "A file is required" });
+
+    const detectedType = fileType || path.extname(req.file.originalname).replace('.', '').toLowerCase();
+    if (!RAG_FILE_TYPES.test(detectedType)) {
+      return res.status(400).json({ error: "Unsupported file type for RAG ingestion" });
+    }
+
+    const lang = language === 'en' ? 'en' : 'es';
+
+    // 1. Persist source row (status: processing)
+    const source = await storage.createContentSource({
+      ownerUserId: req.user!.id,
+      subject,
+      topic: topic || null,
+      gradeLevel: gradeLevel || null,
+      fileType: detectedType,
+      originalFileName: req.file.originalname,
+      storageLocation: `/uploads/${req.file.filename}`,
+      language: lang,
+    });
+
+    // 2. Extract + chunk
+    const { chunks, totalTokens } = await processAndChunk(req.file.path, detectedType, {
+      subject,
+      topic: topic || undefined,
+      gradeLevel: gradeLevel || undefined,
+      language: lang,
+    });
+
+    // 3. Persist chunks
+    const inserted = await storage.createContentChunks(
+      chunks.map((c) => ({
+        sourceId: source.id,
+        language: lang,
+        subject,
+        topic: topic || null,
+        gradeLevel: gradeLevel || null,
+        chunkIndex: c.chunkIndex,
+        text: c.text,
+        tokenCount: c.tokenCount,
+      }))
+    );
+
+    await storage.updateContentSource(source.id, {
+      chunkCount: inserted.length,
+      tokenCount: totalTokens,
+      status: inserted.length > 0 ? 'ready' : 'failed',
+    });
+
+    res.status(201).json({
+      source: { ...source, chunkCount: inserted.length, tokenCount: totalTokens, status: inserted.length > 0 ? 'ready' : 'failed' },
+      chunkCount: inserted.length,
+      message: inserted.length > 0 ? "Material ingested and chunked." : "No extractable text found.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/content/chunks
+ * Query RAG chunks by subject/topic/gradeLevel/language (paginated).
+ */
+contentRouter.get("/chunks", authenticateToken, requireVerification, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { subject, topic, gradeLevel, language } = req.query as Record<string, string>;
+    if (!subject) return res.status(400).json({ error: "subject query param is required" });
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 6, 1), 20);
+    const chunks = await storage.findCurriculumChunks({
+      subject,
+      topic: topic || undefined,
+      gradeLevel: gradeLevel || undefined,
+      language: language || undefined,
+      limit,
+    });
+    res.json({ chunks, count: chunks.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/content/sources/my
+ * List the current teacher's uploaded RAG sources.
+ */
+contentRouter.get("/sources/my", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const sources = await storage.getMyContentSources(req.user!.id);
+    res.json(sources);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Test/debug helper: build RAG context string from chunks. */
+export function ragContextPreview(chunks: { text: string }[]): string {
+  return buildRagContext(chunks);
+}
+

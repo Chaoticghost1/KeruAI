@@ -28,6 +28,8 @@ import {
   studyStreaks,
   authTokens,
   contentSubmissions,
+  contentSources,
+  contentChunks,
   studentAssignments,
   type TutorAgent,
   type InsertTutorAgent,
@@ -48,6 +50,10 @@ import {
   type InsertAuthToken,
   type ContentSubmission,
   type InsertContentSubmission,
+  type ContentSource,
+  type InsertContentSource,
+  type ContentChunk,
+  type InsertContentChunk,
   type StudentAssignment,
   type InsertStudentAssignment,
   classes,
@@ -289,6 +295,21 @@ export interface IStorage {
   updateContentSubmission(id: number, updates: Partial<ContentSubmission>): Promise<ContentSubmission>;
   deleteContentSubmission(id: number): Promise<void>;
   publishContentSubmission(id: number): Promise<ContentSubmission>;
+
+  // Curriculum RAG: content sources + chunks
+  createContentSource(source: InsertContentSource): Promise<ContentSource>;
+  updateContentSource(id: number, updates: Partial<ContentSource>): Promise<ContentSource>;
+  getContentSource(id: number): Promise<ContentSource | undefined>;
+  getMyContentSources(ownerUserId: number): Promise<ContentSource[]>;
+  createContentChunks(chunks: InsertContentChunk[]): Promise<ContentChunk[]>;
+  getChunksBySource(sourceId: number): Promise<ContentChunk[]>;
+  findCurriculumChunks(filter: {
+    subject: string;
+    topic?: string;
+    gradeLevel?: string;
+    language?: string;
+    limit?: number;
+  }): Promise<ContentChunk[]>;
 
   // Student assignment methods
   createStudentAssignment(assignment: InsertStudentAssignment): Promise<StudentAssignment>;
@@ -1194,6 +1215,68 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
       .where(eq(contentSubmissions.id, id))
       .returning();
     return published;
+  }
+
+  // ---- Curriculum RAG: content sources + chunks ----
+
+  async createContentSource(source: InsertContentSource): Promise<ContentSource> {
+    const [created] = await db.insert(contentSources).values(source).returning();
+    return created;
+  }
+
+  async updateContentSource(id: number, updates: Partial<ContentSource>): Promise<ContentSource> {
+    const [updated] = await db
+      .update(contentSources)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(contentSources.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getContentSource(id: number): Promise<ContentSource | undefined> {
+    const [source] = await db.select().from(contentSources).where(eq(contentSources.id, id));
+    return source;
+  }
+
+  async getMyContentSources(ownerUserId: number): Promise<ContentSource[]> {
+    return await db
+      .select()
+      .from(contentSources)
+      .where(eq(contentSources.ownerUserId, ownerUserId))
+      .orderBy(desc(contentSources.createdAt));
+  }
+
+  async createContentChunks(chunks: InsertContentChunk[]): Promise<ContentChunk[]> {
+    if (!chunks.length) return [];
+    return await db.insert(contentChunks).values(chunks).returning();
+  }
+
+  async getChunksBySource(sourceId: number): Promise<ContentChunk[]> {
+    return await db
+      .select()
+      .from(contentChunks)
+      .where(eq(contentChunks.sourceId, sourceId))
+      .orderBy(contentChunks.chunkIndex);
+  }
+
+  async findCurriculumChunks(filter: {
+    subject: string;
+    topic?: string;
+    gradeLevel?: string;
+    language?: string;
+    limit?: number;
+  }): Promise<ContentChunk[]> {
+    const conditions = [eq(contentChunks.subject, filter.subject)];
+    if (filter.topic) conditions.push(eq(contentChunks.topic, filter.topic));
+    if (filter.gradeLevel) conditions.push(eq(contentChunks.gradeLevel, filter.gradeLevel));
+    if (filter.language) conditions.push(eq(contentChunks.language, filter.language));
+    const limit = Math.min(Math.max(filter.limit ?? 6, 1), 20);
+    return await db
+      .select()
+      .from(contentChunks)
+      .where(and(...conditions))
+      .orderBy(contentChunks.chunkIndex)
+      .limit(limit);
   }
 
   // Class group methods

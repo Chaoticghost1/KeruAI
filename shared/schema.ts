@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, decimal, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, decimal, boolean, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -472,6 +472,62 @@ export const contentSubmissionsRelations = relations(contentSubmissions, ({ one,
     references: [users.id],
   }),
   assignments: many(studentAssignments),
+  sources: many(contentSources),
+}));
+
+// ---------------------------------------------------------------------------
+// Curriculum-aligned RAG: content sources (uploaded materials) + chunks
+// ---------------------------------------------------------------------------
+
+export const contentSources = pgTable("content_sources", {
+  id: serial("id").primaryKey(),
+  ownerUserId: integer("owner_user_id").references(() => users.id).notNull(),
+  subject: text("subject").notNull(),
+  topic: text("topic"),
+  gradeLevel: text("grade_level"),
+  fileType: text("file_type").notNull(), // 'pdf' | 'image' | 'plain'
+  originalFileName: text("original_file_name"),
+  storageLocation: text("storage_location"), // URL or /uploads path
+  language: text("language").notNull().default("es"),
+  chunkCount: integer("chunk_count").default(0).notNull(),
+  tokenCount: integer("token_count").default(0).notNull(),
+  status: text("status").notNull().default("ready"), // 'processing' | 'ready' | 'failed'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  subjectTopicIdx: index("content_sources_subject_topic_idx").on(table.subject, table.topic),
+  ownerIdx: index("content_sources_owner_idx").on(table.ownerUserId),
+}));
+
+export const contentChunks = pgTable("content_chunks", {
+  id: serial("id").primaryKey(),
+  sourceId: integer("source_id").references(() => contentSources.id, { onDelete: "cascade" }).notNull(),
+  language: text("language").notNull().default("es"),
+  subject: text("subject").notNull(),
+  topic: text("topic"),
+  gradeLevel: text("grade_level"),
+  chunkIndex: integer("chunk_index").notNull(),
+  text: text("text").notNull(),
+  tokenCount: integer("token_count").default(0).notNull(),
+  embeddingStatus: text("embedding_status").notNull().default("none"), // 'none' | 'pending' | 'done' (reserved for future vector search)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  ragIdx: index("content_chunks_rag_idx").on(table.subject, table.topic, table.gradeLevel),
+  languageIdx: index("content_chunks_language_idx").on(table.language),
+  sourceIdx: index("content_chunks_source_idx").on(table.sourceId),
+}));
+
+export const contentSourcesRelations = relations(contentSources, ({ one, many }) => ({
+  owner: one(users, { fields: [contentSources.ownerUserId], references: [users.id] }),
+  submission: one(contentSubmissions, {
+    fields: [contentSources.ownerUserId], // loosely linked via owner; FK not enforced to keep migration simple
+    references: [contentSubmissions.teacherId],
+  }),
+  chunks: many(contentChunks),
+}));
+
+export const contentChunksRelations = relations(contentChunks, ({ one }) => ({
+  source: one(contentSources, { fields: [contentChunks.sourceId], references: [contentSources.id] }),
 }));
 
 export const studentAssignmentsRelations = relations(studentAssignments, ({ one }) => ({
@@ -886,3 +942,22 @@ export type CommunityPost = typeof communityPosts.$inferSelect;
 export type InsertCommunityReply = z.infer<typeof insertCommunityReplySchema>;
 export type CommunityReply = typeof communityReplies.$inferSelect;
 export type SystemSetting = typeof systemSettings.$inferSelect;
+
+// RAG insert/select schemas & types
+export const insertContentSourceSchema = createInsertSchema(contentSources).omit({
+  id: true,
+  chunkCount: true,
+  tokenCount: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const insertContentChunkSchema = createInsertSchema(contentChunks).omit({
+  id: true,
+  embeddingStatus: true,
+  createdAt: true,
+});
+export type InsertContentSource = z.infer<typeof insertContentSourceSchema>;
+export type ContentSource = typeof contentSources.$inferSelect;
+export type InsertContentChunk = z.infer<typeof insertContentChunkSchema>;
+export type ContentChunk = typeof contentChunks.$inferSelect;

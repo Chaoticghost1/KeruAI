@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { tutorPersonas, getPersonaByKey, generatePersonaResponse } from '../shared/tutorPersonas.js';
 import { storage } from './storage';
+import { buildRagContext } from './lib/content-chunker.js';
 
 const PERPLEXITY_BASE_URL = 'https://api.perplexity.ai';
 const PERPLEXITY_MODEL = 'sonar';
@@ -57,12 +58,13 @@ export class AITutorService {
     sessionHistory: Array<{ sender: string; message: string; timestamp: string }> = [],
     language: string = 'es',
     dbPersona?: DBPersona | null,
-    studentProfile?: StudentProfileContext | null
+    studentProfile?: StudentProfileContext | null,
+    curriculumContext?: string
   ): Promise<AITutorResponse> {
     try {
       // Use DB persona (admin-created) system prompt when provided
       if (dbPersona?.systemPrompt) {
-        return this.generateResponseWithDBPersona(dbPersona, studentMessage, subject, difficultyLevel, sessionHistory, language, studentProfile);
+        return this.generateResponseWithDBPersona(dbPersona, studentMessage, subject, difficultyLevel, sessionHistory, language, studentProfile, curriculumContext);
       }
       const persona = getPersonaByKey(agentKey);
       if (!persona) {
@@ -94,7 +96,9 @@ Adapt your explanations and examples to this student's way of learning.`
 
       const systemPrompt = `You are ${displayName}, ${persona.title}. 
 
-${languageInstruction}
+ ${languageInstruction}
+
+${curriculumContext ? curriculumContext + "\n" : ""}
 
 PERSONALITY: ${persona.personality.primaryTraits.join(', ')}
 COMMUNICATION STYLE: ${persona.personality.communicationStyle.tone}, ${persona.personality.communicationStyle.formality}
@@ -190,7 +194,8 @@ Provide your response in JSON format:
     difficultyLevel: number,
     sessionHistory: Array<{ sender: string; message: string; timestamp: string }>,
     language: string = 'es',
-    studentProfile?: StudentProfileContext | null
+    studentProfile?: StudentProfileContext | null,
+    curriculumContext?: string
   ): Promise<AITutorResponse> {
     const conversationHistory = sessionHistory
       .slice(-6)
@@ -204,8 +209,9 @@ Provide your response in JSON format:
       : '';
     const systemPrompt = `${dbPersona.systemPrompt}
 
-${languageInstruction}
-${profileBlock}
+ ${languageInstruction}
+ ${curriculumContext ? curriculumContext + "\n" : ""}
+ ${profileBlock}
 CURRENT SESSION:
 - Subject: ${subject}
 - Difficulty Level: ${difficultyLevel}/3 (1=Beginner, 2=Intermediate, 3=Advanced)
@@ -374,6 +380,30 @@ Provide a helpful tutoring response that includes factual, up-to-date informatio
   }
 
   /**
+   * Retrieve top-N curriculum chunks as grounded context for a tutoring session.
+   * Returns empty string when no matching material exists (caller falls back to generic GPT).
+   */
+  static async fetchCurriculumContext(
+    subject: string,
+    opts: { topic?: string; gradeLevel?: string; language?: string; limit?: number } = {}
+  ): Promise<string> {
+    try {
+      const chunks = await storage.findCurriculumChunks({
+        subject,
+        topic: opts.topic,
+        gradeLevel: opts.gradeLevel,
+        language: opts.language,
+        limit: opts.limit ?? 6,
+      });
+      if (!chunks.length) return "";
+      return buildRagContext(chunks.map((c) => ({ text: c.text })));
+    } catch (error) {
+      console.warn("fetchCurriculumContext failed:", error);
+      return "";
+    }
+  }
+
+  /**
    * Initialize a tutoring session with welcome message
    */
   static async initializeTutoringSession(
@@ -383,17 +413,22 @@ Provide a helpful tutoring response that includes factual, up-to-date informatio
     difficultyLevel: number = 2,
     language: string = 'es',
     dbPersona?: DBPersona | null,
-    studentProfile?: StudentProfileContext | null
+    studentProfile?: StudentProfileContext | null,
+    curriculumMode: boolean = false
   ): Promise<AITutorResponse> {
     if (!dbPersona) {
       const persona = getPersonaByKey(agentKey);
       if (!persona) throw new Error(`Persona not found: ${agentKey}`);
     }
 
+    const curriculumContext = curriculumMode
+      ? await this.fetchCurriculumContext(subject, { topic, language })
+      : "";
+
     const welcomePrompt = topic 
       ? `I'm starting a ${subject} tutoring session focused on ${topic}. Please introduce yourself and ask an engaging question to begin.`
       : `I'm starting a ${subject} tutoring session. Please introduce yourself and ask what specific area I'd like to explore.`;
 
-    return this.generateTutorResponse(agentKey, welcomePrompt, subject, difficultyLevel, [], language, dbPersona, studentProfile);
+    return this.generateTutorResponse(agentKey, welcomePrompt, subject, difficultyLevel, [], language, dbPersona, studentProfile, curriculumContext);
   }
 }

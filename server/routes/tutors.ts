@@ -238,6 +238,17 @@ tutorsRouter.post("/sessions", async (req, res, next: NextFunction) => {
       subjects: studentProfile.subjects,
       strugglingAreas: studentProfile.strugglingAreas
     } : undefined;
+
+    const curriculumMode = req.body.curriculumMode === true || req.body.curriculumMode === 'true';
+    const gradeLevel = req.body.gradeLevel || undefined;
+    let curriculumContext = "";
+    if (curriculumMode) {
+      curriculumContext = await AITutorService.fetchCurriculumContext(validatedSession.subject, {
+        topic: validatedSession.topic || undefined,
+        gradeLevel,
+        language,
+      });
+    }
     
     const welcomeStudentMessage = validatedSession.topic
       ? (language === 'es'
@@ -283,7 +294,8 @@ tutorsRouter.post("/sessions", async (req, res, next: NextFunction) => {
             validatedSession.difficultyLevel,
             language,
             dbPersona ?? undefined,
-            profileContext
+            profileContext,
+            curriculumMode
           ),
           new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), AI_TIMEOUT_MS))
         ]) as { message: string; toolsUsed?: string[] };
@@ -297,7 +309,8 @@ tutorsRouter.post("/sessions", async (req, res, next: NextFunction) => {
           validatedSession.difficultyLevel,
           language,
           dbPersona ?? undefined,
-          profileContext
+          profileContext,
+          curriculumMode
         ),
         new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), AI_TIMEOUT_MS))
       ]) as { message: string; toolsUsed?: string[] };
@@ -414,6 +427,11 @@ tutorsRouter.post("/messages", async (req, res, next: NextFunction) => {
       } : undefined;
       
       const language = req.body.language || 'es';
+
+      const curriculumMode = req.body.curriculumMode === true || req.body.curriculumMode === 'true';
+      const curriculumContext = curriculumMode
+        ? await AITutorService.fetchCurriculumContext(session.subject, { topic: session.topic || undefined, language })
+        : "";
       
       const sessionHistory = await storage.getSessionMessages(validatedMessage.sessionId);
       const conversationHistory = sessionHistory.map(msg => ({
@@ -477,7 +495,8 @@ tutorsRouter.post("/messages", async (req, res, next: NextFunction) => {
             conversationHistory,
             language,
             dbPersona ?? undefined,
-            profileContext
+            profileContext,
+            curriculumContext
           ),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error('AI timeout')), AI_TIMEOUT_MS)

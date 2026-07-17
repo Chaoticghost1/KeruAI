@@ -247,6 +247,14 @@ Sensitive routes add their own limiters/middleware:
 - `passwordResetLimiter` (5 / hour) on reset endpoints.
 - `account-lockout` + `captcha` on login/reset after thresholds.
 
+### Curriculum-aligned RAG (Task Group 1)
+- **Tables:** `content_sources` (uploaded teacher material, subject/topic/grade metadata) + `content_chunks` (token-bounded text chunks tagged by subject/topic/grade/language).
+- **Ingestion:** `POST /api/content/upload` (teacher/superuser) → `ContentProcessor` (`pdf-parse` / `tesseract.js` OCR / text) → `server/lib/content-chunker.ts` → persist source + chunks via `IStorage`.
+- **Retrieval:** `GET /api/content/chunks` (filter by subject/topic/grade/language) and `storage.findCurriculumChunks()`.
+- **AI grounding:** `AITutorService.fetchCurriculumContext(subject, {topic, gradeLevel, language})` returns a prompt-ready context string; threaded into tutor sessions when `curriculumMode: true` (set on session create + each message). Falls back to generic GPT when no chunks match.
+- **Frontend:** StudyBuddy page has subject/topic/grade selectors + a "Curriculum Mode" toggle.
+- See [RAG.md](./RAG.md) for full detail.
+
 ---
 
 ## 7. Offline & PWA
