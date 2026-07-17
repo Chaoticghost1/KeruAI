@@ -2,9 +2,9 @@
 
 ## Keru.ai Suite
 
-**Version:** 1.0  
-**Last Updated:** February 2026  
-**Status:** Active Development (Phase 1 complete)
+**Version:** 1.1  
+**Last Updated:** July 2026  
+**Status:** Active Development (Phase 1 complete; security & games hardening in progress)
 
 ---
 
@@ -85,7 +85,7 @@ Keru.ai Suite is a multi-language educational and productivity platform designed
   - Create/edit/delete categories and transactions
   - Lempiras currency support
   - Charts and summaries
-  - Offline support
+  - Real-time budget hooks (`use-budget`)
 - **Status:** ✅ Implemented
 
 ### 5.3 CruiseWord Game
@@ -122,6 +122,15 @@ Keru.ai Suite is a multi-language educational and productivity platform designed
   - AI-assisted revision (future)
 - **Status:** ⚠️ Partial (UI exists; AI integration pending)
 
+### 5.5a Class Groups & Student Profile
+- **Description:** Teacher-created class groups with invite codes; student chat groups; student profile page.
+- **Acceptance Criteria:**
+  - Teacher creates classes, generates invite codes
+  - Students join via code
+  - Class chat archives (`migrations/add-class-chat-archives.sql`)
+  - Student/teacher linkage (`migrations/add-student-teachers.sql`)
+- **Status:** ✅ Implemented
+
 ### 5.6 Admin Panel
 - **Description:** User, content, and system management
 - **Acceptance Criteria:**
@@ -143,25 +152,31 @@ Keru.ai Suite is a multi-language educational and productivity platform designed
 ### 5.8 DAO & Mentorship
 - **Description:** Community and mentorship features
 - **Acceptance Criteria:**
-  - Basic UI for DAO and MentorshipHub
+  - MentorshipHub UI wired to `/api/mentorship/*` (mentors, applications, requests, sessions, materials)
+  - MentorApply page for mentor applications
+  - Class Groups / Student Profile pages
   - Peer mentorship (future)
   - Community posts (future)
-- **Status:** ⚠️ Partial — MentorshipHub **wired** to `/api/mentorship/*` (mentors, requests, sessions); DAO remains static placeholder with no backend
+- **Status:** ✅ Mentorship fully wired (API + UI); DAO remains static placeholder with no backend
 
 ---
 
 ## 6. Non-Functional Requirements
 
 ### 6.1 Performance
-- PWA with offline-first design
-- Low-bandwidth optimized
-- Service worker caching
+- PWA installable; service worker for asset caching (offline-first caching disabled in current build — app fetches fresh data)
+- Low-bandwidth optimized (Data Saver mode)
+- Rate-limited API (150 req/15 min per IP general; stricter limits on auth and password-reset endpoints)
 
 ### 6.2 Security
 - JWT authentication (access + refresh tokens)
 - Role-based access (student, teacher, superuser)
 - bcrypt password hashing
 - Input validation (Zod)
+- Helmet security headers (CSP, HSTS, etc.) — CSP relaxed for Vite dev/HMR
+- Rate limiting (`express-rate-limit`): general, auth (10/15 min), password-reset (5/hr)
+- Account lockout, password-reset throttling, security event logging, CAPTCHA on sensitive routes
+- `.env` excluded from VCS; secrets never committed
 
 ### 6.3 Internationalization
 - Spanish (default)
@@ -172,6 +187,10 @@ Keru.ai Suite is a multi-language educational and productivity platform designed
 - Responsive design (mobile-first)
 - PWA installable
 - Data Saver mode for constrained connections
+
+### 6.5 Reliability / Operations
+- Auto-selects DB driver: `@neondatabase/serverless` for Neon URLs, `pg` TCP driver for local/Docker Postgres
+- Admin bootstrap script (`npm run create-admin`) for local dev/superuser provisioning
 
 ---
 
@@ -208,6 +227,16 @@ Keru.ai Suite is a multi-language educational and productivity platform designed
 - [x] Fix orphaned code, consolidate components
 - [x] Improve error handling
 
+### Phase 1.5: Security & Platform Hardening (In Progress)
+- [x] Helmet security headers + CSP
+- [x] Rate limiting (general, auth, password-reset)
+- [x] Account lockout, password-reset throttling, security logging, CAPTCHA
+- [x] MentorshipHub full API + UI wiring, Class Groups, Student Profile
+- [x] Local Postgres (Docker) support with auto DB driver selection
+- [x] `create-admin` bootstrap script
+- [ ] Email provider for verification / password reset
+- [ ] Fix remaining TypeScript `tsc` errors (iteration target, route typing)
+
 ### Phase 2: Content & AI Enhancement
 - [ ] PDF text extraction integration
 - [ ] OCR for images
@@ -235,9 +264,9 @@ Keru.ai Suite is a multi-language educational and productivity platform designed
 
 | Constraint | Reason |
 |------------|--------|
-| vite.config.ts READ-ONLY | Modifying breaks Replit environment |
+| `vite.config.ts` mostly fixed | Replit-specific plugins; avoid breaking dev banner/cartographer |
 | No dark mode | User declined |
-| Icons: lucide-react + react-icons/fa | Migration complete; FontAwesome not used in components |
+| Icons: lucide-react + react-icons/fa | Font Awesome loaded via CDN stylesheet for social icons |
 
 ---
 
