@@ -4,6 +4,27 @@
 
 ---
 
+## 0. Runtime Connection (driver auto-selection)
+
+`server/db.ts` chooses the driver from `DATABASE_URL`:
+
+- **Neon** (`*.neon.tech`) → `@neondatabase/serverless` (WebSocket pool).
+- **Local / Docker / other Postgres** → standard `pg` TCP `Pool`.
+
+No code change is needed to switch. For a quick local DB:
+
+```bash
+docker run -d --name studybuddy-postgres -p 5432:5432 \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=studybuddyai \
+  -v studybuddy-pgdata:/var/lib/postgresql/data postgres:16
+# .env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/studybuddyai
+```
+
+Schema is applied with `npm run db:push` (Drizzle Kit, `drizzle.config.ts`).
+
+---
+
 ## 1. Entity Relationship Overview
 
 ```
