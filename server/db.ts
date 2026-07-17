@@ -1,9 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -11,22 +8,32 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Create connection pool with better error handling and connection management
-export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  max: 10, // Maximum number of connections in the pool
-  maxUses: Infinity, // No limit on connection reuse
-  allowExitOnIdle: false, // Don't allow exit when pool is idle
-  idleTimeoutMillis: 30000 // Close idle connections after 30 seconds
+const isNeon = /neon\.tech/i.test(process.env.DATABASE_URL);
+
+// Local/non-Neon Postgres connects over plain TCP using the `pg` driver.
+// Neon endpoints require the @neondatabase/serverless WebSocket driver.
+let pool: Pool;
+if (isNeon) {
+  const { neonConfig } = await import("@neondatabase/serverless");
+  const ws = (await import("ws")).default;
+  const { Pool: NeonPool } = await import("@neondatabase/serverless");
+  neonConfig.webSocketConstructor = ws;
+  pool = new NeonPool({ connectionString: process.env.DATABASE_URL });
+} else {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 10,
+    allowExitOnIdle: false,
+    idleTimeoutMillis: 30000,
+  });
+}
+
+pool.on("error", (err) => {
+  console.error("Database pool error:", err.message);
 });
 
-// Add error handling for the pool
-pool.on('error', (err) => {
-  console.error('Database pool error:', err.message);
-});
-
-pool.on('connect', () => {
-  console.log('Database connection established');
+pool.on("connect", () => {
+  console.log("Database connection established");
 });
 
 export const db = drizzle({ client: pool, schema });

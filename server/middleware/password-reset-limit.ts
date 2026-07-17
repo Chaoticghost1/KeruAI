@@ -7,6 +7,7 @@ export const passwordResetLimiter = rateLimit({
   keyGenerator: (req) => {
     return typeof req.body.email === 'string' ? req.body.email : req.ip;
   },
+  validate: { keyGeneratorIpFallback: false },
   message: { error: "Too many password reset attempts. Please try again in 1 hour." },
   standardHeaders: true,
   legacyHeaders: false,
