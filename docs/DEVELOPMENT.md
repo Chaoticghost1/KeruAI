@@ -8,7 +8,9 @@
 
 - **Node.js:** 20+
 - **npm:** 10+
-- **PostgreSQL:** For local DB, or use [Neon](https://neon.tech) serverless
+- **PostgreSQL:** Local install, **Docker** (recommended), or [Neon](https://neon.tech) serverless
+
+> **Driver note:** `server/db.ts` auto-selects the DB driver. Neon URLs (`*.neon.tech`) use `@neondatabase/serverless` (WebSocket). All other URLs use the standard `pg` TCP driver. No code change is needed to switch between them.
 
 ---
 
@@ -151,9 +153,11 @@ const [language, setLanguage] = useState('es');
 ```
 
 ### Database Connection Issues
-- Verify `DATABASE_URL` format
-- Ensure DB is running (or Neon is accessible)
-- Run `npm run db:push` after schema changes
+- Verify `DATABASE_URL` format.
+- **Local/Docker:** ensure Postgres is listening on the port in `DATABASE_URL` (default `5432`). With Docker: `docker ps` should show `studybuddy-postgres` and `docker logs studybuddy-postgres` should show `ready`.
+- **Neon:** ensure the connection string includes `neon.tech` and the pooler is enabled; the serverless driver connects over WebSocket.
+- The app auto-picks the driver — local/non-Neon URLs use the `pg` TCP driver, Neon URLs use `@neondatabase/serverless`. If you see a `wss://.../v2` connection error, you are running a non-Neon URL through the serverless path; switch `DATABASE_URL` to a plain `postgresql://` string (the `pg` driver handles it).
+- Run `npm run db:push` after schema changes.
 
 ### Error boundaries and rate limiting (Phase 1)
 - **Error boundaries:** React errors are caught by `client/src/components/ErrorBoundary.tsx`, which wraps the app and the main content area. A fallback UI with "Reload" and "Go home" is shown if a component throws.

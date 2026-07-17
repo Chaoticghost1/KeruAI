@@ -40,8 +40,8 @@ See [docs/PROJECT_HEALTH.md](./docs/PROJECT_HEALTH.md) for details.
 |-------|------------|
 | Frontend | React, TypeScript, Vite, Tailwind, shadcn/ui |
 | Backend | Express.js, TypeScript |
-| Database | PostgreSQL (Neon), Drizzle ORM |
-| AI | OpenAI GPT-4, Perplexity fallback |
+| Database | PostgreSQL (Neon **or** local/Docker), Drizzle ORM |
+| AI | OpenAI GPT (latest), Perplexity fallback |
 | Offline | Disabled (caching removed; fresh data) |
 
 ---
@@ -58,6 +58,37 @@ npm run db:push && npm run create-admin && npm run dev
 Then open `http://localhost:5000`. Admin user: `admin` / `admin@keru.ai` / `admin123`.
 
 For full setup, env vars, and troubleshooting (including cache/data issues), see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
+---
+
+## Database
+
+The app works with **any** PostgreSQL. `server/db.ts` auto-detects the driver:
+
+- **Neon** (`*.neon.tech` in `DATABASE_URL`) → uses `@neondatabase/serverless` (WebSocket) — no extra setup.
+- **Local / Docker / other Postgres** → uses the standard `pg` TCP driver.
+
+### Option A — Local Postgres with Docker (recommended for dev)
+
+```bash
+docker run -d --name studybuddy-postgres -p 5432:5432 \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=studybuddyai \
+  -v studybuddy-pgdata:/var/lib/postgresql/data postgres:16
+```
+
+Then set in `.env`:
+
+```
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/studybuddyai
+```
+
+The data volume `studybuddy-pgdata` persists across container restarts. To stop/start: `docker stop studybuddy-postgres` / `docker start studybuddy-postgres`.
+
+### Option B — Neon (serverless)
+
+Set `DATABASE_URL` to your Neon connection string (must end in `neon.tech`). No local DB needed.
+
+After choosing a database, run `npm run db:push` to create the schema, then `npm run create-admin`.
 
 ---
 

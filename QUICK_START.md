@@ -10,6 +10,16 @@ cp .env.example .env
 ```
 
 Edit `.env`: set `DATABASE_URL`, `JWT_SECRET`, and `JWT_REFRESH_SECRET`.  
+For a quick local database, run Postgres in Docker:
+
+```bash
+docker run -d --name studybuddy-postgres -p 5432:5432 \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=studybuddyai \
+  -v studybuddy-pgdata:/var/lib/postgresql/data postgres:16
+```
+
+Then set `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/studybuddyai`.  
+(Or use a [Neon](https://neon.tech) connection string — the app auto-detects the driver.)  
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#4-environment-variables) for the full list.
 
 ## 2. Database and admin user
