@@ -21,7 +21,7 @@ app.use(helmet({
                       styleSrc: ["'self'", "'unsafe-inline'", "https:", "data:"],
                       imgSrc: ["'self'", "data:", "https:", "blob:"],
                       connectSrc: isDev
-                        ? ["'self'", "http://127.0.0.1:7242", "ws:", "wss:"]
+                        ? ["'self'", "http://127.0.0.1:7242", "http://localhost:*", "http://127.0.0.1:*", "ws:", "wss:"]
                         : ["'self'", "http://127.0.0.1:7242"],
                       fontSrc: ["'self'", "https:", "data:"],
                       objectSrc: ["'none'"],
