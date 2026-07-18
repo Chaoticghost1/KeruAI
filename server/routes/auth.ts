@@ -197,8 +197,9 @@ authRouter.post("/login", authLimiter, async (req, res, next: NextFunction) => {
   
   try {
     _dbg('login attempt', { hasUsername: !!req.body?.username, hasEmail: !!req.body?.email, hasPhone: !!req.body?.phoneNumber });
-    const { username, email, phoneNumber, password } = req.body;
-    
+    const { username, email, phoneNumber, password, identifier } = req.body;
+    const resolvedIdentifier = identifier || username || email || phoneNumber || "";
+
     if (!password) {
       return res.status(400).json({ error: "Password is required" });
     }
@@ -210,6 +211,16 @@ authRouter.post("/login", authLimiter, async (req, res, next: NextFunction) => {
       user = await storage.getUserByEmail(email);
     } else if (phoneNumber) {
       user = await storage.getUserByPhone(phoneNumber);
+    } else if (identifier) {
+      const isEmail = String(identifier).includes("@");
+      const isPhone = /^\+?[\d\s-()]+$/.test(String(identifier));
+      if (isEmail) {
+        user = await storage.getUserByEmail(String(identifier));
+      } else if (isPhone) {
+        user = await storage.getUserByPhone(String(identifier));
+      } else {
+        user = await storage.getUserByUsername(String(identifier));
+      }
     } else {
       return res.status(400).json({ error: "Username, email, or phone number is required" });
     }
