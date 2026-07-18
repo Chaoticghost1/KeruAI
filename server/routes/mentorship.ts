@@ -11,13 +11,21 @@ const uploadDir = "uploads";
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 const mentorUpload = multer({
   storage: multer.diskStorage({
-    destination: (_, __, cb) => cb(null, uploadDir),
-    filename: (_, file, cb) => cb(null, "mentor-" + Date.now() + "-" + Math.round(Math.random() * 1e9) + path.extname(file.originalname)),
+    destination: (req, file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      cb(null, "mentor-" + Date.now() + "-" + Math.round(Math.random() * 1e9) + path.extname(file.originalname));
+    },
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_, file, cb) => {
+  fileFilter: (req, file, cb: multer.FileFilterCallback) => {
     const ok = /jpeg|jpg|png|gif|pdf|doc|docx|txt|html/.test(path.extname(file.originalname).toLowerCase());
-    cb(ok ? null : new Error("Invalid file type"), ok);
+    if (ok) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type"));
+    }
   },
 });
 

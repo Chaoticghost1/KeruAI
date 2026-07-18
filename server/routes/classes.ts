@@ -366,7 +366,7 @@ classesRouter.delete("/:id(\\d+)", authenticateToken, authorizeRoles('teacher', 
     const messagesSnapshot = messages.map((m) => ({
       senderId: m.senderId,
       message: m.message,
-      createdAt: m.createdAt,
+      createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
       senderName: m.sender ? `${m.sender.firstName ?? ''} ${m.sender.lastName ?? ''}`.trim() || m.sender.username : undefined,
     }));
     const membersSnapshot = members.map((m) => ({

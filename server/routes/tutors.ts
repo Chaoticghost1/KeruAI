@@ -268,7 +268,7 @@ tutorsRouter.post("/sessions", async (req, res, next: NextFunction) => {
           sessionId: session.id,
           agentKey: agent.agentKey,
           subject: validatedSession.subject,
-          difficultyLevel: validatedSession.difficultyLevel,
+          difficultyLevel: validatedSession.difficultyLevel ?? 1,
           language,
           conversationHistory: [],
           studentProfile: profileContext ?? undefined

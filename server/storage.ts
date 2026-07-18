@@ -109,7 +109,7 @@ import {
   systemSettings
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, innerJoin, gte, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, gte, inArray } from "drizzle-orm";
 import { debug } from "./lib/debug-study-materials";
 import { 
   calculateLevel, 

@@ -78,13 +78,13 @@ export default function AuthPage() {
       // Determine if identifier is email, phone, or username
       const isEmail = loginData.identifier.includes("@");
       const isPhone = /^\+?[\d\s-()]+$/.test(loginData.identifier);
-      
+      const loginMethod = isEmail ? "email" : isPhone ? "phone" : "username";
+
       const payload = {
+        identifier: loginData.identifier,
         password: loginData.password,
-        ...(isEmail ? { email: loginData.identifier } : 
-           isPhone ? { phoneNumber: loginData.identifier } : 
-           { username: loginData.identifier })
-      };
+        loginMethod,
+      } as Parameters<typeof loginMutation.mutateAsync>[0];
 
       await loginMutation.mutateAsync(payload);
       setLocation(returnPath ?? "/dashboard");
@@ -175,7 +175,7 @@ export default function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "login" | "register")} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Sign In</TabsTrigger>
                 <TabsTrigger value="register">Sign Up</TabsTrigger>

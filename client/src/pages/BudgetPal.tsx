@@ -98,12 +98,13 @@ export default function BudgetPalPage() {
   const remainingBudget = totalIncome - totalExpenses;
   const incomeForPercent = totalIncome || 1;
 
-  const ensureIncomeCategory = async (): Promise<number> => {
+    const ensureIncomeCategory = async (): Promise<number> => {
     const incomeName = language === "es" ? "Ingresos" : "Income";
     let cat = categories.find((c) => c.name.toLowerCase() === incomeName.toLowerCase());
     if (!cat) {
       cat = await createCategory({ name: incomeName, budget: "0" });
     }
+    if (!cat) throw new Error("Could not create income category");
     return cat.id;
   };
 
@@ -518,11 +519,7 @@ export default function BudgetPalPage() {
                           <p className="font-semibold text-slate-900 text-sm">{expense.description}</p>
                           <p className="text-xs text-slate-500 flex items-center mt-0.5">
                             <Calendar className="h-3 w-3 mr-1" />
-                            {typeof expense.date === "string"
-                              ? expense.date.split("T")[0]
-                              : expense.date instanceof Date
-                                ? expense.date.toISOString().split("T")[0]
-                                : String(expense.date ?? "").split("T")[0]}
+                            {expense.date ? String(expense.date).split("T")[0] : ""}
                           </p>
                         </div>
                       </div>

@@ -19,7 +19,7 @@ interface PublicNavProps {
  */
 export function PublicNav({ variant, backLabel }: PublicNavProps) {
   const { t } = useLanguage();
-  const defaultBackLabel = t.landingPage?.backToHome ?? (t.language === 'es' ? 'Volver al inicio' : 'Back to home');
+  const defaultBackLabel = t.language === 'es' ? 'Volver al inicio' : 'Back to home';
   const label = backLabel ?? defaultBackLabel;
 
   return (

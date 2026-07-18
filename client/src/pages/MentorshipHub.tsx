@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -77,9 +77,9 @@ export default function MentorshipHub() {
 
   // Map API mentors to UI shape; when API returns empty, show 3 mock profiles: 1 mentor, 1 voluntario, 1 top mentor (platform verified)
   const sampleMentorsFallback = [
-    { id: 1, name: 'Lic. Roberto Martínez', subjects: ['Matemáticas', 'Estadística'], rating: 4.5, reviews: 42, sessions: 89, hourlyRate: 120, location: 'Tegucigalpa', verified: false, experience: '5 años', availability: 'Lun-Vie 4pm-7pm', image: '👨‍🏫', badge: language === 'es' ? 'Mentor' : 'Mentor', bio: 'Profesor de matemáticas con experiencia en secundaria y bachillerato.' },
-    { id: 2, name: 'Lic. Carlos Mejía', subjects: ['Química', 'Biología'], rating: 4.8, reviews: 98, sessions: 210, hourlyRate: 0, location: 'San Pedro Sula', verified: true, experience: '8 años', availability: 'Sáb-Dom 10am-4pm', image: '👨‍🔬', badge: language === 'es' ? 'Voluntario' : 'Volunteer', bio: 'Químico farmacéutico apasionado por enseñar ciencias.' },
-    { id: 3, name: 'Prof. María Rodríguez', subjects: ['Matemáticas', 'Física'], rating: 4.9, reviews: 156, sessions: 340, hourlyRate: 150, location: 'Tegucigalpa', verified: true, experience: '12 años', availability: 'Lun-Vie 2pm-8pm', image: '👩‍🏫', badge: language === 'es' ? 'Top Mentor' : 'Top Mentor', bio: 'Ingeniera con maestría en educación. Verificada por la plataforma.' },
+    { id: 1, userId: 1, name: 'Lic. Roberto Martínez', subjects: ['Matemáticas', 'Estadística'], rating: 4.5, reviews: 42, sessions: 89, hourlyRate: 120, location: 'Tegucigalpa', verified: false, experience: '5 años', availability: 'Lun-Vie 4pm-7pm', image: '👨‍🏫', badge: language === 'es' ? 'Mentor' : 'Mentor', bio: 'Profesor de matemáticas con experiencia en secundaria y bachillerato.' },
+    { id: 2, userId: 2, name: 'Lic. Carlos Mejía', subjects: ['Química', 'Biología'], rating: 4.8, reviews: 98, sessions: 210, hourlyRate: 0, location: 'San Pedro Sula', verified: true, experience: '8 años', availability: 'Sáb-Dom 10am-4pm', image: '👨‍🔬', badge: language === 'es' ? 'Voluntario' : 'Volunteer', bio: 'Químico farmacéutico apasionado por enseñar ciencias.' },
+    { id: 3, userId: 3, name: 'Prof. María Rodríguez', subjects: ['Matemáticas', 'Física'], rating: 4.9, reviews: 156, sessions: 340, hourlyRate: 150, location: 'Tegucigalpa', verified: true, experience: '12 años', availability: 'Lun-Vie 2pm-8pm', image: '👩‍🏫', badge: language === 'es' ? 'Top Mentor' : 'Top Mentor', bio: 'Ingeniera con maestría en educación. Verificada por la plataforma.' },
   ];
   const mentors = apiMentors.length > 0
     ? apiMentors.map((m) => ({

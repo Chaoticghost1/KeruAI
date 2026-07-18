@@ -36,7 +36,7 @@ const defaultFeatures: SystemFeatures = {
 };
 
 export function useSystemFeatures(): SystemFeatures {
-  const { data } = useQuery<Record<string, boolean>>({
+  const { data } = useQuery<SystemFeatures>({
     queryKey: ["/api/system/features"],
     staleTime: 60_000,
     placeholderData: defaultFeatures,

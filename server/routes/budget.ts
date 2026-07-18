@@ -83,9 +83,9 @@ budgetRouter.put("/transactions/:id", authenticateToken, async (req: AuthRequest
     const updates: Record<string, unknown> = {};
     if (description !== undefined) updates.description = description;
     if (amount !== undefined) updates.amount = amount;
-    if (date !== undefined) updates.date = date;
+    if (date !== undefined) updates.date = new Date(date);
     if (categoryId !== undefined) updates.categoryId = categoryId;
-    const updated = await storage.updateBudgetTransaction(id, req.user!.id, updates as { description?: string; amount?: string; date?: string; categoryId?: number });
+    const updated = await storage.updateBudgetTransaction(id, req.user!.id, updates as { description?: string; amount?: string; date?: Date; categoryId?: number });
     res.json(updated);
   } catch (error) {
     next(error);
