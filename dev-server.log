@@ -1,0 +1,6 @@
+
+> rest-express@1.0.0 dev
+> cross-env NODE_ENV=development tsx server/index.ts
+
+Database connection established
+10:16:15 AM [express] serving on port 5000

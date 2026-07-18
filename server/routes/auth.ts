@@ -51,6 +51,7 @@ export const authRouter = Router();
 authRouter.post("/register", authLimiter, async (req, res, next: NextFunction) => {
   try {
     const { username, email, phoneNumber, password, role = 'student', firstName, lastName } = req.body;
+    const normalizedPhone = phoneNumber && String(phoneNumber).trim() !== "" ? String(phoneNumber).trim() : undefined;
     
     const allowedRoles = ['student', 'teacher', 'superuser'];
     const userRole = allowedRoles.includes(role) ? role : 'student';
@@ -63,7 +64,7 @@ authRouter.post("/register", authLimiter, async (req, res, next: NextFunction) =
       return res.status(400).json({ error: "Password must be at least 8 characters long" });
     }
     
-    if (!email && !phoneNumber) {
+    if (!email && !normalizedPhone) {
       return res.status(400).json({ error: "Email or phone number is required" });
     }
 
@@ -79,8 +80,8 @@ authRouter.post("/register", authLimiter, async (req, res, next: NextFunction) =
       }
     }
 
-    if (phoneNumber) {
-      const existingPhone = await storage.getUserByPhone(phoneNumber);
+    if (normalizedPhone) {
+      const existingPhone = await storage.getUserByPhone(normalizedPhone);
       if (existingPhone) {
         return res.status(400).json({ error: "Phone number already registered" });
       }
@@ -95,7 +96,7 @@ authRouter.post("/register", authLimiter, async (req, res, next: NextFunction) =
     const user = await storage.createUser({
       username,
       email,
-      phoneNumber,
+      phoneNumber: normalizedPhone,
       password: hashedPassword,
       role: userRole,
       firstName,
