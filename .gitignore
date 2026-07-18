@@ -12,3 +12,4 @@ vite.config.ts.*
 
 # agent worktrees
 .claude/worktrees/
+dev-server.log
