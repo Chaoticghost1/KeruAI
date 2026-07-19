@@ -39,7 +39,7 @@ Keru.ai Suite provides:
 | **COPPA consent** | ⚠️ Partial — `users.consentRequired` flag + `SYSTEM_REQUIRE_PARENTAL_CONSENT` signup gate; no dedicated consent UI yet |
 | **CI** | ✅ `.github/workflows/ci.yml` (tsc → vitest → build) |
 | **Mobile-first UX** | ✅ `client/src/components/mobile/*` (14+ passing Vitest/RTL tests) |
-| **DAO** | Static placeholder (no backend) |
+| **DAO** | ✅ Real backend governance — proposals + one-user-one-vote (`/api/dao`), desktop `/dao` + mobile `/dao/mobile` |
 | **Next priorities** | Email service (verification/reset), full COPPA consent UI, SSO/OAuth config |
 
 See [docs/PROJECT_HEALTH.md](./docs/PROJECT_HEALTH.md) for details and [audit-report.html](./audit-report.html) for the engineering audit.
@@ -130,7 +130,8 @@ plus quick-play modes.
 Personal finance for students, Honduras-first (Lempira default) with multi-currency support.
 Two UIs share the same API (`/api/budget/*`, auth required):
 
-- **Desktop** — `/budgetpal` (`client/src/pages/BudgetPal.tsx`): category budgets + progress bar.
+- **Desktop** — `/budgetpal` now redirects to the mobile experience at `/budget/mobile`
+  (`client/src/pages/BudgetMobile.tsx`); the original `BudgetPal.tsx` page was removed (deprecated).
 - **Mobile** — `/budget/mobile` (`client/src/pages/BudgetMobile.tsx`): ported UI patterns from
   [gider.im-pwa](https://github.com/needim/gider.im-pwa) — `EntryRow` list with 44px tap targets,
   paid/unpaid toggle, bottom-sheet add/edit, FAB, multi-currency `MoneyInput`, `BudgetChart`
@@ -149,6 +150,32 @@ Features (Phase 1–3):
 
 New schema tables: `budget_transactions` (added `currency`, `type`, `paid`, `groupId`, `tagId`,
 `recurringId`), `budget_groups`, `budget_tags`, `budget_recurring`. Applied with `npm run db:push`.
+
+---
+
+## DAO Governance (Aragon OSx-inspired, DB-backed)
+
+Community governance for the Santa Rita DAO. Inspired by [Aragon OSx](https://github.com/aragon/osx)
+governance patterns (proposal lifecycle, transparent voting, plugin-style modular UI) but **without any
+blockchain** — votes are stored in Postgres, one vote per user per proposal.
+
+- **API** — `/api/dao` (auth required; gated by the `dao_access` feature flag):
+  - `GET /api/dao/proposals` — list proposals with live tallies.
+  - `GET /api/dao/proposals/:id` — proposal + tally + the caller's current vote.
+  - `POST /api/dao/proposals` — create a proposal (author = caller; status starts `active`).
+  - `POST /api/dao/proposals/:id/vote` — cast/change a vote (`for` | `against` | `abstain`); only while
+    `active` and before the deadline (server enforces, returns 409 otherwise).
+  - `POST /api/dao/proposals/:id/close` — teachers/superusers resolve a proposal to `passed` (for > against)
+    or `rejected`.
+- **Proposal lifecycle** — `draft → active → passed | rejected → executed`.
+- **UI** — desktop `/dao` (`client/src/pages/DAO.tsx`) and mobile-first `/dao/mobile`
+  (`client/src/pages/DAOMobile.tsx`) share `client/src/components/dao/*` (`ProposalCard`, `VoteBar`,
+  `ProposalDetailSheet` modal, `ProposalForm`, `DaoFab`) and the `useDaoProposals` hook.
+- **Seed** — two sample proposals are inserted on first run if the table is empty
+  (`storage.seedDaoProposalsIfEmpty`).
+
+New schema tables: `dao_proposals`, `dao_votes` (unique `(proposal_id, user_id)` enforces one-user-one-vote).
+Applied with `npm run db:push`.
 
 ---
 

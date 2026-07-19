@@ -366,7 +366,7 @@ export default function Dashboard() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <FeatureCard
-              href="/budgetpal"
+              href="/budget/mobile"
               icon={<Wallet className="h-7 w-7 text-youth-success" />}
               title={t.dashboard.trackBudget}
               description={t.dashboard.trackBudgetDesc}

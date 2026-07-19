@@ -10,6 +10,8 @@ import { ExternalLink, Users, MessageSquare, Bookmark, Calendar, MapPin, Clock, 
 import { formatAsHondurasCurrency } from '@/lib/currency-formatter';
 import { motion, AnimatePresence, useAnimation, useInView } from 'framer-motion';
 import { PageLayout } from '@/components/PageLayout';
+import { useDaoProposals, type DaoProposal, type DaoVoteChoice } from '@/hooks/use-dao';
+import { ProposalDetailSheet } from '@/components/dao/ProposalDetailSheet';
 // --- Animated Counter Component ---
 const AnimatedCounter = ({ end, duration = 2000 }: { end: number; duration?: number }) => {
   const [count, setCount] = useState(0);
@@ -72,6 +74,16 @@ const ProgressRing = ({ progress, size = 60, strokeWidth = 8 }: { progress: numb
 export default function EnhancedDAO() {
   const { t } = useLanguage();
   const features = useSystemFeatures();
+  const {
+    proposals,
+    isLoading,
+    vote,
+    isVoting,
+    isOpen,
+  } = useDaoProposals();
+  const [selected, setSelected] = React.useState<DaoProposal | null>(null);
+  const [userVote, setUserVote] = React.useState<DaoVoteChoice | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const controls = useAnimation();
   const ref = useRef(null);
@@ -86,6 +98,20 @@ export default function EnhancedDAO() {
   if (!features.dao_access) {
     return <Redirect to="/dashboard" />;
   }
+
+  const openDetail = (proposal: DaoProposal) => {
+    setSelected(proposal);
+    setUserVote(null);
+    setDetailOpen(true);
+  };
+
+  const handleVote = async (choice: DaoVoteChoice) => {
+    if (!selected) return;
+    await vote({ id: selected.id, choice });
+    setUserVote(choice);
+    const updated = proposals.find((p) => p.id === selected.id);
+    if (updated) setSelected(updated);
+  };
 
   const projects = [
     {
@@ -117,19 +143,6 @@ export default function EnhancedDAO() {
       activity: 'high'
     },
     // ... (other links)
-  ];
-
-  const proposals = [
-    {
-      id: 'SRP-001',
-      title: t.language === 'es' ? 'Implementar WiFi Público en el Parque Central' : 'Implement Public WiFi in Central Park',
-      author: 'CopaneroCoder',
-      status: t.language === 'es' ? 'Votación Activa' : 'Active Voting',
-      votes: { for: 156, against: 23, abstain: 12 },
-      deadline: '2025-10-15',
-      category: t.language === 'es' ? 'Infraestructura' : 'Infrastructure',
-      description: t.language === 'es' ? 'Proveer acceso gratuito a internet en las áreas principales del parque.' : 'Provide free internet access in the main park areas.'
-    },
   ];
 
   const events = [
@@ -399,7 +412,7 @@ export default function EnhancedDAO() {
             </motion.div>
           </TabsContent>
 
-          {/* --- Governance Tab --- */}
+          {/* --- Governance Tab (live, Aragon OSx-inspired) --- */}
           <TabsContent value="governance" className="space-y-6">
             <motion.div
               initial="hidden"
@@ -407,97 +420,110 @@ export default function EnhancedDAO() {
               variants={containerVariants}
               className="grid gap-6"
             >
-              {proposals.map((proposal) => (
-                <motion.div key={proposal.id} variants={cardVariants}>
-                  <Card className="hover:shadow-lg transition-shadow border border-slate-200">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
-                              {proposal.id}
-                            </Badge>
-                            <Badge variant={
-                              proposal.status.includes(t.language === 'es' ? 'Votación' : 'Voting')
-                                ? 'default'
-                                : proposal.status.includes(t.language === 'es' ? 'Aprobada' : 'Approved')
-                                ? 'destructive'
-                                : 'secondary'
-                            }>
-                              {proposal.status}
-                            </Badge>
-                            <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
-                              {proposal.category}
-                            </Badge>
+              {isLoading ? (
+                <p className="text-sm text-slate-600">{t.language === 'es' ? 'Cargando propuestas…' : 'Loading proposals…'}</p>
+              ) : proposals.length === 0 ? (
+                <p className="text-sm text-slate-600">{t.language === 'es' ? 'Aún no hay propuestas.' : 'No proposals yet.'}</p>
+              ) : (
+                proposals.map((proposal) => (
+                  <motion.div key={proposal.id} variants={cardVariants}>
+                    <Card className="hover:shadow-lg transition-shadow border border-slate-200">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                                #{proposal.id}
+                              </Badge>
+                              <Badge variant={
+                                proposal.status === 'active'
+                                  ? 'default'
+                                  : proposal.status === 'passed' || proposal.status === 'executed'
+                                  ? 'secondary'
+                                  : 'destructive'
+                              }>
+                                {proposal.status === 'active'
+                                  ? (t.language === 'es' ? 'Votación Activa' : 'Active Voting')
+                                  : proposal.status === 'passed'
+                                  ? (t.language === 'es' ? 'Aprobada' : 'Passed')
+                                  : proposal.status === 'rejected'
+                                  ? (t.language === 'es' ? 'Rechazada' : 'Rejected')
+                                  : proposal.status === 'executed'
+                                  ? (t.language === 'es' ? 'Ejecutada' : 'Executed')
+                                  : (t.language === 'es' ? 'Borrador' : 'Draft')}
+                              </Badge>
+                              <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                                {proposal.category}
+                              </Badge>
+                            </div>
+                            <CardTitle className="text-xl mb-2">{proposal.title}</CardTitle>
+                            <p className="text-sm text-slate-600">
+                              {t.language === 'es' ? 'Vence: ' : 'Deadline: '}
+                              <span className="font-medium">
+                                {new Date(proposal.deadline).toLocaleDateString()}
+                              </span>
+                            </p>
                           </div>
-                          <CardTitle className="text-xl mb-2">{proposal.title}</CardTitle>
-                          <p className="text-sm text-slate-600">
-                            {t.language === 'es' ? 'Por' : 'By'} {proposal.author} •{' '}
-                            {t.language === 'es' ? 'Vence: ' : 'Deadline: '}
-                            <span className="font-medium">
-                              {new Date(proposal.deadline).toLocaleDateString()}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">{t.language === 'es' ? 'A favor' : 'For'}</span>
+                            <span className="font-medium text-green-600">
+                              {proposal.tally?.for ?? 0}
                             </span>
-                          </p>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">{t.language === 'es' ? 'A favor' : 'For'}</span>
-                          <span className="font-medium text-green-600">
-                            {proposal.votes.for}
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-200 rounded-full h-2">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${(proposal.votes.for / (proposal.votes.for + proposal.votes.against + proposal.votes.abstain)) * 100}%` }}
-                            transition={{ duration: 1.5, ease: 'easeOut' }}
-                            className="bg-green-500 h-2 rounded-full"
-                          />
-                        </div>
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                          <div className="text-center">
-                            <div className="font-medium text-green-600">
-                              {proposal.votes.for}
-                            </div>
-                            <p className="text-slate-600">
-                              {t.language === 'es' ? 'A favor' : 'For'}
-                            </p>
                           </div>
-                          <div className="text-center">
-                            <div className="font-medium text-red-600">
-                              {proposal.votes.against}
-                            </div>
-                            <p className="text-slate-600">
-                              {t.language === 'es' ? 'En contra' : 'Against'}
-                            </p>
+                          <div className="w-full bg-slate-200 rounded-full h-2">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${((proposal.tally?.for ?? 0) / Math.max(1, proposal.tally?.total ?? 0)) * 100}%` }}
+                              transition={{ duration: 1.5, ease: 'easeOut' }}
+                              className="bg-green-500 h-2 rounded-full"
+                            />
                           </div>
-                          <div className="text-center">
-                            <div className="font-medium text-slate-600">
-                              {proposal.votes.abstain}
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div className="text-center">
+                              <div className="font-medium text-green-600">
+                                {proposal.tally?.for ?? 0}
+                              </div>
+                              <p className="text-slate-600">
+                                {t.language === 'es' ? 'A favor' : 'For'}
+                              </p>
                             </div>
-                            <p className="text-slate-600">
-                              {t.language === 'es' ? 'Abstención' : 'Abstain'}
-                            </p>
+                            <div className="text-center">
+                              <div className="font-medium text-red-600">
+                                {proposal.tally?.against ?? 0}
+                              </div>
+                              <p className="text-slate-600">
+                                {t.language === 'es' ? 'En contra' : 'Against'}
+                              </p>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-medium text-slate-600">
+                                {proposal.tally?.abstain ?? 0}
+                              </div>
+                              <p className="text-slate-600">
+                                {t.language === 'es' ? 'Abstención' : 'Abstain'}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex gap-2 mt-4">
-                        <Button variant="outline" size="sm" className="flex-1">
-                          {t.language === 'es' ? 'Ver Detalles' : 'View Details'}
-                        </Button>
-                        {(proposal.status.includes(t.language === 'es' ? 'Votación' : 'Voting')) && (
-                          <Button size="sm" className="flex-1 bg-orange-500 hover:bg-orange-600 text-white transition-colors">
-                            {t.language === 'es' ? 'Votar' : 'Vote'}
+                        <div className="flex gap-2 mt-4">
+                          <Button variant="outline" size="sm" className="flex-1" onClick={() => openDetail(proposal)}>
+                            {t.language === 'es' ? 'Ver Detalles' : 'View Details'}
                           </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                          {isOpen(proposal) && (
+                            <Button size="sm" className="flex-1 bg-orange-500 hover:bg-orange-600 text-white transition-colors" onClick={() => openDetail(proposal)}>
+                              {t.language === 'es' ? 'Votar' : 'Vote'}
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))
+              )}
             </motion.div>
           </TabsContent>
 
@@ -558,6 +584,17 @@ export default function EnhancedDAO() {
             </motion.div>
           </TabsContent>
         </Tabs>
+
+        <ProposalDetailSheet
+          proposal={selected}
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          language={t.language}
+          userVote={userVote}
+          canVote={!!selected && isOpen(selected)}
+          onVote={handleVote}
+          isVoting={isVoting}
+        />
     </PageLayout>
   );
 }

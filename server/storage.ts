@@ -120,7 +120,14 @@ import {
   type InsertMentorApplication,
   type MentorMaterial,
   type InsertMentorMaterial,
-  systemSettings
+  systemSettings,
+  daoProposals,
+  daoVotes,
+  type DaoProposal,
+  type InsertDaoProposal,
+  type DaoVote,
+  type InsertDaoVote,
+  type DaoProposalTally
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, gte, inArray } from "drizzle-orm";
@@ -269,6 +276,17 @@ export interface IStorage {
   deleteBudgetRecurring(id: number, userId: number): Promise<void>;
   getUserBudgetAnalytics(userId: number): Promise<BudgetUserAnalytics>;
   getBudgetGamification(userId: number): Promise<{ streakDays: number; onBudget: boolean; loggedToday: boolean }>;
+
+  // DAO governance (Aragon OSx-inspired)
+  getDaoProposals(): Promise<DaoProposal[]>;
+  getDaoProposalById(id: number): Promise<DaoProposal | undefined>;
+  createDaoProposal(proposal: InsertDaoProposal): Promise<DaoProposal>;
+  updateDaoProposalStatus(id: number, status: DaoProposal["status"]): Promise<DaoProposal>;
+  getDaoVotes(proposalId: number): Promise<DaoVote[]>;
+  getUserDaoVote(proposalId: number, userId: number): Promise<DaoVote | undefined>;
+  castDaoVote(vote: InsertDaoVote): Promise<DaoVote>;
+  getDaoProposalTally(proposalId: number): Promise<DaoProposalTally>;
+  seedDaoProposalsIfEmpty(): Promise<void>;
 
   // Study notes methods
   getStudyNotes(userId: number): Promise<StudyNote[]>;
@@ -757,6 +775,97 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
     const onBudget = analytics.remainingHnl >= 0;
 
     return { streakDays, onBudget, loggedToday };
+  }
+
+  // ---- DAO governance ----
+  async getDaoProposals(): Promise<DaoProposal[]> {
+    return await db.select().from(daoProposals).orderBy(desc(daoProposals.createdAt));
+  }
+
+  async getDaoProposalById(id: number): Promise<DaoProposal | undefined> {
+    const [proposal] = await db.select().from(daoProposals).where(eq(daoProposals.id, id));
+    return proposal;
+  }
+
+  async createDaoProposal(proposal: InsertDaoProposal): Promise<DaoProposal> {
+    const [created] = await db
+      .insert(daoProposals)
+      .values({ ...proposal, status: "active", createdAt: new Date(), updatedAt: new Date() })
+      .returning();
+    return created;
+  }
+
+  async updateDaoProposalStatus(id: number, status: DaoProposal["status"]): Promise<DaoProposal> {
+    const [updated] = await db
+      .update(daoProposals)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(daoProposals.id, id))
+      .returning();
+    if (!updated) throw new Error("DAO proposal not found");
+    return updated;
+  }
+
+  async getDaoVotes(proposalId: number): Promise<DaoVote[]> {
+    return await db.select().from(daoVotes).where(eq(daoVotes.proposalId, proposalId));
+  }
+
+  async getUserDaoVote(proposalId: number, userId: number): Promise<DaoVote | undefined> {
+    const [vote] = await db
+      .select()
+      .from(daoVotes)
+      .where(and(eq(daoVotes.proposalId, proposalId), eq(daoVotes.userId, userId)));
+    return vote;
+  }
+
+  async castDaoVote(vote: InsertDaoVote): Promise<DaoVote> {
+    const [result] = await db
+      .insert(daoVotes)
+      .values(vote)
+      .onConflictDoUpdate({
+        target: [daoVotes.proposalId, daoVotes.userId],
+        set: { choice: vote.choice, createdAt: new Date() },
+      })
+      .returning();
+    return result;
+  }
+
+  async getDaoProposalTally(proposalId: number): Promise<DaoProposalTally> {
+    const votes = await this.getDaoVotes(proposalId);
+    const tally: DaoProposalTally = { for: 0, against: 0, abstain: 0, total: votes.length };
+    for (const v of votes) {
+      if (v.choice === "for") tally.for += 1;
+      else if (v.choice === "against") tally.against += 1;
+      else if (v.choice === "abstain") tally.abstain += 1;
+    }
+    return tally;
+  }
+
+  async seedDaoProposalsIfEmpty(): Promise<void> {
+    const existing = await this.getDaoProposals();
+    if (existing.length > 0) return;
+    const superuser = await db.select().from(users).where(eq(users.role, "superuser")).limit(1);
+    const authorId = superuser[0]?.id ?? 1;
+    const samples: InsertDaoProposal[] = [
+      {
+        title: "Implement Public WiFi in Central Park",
+        description:
+          "Provide free internet access in the main park areas of Santa Rita de Copán to bridge the digital divide for students.",
+        category: "Infrastructure",
+        authorId,
+        deadline: new Date(Date.now() + 30 * 86400000),
+      },
+      {
+        title: "Community Recycling Program",
+        description:
+          "Launch a neighborhood recycling initiative with collection points near schools and the community center.",
+        category: "Environment",
+        authorId,
+        deadline: new Date(Date.now() + 21 * 86400000),
+      },
+    ];
+    for (const s of samples) {
+      await this.createDaoProposal(s);
+    }
   }
 
   // Study notes methods

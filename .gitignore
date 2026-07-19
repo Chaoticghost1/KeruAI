@@ -13,3 +13,7 @@ vite.config.ts.*
 # agent worktrees
 .claude/worktrees/
 dev-server.log
+
+# dev uploads (never commit; stray dev artifacts)
+uploads/*.pdf
+uploads/file-1784422052789-926782194.pdf

@@ -20,6 +20,7 @@ import { mentorshipRouter } from './mentorship';
 import { blogRouter } from './blog';
 import { teachersRouter } from './teachers';
 import { studentsRouter } from './students';
+import { daoRouter } from './dao';
 import captchaRouter from './captcha';
 
 const uploadDir = 'uploads';
@@ -40,6 +41,9 @@ export async function registerRoutes(app: Express): Promise<void> {
   } catch (e: unknown) {
     _dbg('db connection failed', { err: e instanceof Error ? e.message : String(e) });
   }
+  // Seed DAO governance proposals on first run (idempotent).
+  storage.seedDaoProposalsIfEmpty().catch((e) => _dbg('dao seed failed', { err: String(e) }));
+
   app.use('/uploads', express.static(uploadDir));
 
   app.use('/api/auth', authRouter);
@@ -57,6 +61,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.use('/api/blog', blogRouter);
   app.use('/api/teachers', teachersRouter);
   app.use('/api/students', studentsRouter);
+  app.use('/api/dao', daoRouter);
 
   // Public system endpoint: feature flags for nav/UI (no auth required)
   app.get("/api/system/features", async (req: Request, res: Response, next: NextFunction) => {

@@ -11,7 +11,6 @@ import { Sidebar } from "./components/Sidebar";
 import { ProtectedRoute } from "./lib/protected-route";
 import Dashboard from "./pages/Dashboard";
 import StudyBuddy from "./pages/StudyBuddy";
-import BudgetPal from "./pages/BudgetPal";
 import BudgetMobile from "./pages/BudgetMobile";
 import Blog from "./pages/Blog";
 import CruiseWord from "./pages/CruiseWord";
@@ -26,6 +25,7 @@ import AuthPage from "./pages/auth-page";
 import AdminDashboard from "./pages/admin-dashboard";
 import StudentRevision from "./pages/StudentRevision";
 import DAO from "./pages/DAO";
+import DAOMobile from "./pages/DAOMobile";
 import MentorshipHub from "./pages/MentorshipHub";
 import MentorshipHubPage from "./pages/MentorshipHubPage";
 import MentorApply from "./pages/MentorApply";
@@ -38,18 +38,6 @@ import NotFound from "@/pages/not-found";
 import { Redirect } from "./components/Redirect";
 
 function Router() {
-  // Offline storage completely disabled
-  // useEffect(() => {
-  //   if (!OFFLINE_ENABLED) return;
-  //   initializeOfflineStorage().then((success) => {
-  //     if (success) {
-  //       console.log('Offline storage initialized for Honduras platform');
-  //     } else {
-  //       console.warn('Offline storage initialization failed');
-  //     }
-  //   });
-  // }, []);
-
   return (
     <LanguageProvider>
       <DataSaverProvider>
@@ -87,7 +75,7 @@ function Router() {
                     <ProtectedRoute path="/studybuddy" component={StudyBuddy} />
                     <ProtectedRoute path="/profile" component={StudentProfile} roles={['student']} />
                     <ProtectedRoute path="/revision" component={StudentRevision} roles={['student']} />
-                    <ProtectedRoute path="/budgetpal" component={BudgetPal} />
+                    <ProtectedRoute path="/budgetpal" component={() => <Redirect to="/budget/mobile" />} />
                     <ProtectedRoute path="/budget/mobile" component={BudgetMobile} roles={['student']} />
                     <ProtectedRoute path="/blog" component={Blog} />
                     <ProtectedRoute path="/games" component={GameHub} />
@@ -100,6 +88,7 @@ function Router() {
                     <ProtectedRoute path="/games/linguaplay/lesson" component={LinguaPlayLesson} />
                     <Route path="/cruiseword">{() => <Redirect to="/games/cruiseword" />}</Route>
                     <ProtectedRoute path="/dao" component={DAO} />
+                    <ProtectedRoute path="/dao/mobile" component={DAOMobile} roles={['student']} />
                     <ProtectedRoute path="/classes" component={ClassGroups} />
                     <ProtectedRoute path="/teacher/upload" component={TeacherUpload} roles={['teacher', 'superuser']} />
                     <ProtectedRoute path="/revision/mobile" component={StudentRevisionMobile} roles={['student']} />

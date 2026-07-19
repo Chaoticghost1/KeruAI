@@ -250,7 +250,7 @@ const createOnboardingSteps = (
       placement: 'right'
     },
     {
-      target: '[data-testid="nav-budgetpal"]',
+      target: '[data-testid="nav-budget"]',
       content: (
         <div className="space-y-2">
           <h3 className="font-semibold flex items-center gap-2">

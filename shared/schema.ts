@@ -87,6 +87,32 @@ export const budgetRecurring = pgTable("budget_recurring", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ---- DAO governance (Aragon OSx-inspired, DB-backed, one-user-one-vote) ----
+// A proposal is the unit of governance. Status follows a lifecycle:
+// draft -> active -> passed | rejected -> executed
+export const daoProposals = pgTable("dao_proposals", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull().default("General"),
+  authorId: integer("author_id").references(() => users.id).notNull(),
+  status: text("status", { enum: ["draft", "active", "passed", "rejected", "executed"] }).notNull().default("active"),
+  deadline: timestamp("deadline").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// One vote per user per proposal (unique index enforces one-user-one-vote).
+export const daoVotes = pgTable("dao_votes", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposal_id").references(() => daoProposals.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  choice: text("choice", { enum: ["for", "against", "abstain"] }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqProposalUser: uniqueIndex("uniq_dao_proposal_user").on(table.proposalId, table.userId),
+}));
+
 export const studyNotes = pgTable("study_notes", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -470,6 +496,26 @@ export const budgetRecurringRelations = relations(budgetRecurring, ({ one, many 
   transactions: many(budgetTransactions),
 }));
 
+// DAO governance relations
+export const daoProposalsRelations = relations(daoProposals, ({ one, many }) => ({
+  author: one(users, {
+    fields: [daoProposals.authorId],
+    references: [users.id],
+  }),
+  votes: many(daoVotes),
+}));
+
+export const daoVotesRelations = relations(daoVotes, ({ one }) => ({
+  proposal: one(daoProposals, {
+    fields: [daoVotes.proposalId],
+    references: [daoProposals.id],
+  }),
+  user: one(users, {
+    fields: [daoVotes.userId],
+    references: [users.id],
+  }),
+}));
+
 export const budgetTransactionsRelations = relations(budgetTransactions, ({ one }) => ({
   user: one(users, {
     fields: [budgetTransactions.userId],
@@ -788,6 +834,21 @@ export const insertBudgetTagSchema = createInsertSchema(budgetTags).omit({
 });
 
 export const insertBudgetRecurringSchema = createInsertSchema(budgetRecurring).omit({
+  id: true,
+  createdAt: true,
+});
+
+// DAO governance insert schemas
+export const insertDaoProposalSchema = createInsertSchema(daoProposals).omit({
+  id: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  deadline: z.coerce.date(),
+});
+
+export const insertDaoVoteSchema = createInsertSchema(daoVotes).omit({
   id: true,
   createdAt: true,
 });
@@ -1196,3 +1257,17 @@ export type InsertRevisionPack = z.infer<typeof insertRevisionPackSchema>;
 export type RevisionPack = typeof revisionPacks.$inferSelect;
 export type InsertRevisionPackItem = z.infer<typeof insertRevisionPackItemSchema>;
 export type RevisionPackItem = typeof revisionPackItems.$inferSelect;
+
+// DAO governance types
+export type InsertDaoProposal = z.infer<typeof insertDaoProposalSchema>;
+export type DaoProposal = typeof daoProposals.$inferSelect;
+export type InsertDaoVote = z.infer<typeof insertDaoVoteSchema>;
+export type DaoVote = typeof daoVotes.$inferSelect;
+export type DaoProposalStatus = DaoProposal["status"];
+export type DaoVoteChoice = DaoVote["choice"];
+export interface DaoProposalTally {
+  for: number;
+  against: number;
+  abstain: number;
+  total: number;
+}

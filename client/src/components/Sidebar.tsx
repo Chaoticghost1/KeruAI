@@ -155,7 +155,7 @@ export function Sidebar() {
       id: 'life',
       labelKey: 'life',
       items: filterByFeature([
-        { href: '/budgetpal', key: 'budget' },
+        { href: '/budget/mobile', key: 'budget' },
         { href: '/blog', key: 'travel' },
         { href: '/dao', key: 'dao' },
       ]),
