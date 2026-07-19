@@ -115,6 +115,10 @@ const _dbg = process.env.DEBUG_AGENT_INGEST
 
   maybeStartEmbeddingWorker();
 
+  // Recurring budget transaction engine (flagged ENABLE_RECURRING, default on).
+  const { startRecurringEngine } = await import("./lib/recurring");
+  startRecurringEngine();
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes

@@ -18,6 +18,83 @@ export function resolveOpenAIModel(): string {
   return 'gpt-4o';
 }
 
+/**
+ * Generate short, friendly budget insights from aggregated spend data.
+ * Flagged by ENABLE_BUDGET_AI (default false). When disabled or no API key,
+ * returns a rule-based summary so the feature degrades gracefully.
+ */
+export interface BudgetInsightInput {
+  totalIncomeHnl: number;
+  totalExpenseHnl: number;
+  byCategory: { category: string; expenseHnl: number; incomeHnl: number }[];
+  language?: "es" | "en";
+  userId?: number;
+}
+
+export async function generateBudgetInsights(input: BudgetInsightInput): Promise<string[]> {
+  const lang = input.language ?? "es";
+  const ruleBased = (): string[] => {
+    const tips: string[] = [];
+    const remaining = input.totalIncomeHnl - input.totalExpenseHnl;
+    if (input.totalIncomeHnl === 0 && input.totalExpenseHnl === 0) {
+      return [lang === "es" ? "Empieza registrando tu primer gasto o ingreso." : "Start by logging your first expense or income."];
+    }
+    if (remaining < 0) {
+      tips.push(lang === "es" ? "Estás gastando más de lo que ingresas. Revisa tus categorías mayores." : "You're spending more than you earn. Review your top categories.");
+    } else {
+      tips.push(lang === "es" ? `Vas bien: te sobran L ${Math.round(remaining)} este periodo.` : `You're on track: L ${Math.round(remaining)} left this period.`);
+    }
+    const top = [...input.byCategory].sort((a, b) => b.expenseHnl - a.expenseHnl)[0];
+    if (top && top.expenseHnl > 0) {
+      tips.push(lang === "es" ? `Tu categoría con más gasto es "${top.category}".` : `Your top spending category is "${top.category}".`);
+    }
+    return tips;
+  };
+
+  if (process.env.ENABLE_BUDGET_AI !== "true") return ruleBased();
+
+  try {
+    const { openai: key } = await getApiKeys();
+    if (!key) return ruleBased();
+
+    const prompt =
+      lang === "es"
+        ? `Eres un asesor financiero amigable para jóvenes en Honduras. Con estos datos (en lempiras HNL), da 3 consejos cortos y prácticos: ingresos=${Math.round(input.totalIncomeHnl)}, gastos=${Math.round(input.totalExpenseHnl)}, categorías=${JSON.stringify(input.byCategory.map((c) => ({ c: c.category, g: Math.round(c.expenseHnl) })))}. Responde solo como lista numerada, máximo 12 palabras por consejo.`
+        : `You are a friendly financial advisor for youth in Honduras. Given this data (in HNL lempira), give 3 short practical tips: income=${Math.round(input.totalIncomeHnl)}, expenses=${Math.round(input.totalExpenseHnl)}, categories=${JSON.stringify(input.byCategory.map((c) => ({ c: c.category, g: Math.round(c.expenseHnl) })))}. Reply as a numbered list, max 12 words per tip.`;
+
+    const completion = await openai.chat.completions.create({
+      model: resolveOpenAIModel(),
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.6,
+      max_tokens: 200,
+    });
+
+    await recordLlmCall({
+      provider: "openai",
+      model: resolveOpenAIModel(),
+      userId: input.userId,
+      usage: completion.usage
+        ? {
+            promptTokens: completion.usage.prompt_tokens,
+            completionTokens: completion.usage.completion_tokens,
+            totalTokens: completion.usage.total_tokens,
+          }
+        : undefined,
+      status: "success",
+    });
+
+    const text = completion.choices[0]?.message?.content ?? "";
+    const lines = text
+      .split("\n")
+      .map((l) => l.replace(/^\d+[.)]\s*/, "").trim())
+      .filter(Boolean);
+    return lines.length ? lines : ruleBased();
+  } catch (err) {
+    console.warn("[budget-ai] insight generation failed, using rules:", err instanceof Error ? err.message : err);
+    return ruleBased();
+  }
+}
+
 /** Resolve API keys: stored (System Settings) first, then env. Never returns raw keys to callers outside this file. */
 export async function getApiKeys(): Promise<{ openai: string | undefined; perplexity: string | undefined }> {
   const stored = await storage.getSystemSetting('api_keys');

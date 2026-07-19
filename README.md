@@ -125,6 +125,33 @@ plus quick-play modes.
 
 ---
 
+## Budget (BudgetPal + mobile)
+
+Personal finance for students, Honduras-first (Lempira default) with multi-currency support.
+Two UIs share the same API (`/api/budget/*`, auth required):
+
+- **Desktop** — `/budgetpal` (`client/src/pages/BudgetPal.tsx`): category budgets + progress bar.
+- **Mobile** — `/budget/mobile` (`client/src/pages/BudgetMobile.tsx`): ported UI patterns from
+  [gider.im-pwa](https://github.com/needim/gider.im-pwa) — `EntryRow` list with 44px tap targets,
+  paid/unpaid toggle, bottom-sheet add/edit, FAB, multi-currency `MoneyInput`, `BudgetChart`
+  (Recharts), AI tips, and gamification badges (logging streak + on-budget).
+
+Features (Phase 1–3):
+- Multi-currency transactions (HNL, USD, EUR, MXN, GTQ, NIO, CRC, COP, PEN, BRL, GBP, JPY); amounts
+  normalized to HNL for totals/analytics.
+- Recurring transactions (`budget_recurring`) expanded by a server engine (`server/lib/recurring.ts`,
+  runs hourly; disable with `ENABLE_RECURRING=false`).
+- Groups & tags (`budget_groups`, `budget_tags`) for organizing entries.
+- Analytics (`GET /api/budget/analytics`): category breakdown + monthly trend.
+- AI insights (`GET /api/budget/insights`): rule-based by default; set `ENABLE_BUDGET_AI=true` to use
+  OpenAI (logged via `recordLlmCall`).
+- Gamification (`GET /api/budget/gamification`): consecutive-day logging streak + on-budget status.
+
+New schema tables: `budget_transactions` (added `currency`, `type`, `paid`, `groupId`, `tagId`,
+`recurringId`), `budget_groups`, `budget_tags`, `budget_recurring`. Applied with `npm run db:push`.
+
+---
+
 ## Documentation
 
 | Link | Description |
@@ -163,6 +190,8 @@ Optional / feature flags:
 | `EMBEDDING_WORKER_ENABLED` | `true` to drain the embedding queue on boot |
 | `SYSTEM_REQUIRE_PARENTAL_CONSENT` | `true` to enforce COPPA consent at signup |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot |
+| `ENABLE_RECURRING` | `false` to disable the recurring-transaction engine (default on) |
+| `ENABLE_BUDGET_AI` | `true` to use OpenAI for budget insights (default rule-based) |
 
 See [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md#4-environment-variables) for full list.
 

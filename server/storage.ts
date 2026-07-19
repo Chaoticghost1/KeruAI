@@ -1,7 +1,10 @@
 import { 
   users, 
   budgetCategories, 
-  budgetTransactions, 
+  budgetTransactions,
+  budgetGroups,
+  budgetTags,
+  budgetRecurring,
   studyNotes, 
   gameScores,
   mathProblems,
@@ -12,6 +15,12 @@ import {
   type InsertBudgetCategory,
   type BudgetTransaction,
   type InsertBudgetTransaction,
+  type BudgetGroup,
+  type InsertBudgetGroup,
+  type BudgetTag,
+  type InsertBudgetTag,
+  type BudgetRecurring,
+  type InsertBudgetRecurring,
   type StudyNote,
   type InsertStudyNote,
   type GameScore,
@@ -115,6 +124,27 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, gte, inArray } from "drizzle-orm";
+
+// Illustrative HNL conversion rates (production should fetch live rates).
+const HNL_RATES: Record<string, number> = {
+  HNL: 1, USD: 25, EUR: 27, MXN: 1.45, GTQ: 3.2, NIO: 0.69,
+  CRC: 0.043, COP: 0.0062, PEN: 6.6, BRL: 4.7, GBP: 31, JPY: 0.17,
+};
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function bump(
+  map: Map<string, { expenseHnl: number; incomeHnl: number }>,
+  key: string,
+  field: "expenseHnl" | "incomeHnl",
+  amount: number
+) {
+  const cur = map.get(key) ?? { expenseHnl: 0, incomeHnl: 0 };
+  cur[field] += amount;
+  map.set(key, cur);
+}
 import { debug } from "./lib/debug-study-materials";
 import { 
   calculateLevel, 
@@ -163,6 +193,15 @@ export interface BudgetAnalyticsResult {
   avgMonthlyIncome: number;
   averageBudget: number;
   popularCategory: string;
+}
+
+/** Per-user budget analytics (category breakdown + monthly trend, normalized to HNL). */
+export interface BudgetUserAnalytics {
+  totalIncomeHnl: number;
+  totalExpenseHnl: number;
+  remainingHnl: number;
+  byCategory: { category: string; expenseHnl: number; incomeHnl: number }[];
+  monthly: { month: string; expenseHnl: number; incomeHnl: number }[];
 }
 
 /** Return type for getChatAnalytics() */
@@ -218,6 +257,18 @@ export interface IStorage {
   createBudgetTransaction(transaction: InsertBudgetTransaction): Promise<BudgetTransaction>;
   updateBudgetTransaction(id: number, userId: number, updates: Partial<BudgetTransaction>): Promise<BudgetTransaction>;
   deleteBudgetTransaction(id: number, userId: number): Promise<void>;
+  // Phase 2: groups, tags, recurring
+  getBudgetGroups(userId: number): Promise<BudgetGroup[]>;
+  createBudgetGroup(group: InsertBudgetGroup): Promise<BudgetGroup>;
+  deleteBudgetGroup(id: number, userId: number): Promise<void>;
+  getBudgetTags(userId: number): Promise<BudgetTag[]>;
+  createBudgetTag(tag: InsertBudgetTag): Promise<BudgetTag>;
+  deleteBudgetTag(id: number, userId: number): Promise<void>;
+  getBudgetRecurring(userId: number): Promise<BudgetRecurring[]>;
+  createBudgetRecurring(rec: InsertBudgetRecurring): Promise<BudgetRecurring>;
+  deleteBudgetRecurring(id: number, userId: number): Promise<void>;
+  getUserBudgetAnalytics(userId: number): Promise<BudgetUserAnalytics>;
+  getBudgetGamification(userId: number): Promise<{ streakDays: number; onBudget: boolean; loggedToday: boolean }>;
 
   // Study notes methods
   getStudyNotes(userId: number): Promise<StudyNote[]>;
@@ -598,6 +649,114 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
     await db
       .delete(budgetTransactions)
       .where(and(eq(budgetTransactions.id, id), eq(budgetTransactions.userId, userId)));
+  }
+
+  // Phase 2: groups, tags, recurring
+  async getBudgetGroups(userId: number): Promise<BudgetGroup[]> {
+    return await db.select().from(budgetGroups).where(eq(budgetGroups.userId, userId));
+  }
+
+  async createBudgetGroup(group: InsertBudgetGroup): Promise<BudgetGroup> {
+    const [row] = await db.insert(budgetGroups).values(group).returning();
+    return row;
+  }
+
+  async deleteBudgetGroup(id: number, userId: number): Promise<void> {
+    await db.delete(budgetGroups).where(and(eq(budgetGroups.id, id), eq(budgetGroups.userId, userId)));
+  }
+
+  async getBudgetTags(userId: number): Promise<BudgetTag[]> {
+    return await db.select().from(budgetTags).where(eq(budgetTags.userId, userId));
+  }
+
+  async createBudgetTag(tag: InsertBudgetTag): Promise<BudgetTag> {
+    const [row] = await db.insert(budgetTags).values(tag).returning();
+    return row;
+  }
+
+  async deleteBudgetTag(id: number, userId: number): Promise<void> {
+    await db.delete(budgetTags).where(and(eq(budgetTags.id, id), eq(budgetTags.userId, userId)));
+  }
+
+  async getBudgetRecurring(userId: number): Promise<BudgetRecurring[]> {
+    return await db.select().from(budgetRecurring).where(eq(budgetRecurring.userId, userId));
+  }
+
+  async createBudgetRecurring(rec: InsertBudgetRecurring): Promise<BudgetRecurring> {
+    const [row] = await db.insert(budgetRecurring).values(rec).returning();
+    return row;
+  }
+
+  async deleteBudgetRecurring(id: number, userId: number): Promise<void> {
+    await db.delete(budgetRecurring).where(and(eq(budgetRecurring.id, id), eq(budgetRecurring.userId, userId)));
+  }
+
+  async getUserBudgetAnalytics(userId: number): Promise<BudgetUserAnalytics> {
+    const txs = await db.select().from(budgetTransactions).where(eq(budgetTransactions.userId, userId));
+    const cats = await db.select().from(budgetCategories).where(eq(budgetCategories.userId, userId));
+    const catName = new Map(cats.map((c) => [c.id, c.name]));
+
+    let totalIncomeHnl = 0;
+    let totalExpenseHnl = 0;
+    const byCatMap = new Map<string, { expenseHnl: number; incomeHnl: number }>();
+    const monthlyMap = new Map<string, { expenseHnl: number; incomeHnl: number }>();
+
+    for (const tx of txs) {
+      const cur = ((tx as any).currency ?? "HNL") as keyof typeof HNL_RATES;
+      const rate = HNL_RATES[cur] ?? 1;
+      const hnl = parseFloat(tx.amount) * rate;
+      const cat = catName.get(tx.categoryId) ?? "Uncategorized";
+      const month = new Date(tx.date).toISOString().slice(0, 7); // YYYY-MM
+
+      if (parseFloat(tx.amount) >= 0) {
+        totalIncomeHnl += hnl;
+        bump(byCatMap, cat, "incomeHnl", hnl);
+        bump(monthlyMap, month, "incomeHnl", hnl);
+      } else {
+        totalExpenseHnl += hnl;
+        bump(byCatMap, cat, "expenseHnl", hnl);
+        bump(monthlyMap, month, "expenseHnl", hnl);
+      }
+    }
+
+    return {
+      totalIncomeHnl: round2(totalIncomeHnl),
+      totalExpenseHnl: round2(totalExpenseHnl),
+      remainingHnl: round2(totalIncomeHnl - totalExpenseHnl),
+      byCategory: [...byCatMap.entries()].map(([category, v]) => ({ category, ...v })),
+      monthly: [...monthlyMap.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, v]) => ({ month, ...v })),
+    };
+  }
+
+  async getBudgetGamification(userId: number): Promise<{ streakDays: number; onBudget: boolean; loggedToday: boolean }> {
+    const txs = await db
+      .select({ date: budgetTransactions.date })
+      .from(budgetTransactions)
+      .where(eq(budgetTransactions.userId, userId));
+
+    // Distinct local date strings (YYYY-MM-DD) the user logged something.
+    const daySet = new Set(
+      txs.map((t) => new Date(t.date).toISOString().slice(0, 10))
+    );
+
+    const today = new Date().toISOString().slice(0, 10);
+    const loggedToday = daySet.has(today);
+
+    // Count consecutive days ending today (or yesterday if today not logged yet).
+    let streakDays = 0;
+    const cursor = new Date();
+    if (!loggedToday) cursor.setDate(cursor.getDate() - 1);
+    while (daySet.has(cursor.toISOString().slice(0, 10))) {
+      streakDays += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    const analytics = await this.getUserBudgetAnalytics(userId);
+    const onBudget = analytics.remainingHnl >= 0;
+
+    return { streakDays, onBudget, loggedToday };
   }
 
   // Study notes methods

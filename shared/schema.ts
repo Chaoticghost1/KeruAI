@@ -42,6 +42,48 @@ export const budgetTransactions = pgTable("budget_transactions", {
   description: text("description").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   date: timestamp("date").defaultNow().notNull(),
+  // Phase 2: multi-currency, income/expense typing, paid state, grouping/tagging, recurring link.
+  currency: text("currency").default("HNL").notNull(),
+  type: text("type", { enum: ["income", "expense"] }).default("expense").notNull(),
+  paid: boolean("paid").default(true).notNull(),
+  groupId: integer("group_id").references(() => budgetGroups.id),
+  tagId: integer("tag_id").references(() => budgetTags.id),
+  recurringId: integer("recurring_id").references(() => budgetRecurring.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Groups & tags (ported concept from needim/gider.im-pwa entryGroup/entryTag).
+export const budgetGroups = pgTable("budget_groups", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  icon: text("icon"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const budgetTags = pgTable("budget_tags", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  color: text("color"),
+  icon: text("icon"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Recurring transactions (ported concept from gider recurringConfig).
+export const budgetRecurring = pgTable("budget_recurring", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  categoryId: integer("category_id").references(() => budgetCategories.id).notNull(),
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").default("HNL").notNull(),
+  type: text("type", { enum: ["income", "expense"] }).default("expense").notNull(),
+  frequency: text("frequency", { enum: ["week", "month", "year"] }).notNull(),
+  interval: integer("interval").default(1).notNull(),
+  every: integer("every").default(1).notNull(),
+  startDate: timestamp("start_date").defaultNow().notNull(),
+  endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -404,6 +446,30 @@ export const budgetCategoriesRelations = relations(budgetCategories, ({ one, man
   transactions: many(budgetTransactions),
 }));
 
+export const budgetGroupsRelations = relations(budgetGroups, ({ one, many }) => ({
+  user: one(users, {
+    fields: [budgetGroups.userId],
+    references: [users.id],
+  }),
+  transactions: many(budgetTransactions),
+}));
+
+export const budgetTagsRelations = relations(budgetTags, ({ one, many }) => ({
+  user: one(users, {
+    fields: [budgetTags.userId],
+    references: [users.id],
+  }),
+  transactions: many(budgetTransactions),
+}));
+
+export const budgetRecurringRelations = relations(budgetRecurring, ({ one, many }) => ({
+  user: one(users, {
+    fields: [budgetRecurring.userId],
+    references: [users.id],
+  }),
+  transactions: many(budgetTransactions),
+}));
+
 export const budgetTransactionsRelations = relations(budgetTransactions, ({ one }) => ({
   user: one(users, {
     fields: [budgetTransactions.userId],
@@ -412,6 +478,18 @@ export const budgetTransactionsRelations = relations(budgetTransactions, ({ one 
   category: one(budgetCategories, {
     fields: [budgetTransactions.categoryId],
     references: [budgetCategories.id],
+  }),
+  group: one(budgetGroups, {
+    fields: [budgetTransactions.groupId],
+    references: [budgetGroups.id],
+  }),
+  tag: one(budgetTags, {
+    fields: [budgetTransactions.tagId],
+    references: [budgetTags.id],
+  }),
+  recurring: one(budgetRecurring, {
+    fields: [budgetTransactions.recurringId],
+    references: [budgetRecurring.id],
   }),
 }));
 
@@ -698,6 +776,21 @@ export const insertBudgetTransactionSchema = createInsertSchema(budgetTransactio
   .extend({
     date: z.union([z.date(), z.string()]).transform((v) => (typeof v === "string" ? new Date(v) : v)).optional(),
   });
+
+export const insertBudgetGroupSchema = createInsertSchema(budgetGroups).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBudgetTagSchema = createInsertSchema(budgetTags).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBudgetRecurringSchema = createInsertSchema(budgetRecurring).omit({
+  id: true,
+  createdAt: true,
+});
 
 export const insertStudyNoteSchema = createInsertSchema(studyNotes).omit({
   id: true,
@@ -1005,6 +1098,12 @@ export type InsertBudgetCategory = z.infer<typeof insertBudgetCategorySchema>;
 export type BudgetCategory = typeof budgetCategories.$inferSelect;
 export type InsertBudgetTransaction = z.infer<typeof insertBudgetTransactionSchema>;
 export type BudgetTransaction = typeof budgetTransactions.$inferSelect;
+export type BudgetGroup = typeof budgetGroups.$inferSelect;
+export type InsertBudgetGroup = z.infer<typeof insertBudgetGroupSchema>;
+export type BudgetTag = typeof budgetTags.$inferSelect;
+export type InsertBudgetTag = z.infer<typeof insertBudgetTagSchema>;
+export type BudgetRecurring = typeof budgetRecurring.$inferSelect;
+export type InsertBudgetRecurring = z.infer<typeof insertBudgetRecurringSchema>;
 export type InsertStudyNote = z.infer<typeof insertStudyNoteSchema>;
 export type StudyNote = typeof studyNotes.$inferSelect;
 export type InsertGameScore = z.infer<typeof insertGameScoreSchema>;

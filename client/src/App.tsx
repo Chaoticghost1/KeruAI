@@ -12,6 +12,7 @@ import { ProtectedRoute } from "./lib/protected-route";
 import Dashboard from "./pages/Dashboard";
 import StudyBuddy from "./pages/StudyBuddy";
 import BudgetPal from "./pages/BudgetPal";
+import BudgetMobile from "./pages/BudgetMobile";
 import Blog from "./pages/Blog";
 import CruiseWord from "./pages/CruiseWord";
 import CruiseWordLearn from "./pages/cruiseword/Learn";
@@ -87,6 +88,7 @@ function Router() {
                     <ProtectedRoute path="/profile" component={StudentProfile} roles={['student']} />
                     <ProtectedRoute path="/revision" component={StudentRevision} roles={['student']} />
                     <ProtectedRoute path="/budgetpal" component={BudgetPal} />
+                    <ProtectedRoute path="/budget/mobile" component={BudgetMobile} roles={['student']} />
                     <ProtectedRoute path="/blog" component={Blog} />
                     <ProtectedRoute path="/games" component={GameHub} />
                     <ProtectedRoute path="/games/cruiseword" component={CruiseWord} />
