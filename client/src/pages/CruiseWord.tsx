@@ -3,14 +3,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, Compass, Users, Shield, UtensilsCrossed, Calendar, Ship, Trophy, Zap, Target, Brain, Award, Upload, ListOrdered, Layers } from 'lucide-react';
+import { Star, Ship, Trophy, Zap, Target, Brain, Award, Upload, ListOrdered, Layers, ArrowRight } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '@/hooks/use-auth';
 import { apiRequest } from '@/lib/queryClient';
 import { OFFLINE_ENABLED } from '@/lib/offline-config';
 import { OfflineManager } from '@/lib/offline-storage';
-import { CRUISEWORD_LEVELS, getCruiseWordLevelById, pickRandomLevelFromBand } from '@/data/cruiseWordLevels';
+import { useCruiseWordStore } from '@/stores/cruiseWordStore';
+import type { CruiseWordWord } from '@shared/schema';
 import { PageLayout } from '@/components/PageLayout';
+
+/** Shape used by the Level Challenge renderer (prompt + options + correct). */
+interface GeoChallengeWord {
+  prompt: { es: string; en: string };
+  options: string[];
+  correct: string;
+}
+interface GeoLevel {
+  id: number;
+  name: { es: string; en: string };
+  desc: { es: string; en: string };
+  words: GeoChallengeWord[];
+}
 
 const GAME_NAME = 'CruiseWord';
 
@@ -77,7 +91,12 @@ const translations = {
     startLevelChallenge: "Start Level Challenge",
     question: "Question",
     backToModes: "Back",
-    playAgainLevel: "Play again"
+    playAgainLevel: "Play again",
+    learnPath: "📚 Learn Path",
+    learnPathDesc: "Structured Duolingo-style lessons",
+    learnPathProgress: "Learn Path progress",
+    continueLearning: "Continue Learning",
+    startLearning: "Start Learning"
   },
   es: {
     title: "Entrenador de Vocabulario de Crucero",
@@ -120,7 +139,12 @@ const translations = {
     startLevelChallenge: "Iniciar Desafío por Niveles",
     question: "Pregunta",
     backToModes: "Atrás",
-    playAgainLevel: "Jugar de nuevo"
+    playAgainLevel: "Jugar de nuevo",
+    learnPath: "📚 Ruta de Aprendizaje",
+    learnPathDesc: "Lecciones estructuradas estilo Duolingo",
+    learnPathProgress: "Progreso de la ruta",
+    continueLearning: "Continuar Aprendiendo",
+    startLearning: "Empezar a Aprender"
   }
 };
 
@@ -146,6 +170,17 @@ export default function CruiseWord() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const userId = user?.id;
+  const { data: dbWords = [] } = useQuery<CruiseWordWord[]>({
+    queryKey: ['/api/games/problems/cruiseword'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/games/problems/cruiseword');
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+  const lessonsCompleted = useCruiseWordStore((s) => s.lessonsCompleted);
+  const cruiseXp = useCruiseWordStore((s) => s.xp);
+  const learnProgressPct = dbWords.length ? Math.round((Math.min(lessonsCompleted, dbWords.length) / dbWords.length) * 100) : 0;
   const t = translations[language as Language] || translations.en;
   const [mode, setMode] = useState('flashcard');
   const [currentWord, setCurrentWord] = useState(0);
@@ -166,7 +201,7 @@ export default function CruiseWord() {
   const [lastSubmitResult, setLastSubmitResult] = useState<'ok' | 'offline' | null>(null);
   const [lastSubmitRewards, setLastSubmitRewards] = useState<SubmitRewards | null>(null);
   const [sessionLevel, setSessionLevel] = useState<number | null>(null);
-  const [sessionLevelData, setSessionLevelData] = useState<typeof CRUISEWORD_LEVELS[0] | null>(null);
+  const [sessionLevelData, setSessionLevelData] = useState<GeoLevel | null>(null);
   const [levelAnswers, setLevelAnswers] = useState<Record<number, string>>({});
 
   const { data: myScores = [] } = useQuery<GameScoreRow[]>({
@@ -262,14 +297,38 @@ export default function CruiseWord() {
 
   const startLevelChallenge = () => {
     const reachedLevel = gameProgress?.level ?? 1;
-    const chosen = pickRandomLevelFromBand(reachedLevel);
-    const levelData = getCruiseWordLevelById(chosen);
-    if (levelData) {
-      setSessionLevel(chosen);
-      setSessionLevelData(levelData);
-      setLevelAnswers({});
-      setScore(0);
-    }
+    // Pick a level within the reached band (±1), clamped to 1–6, from DB-fed words.
+    const band = [reachedLevel - 1, reachedLevel, reachedLevel + 1]
+      .filter((l) => l >= 1 && l <= 6);
+    const chosen = band[Math.floor(Math.random() * band.length)];
+    const levelWords = dbWords.filter((w) => w.level === chosen);
+    if (levelWords.length === 0) return;
+    const words: GeoChallengeWord[] = levelWords.map((w) => {
+      const pool = levelWords.filter((o) => o.word !== w.word).map((o) => o.word);
+      const options = [w.word, pool[0], pool[1]].filter(Boolean);
+      for (let i = options.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [options[i], options[j]] = [options[j], options[i]];
+      }
+      return {
+        prompt: { es: w.promptEs, en: w.promptEn },
+        options,
+        correct: w.word,
+      };
+    });
+    const levelData: GeoLevel = {
+      id: chosen,
+      name: { es: `Nivel ${chosen}`, en: `Level ${chosen}` },
+      desc: {
+        es: `Geografía mundial — ${levelWords[0].country ?? ''}`,
+        en: `World geography — ${levelWords[0].country ?? ''}`,
+      },
+      words,
+    };
+    setSessionLevel(chosen);
+    setSessionLevelData(levelData);
+    setLevelAnswers({});
+    setScore(0);
   };
 
   const backLevelChallenge = () => {
@@ -286,96 +345,36 @@ export default function CruiseWord() {
     }
   }, [mode]);
 
-  const cruiseWords = [
-    {
-      word: "Galley",
-      definition: {
-        es: "La cocina principal del barco donde se preparan las comidas para la tripulación y pasajeros.",
-        en: "The main kitchen of the ship where meals are prepared for crew and passengers."
-      },
-      hint: { es: "🍳 Lugar donde se cocina", en: "🍳 Where cooking happens" },
-      category: { es: 'Cocina', en: 'Kitchen' },
-      icon: UtensilsCrossed,
-      color: 'text-orange-600'
-    },
-    {
-      word: "Muster",
-      definition: {
-        es: "Reunión obligatoria de la tripulación para simulacros de seguridad o emergencias.",
-        en: "Mandatory crew meeting for safety drills or emergencies."
-      },
-      hint: { es: "⚠️ Reunión de emergencia", en: "⚠️ Emergency meeting" },
-      category: { es: 'Seguridad', en: 'Safety' },
-      icon: Shield,
-      color: 'text-red-600'
-    },
-    {
-      word: "Port",
-      definition: {
-        es: "El lado izquierdo del barco cuando miras hacia adelante.",
-        en: "The left side of the ship when facing forward."
-      },
-      hint: { es: "⬅️ Lado izquierdo", en: "⬅️ Left side" },
-      category: { es: 'Navegación', en: 'Navigation' },
-      icon: Compass,
-      color: 'text-blue-600'
-    },
-    {
-      word: "Starboard",
-      definition: {
-        es: "El lado derecho del barco cuando miras hacia adelante.",
-        en: "The right side of the ship when facing forward."
-      },
-      hint: { es: "➡️ Lado derecho", en: "➡️ Right side" },
-      category: { es: 'Navegación', en: 'Navigation' },
-      icon: Compass,
-      color: 'text-blue-600'
-    },
-    {
-      word: "Cabin Steward",
-      definition: {
-        es: "Personal encargado de limpiar y mantener los camarotes de los pasajeros.",
-        en: "Staff responsible for cleaning and maintaining passenger cabins."
-      },
-      hint: { es: "🧹 Limpia cabinas", en: "🧹 Cleans cabins" },
-      category: { es: 'Servicio', en: 'Service' },
-      icon: Users,
-      color: 'text-green-600'
-    },
-    {
-      word: "Bridge",
-      definition: {
-        es: "El centro de control del barco donde el capitán y oficiales navegan.",
-        en: "The ship's control center where the captain and officers navigate."
-      },
-      hint: { es: "🎯 Centro de control", en: "🎯 Control center" },
-      category: { es: 'Navegación', en: 'Navigation' },
-      icon: Compass,
-      color: 'text-blue-600'
-    },
-    {
-      word: "Tender",
-      definition: {
-        es: "Bote pequeño usado para transportar pasajeros del barco a la costa.",
-        en: "Small boat used to transport passengers from ship to shore."
-      },
-      hint: { es: "🚤 Bote pequeño", en: "🚤 Small boat" },
-      category: { es: 'Transporte', en: 'Transport' },
-      icon: Ship,
-      color: 'text-cyan-600'
-    },
-    {
-      word: "FOH",
-      definition: {
-        es: "Front of House - Personal que trabaja directamente con los pasajeros.",
-        en: "Front of House - Staff who work directly with passengers."
-      },
-      hint: { es: "👥 Cara al público", en: "👥 Faces customers" },
-      category: { es: 'Servicio', en: 'Service' },
-      icon: Users,
-      color: 'text-green-600'
-    }
-  ];
+  const CATEGORY_COLOR: Record<string, string> = {
+    geography: 'text-blue-600',
+    capital: 'text-purple-600',
+    food: 'text-orange-600',
+    music: 'text-pink-600',
+    landmark: 'text-cyan-600',
+    language: 'text-green-600',
+  };
+  const CATEGORY_LABEL: Record<string, { es: string; en: string }> = {
+    geography: { es: 'Geografía', en: 'Geography' },
+    capital: { es: 'Capital', en: 'Capital' },
+    food: { es: 'Comida', en: 'Food' },
+    music: { es: 'Música', en: 'Music' },
+    landmark: { es: 'Lugar famoso', en: 'Landmark' },
+    language: { es: 'Idioma', en: 'Language' },
+  };
+
+  // Map DB-fed geography words into the shape the quick Play modes expect.
+  // Falls back to a placeholder when no words are loaded yet.
+  const cruiseWords = (dbWords.length > 0 ? dbWords : []).map((w) => {
+    const EmojiIcon = () => <span className="text-3xl">{w.emoji ?? '🌍'}</span>;
+    return {
+      word: w.word,
+      definition: { es: w.promptEs, en: w.promptEn },
+      hint: { es: w.hintEs ?? w.translationEs, en: w.hintEn ?? w.translationEs },
+      category: CATEGORY_LABEL[w.category] ?? { es: w.category, en: w.category },
+      icon: EmojiIcon,
+      color: CATEGORY_COLOR[w.category] ?? 'text-blue-600',
+    };
+  });
 
   // Inicializar Memory Game
   const initMemoryGame = () => {
@@ -496,7 +495,7 @@ export default function CruiseWord() {
 
     return (
       <div className="space-y-6">
-        <Card 
+        <Card
           className="cursor-pointer transform transition-all duration-500 hover:scale-105"
           style={{
             transformStyle: 'preserve-3d',
@@ -506,7 +505,7 @@ export default function CruiseWord() {
         >
           <div style={{ backfaceVisibility: 'hidden' }}>
             <CardContent className="p-12 text-center">
-              <Icon className={`w-16 h-16 mx-auto mb-4 ${word.color}`} />
+              <div className={`mb-4 ${word.color}`}><Icon /></div>
               <h2 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-4">
                 {word.word}
               </h2>
@@ -882,12 +881,6 @@ export default function CruiseWord() {
             <div className="flex-1 flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => window.location.href = '/games/cruiseword/learn'}
-              >
-                {language === 'en' ? '📚 Learn Path' : '📚 Ruta'}
-              </Button>
-              <Button
-                variant="outline"
                 onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
               >
                 {language === 'en' ? '🇪🇸 ES' : '🇺🇸 EN'}
@@ -895,6 +888,41 @@ export default function CruiseWord() {
             </div>
           </div>
         </div>
+
+        {/* Prominent Learn Path banner */}
+        <Card className="mb-8 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white border-none shadow-lg">
+          <CardContent className="p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex-1">
+                <h2 className="text-xl font-bold mb-1">{t.learnPath}</h2>
+                <p className="text-sm text-violet-100">{t.learnPathDesc}</p>
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="flex-1 h-2.5 bg-white/30 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-yellow-400 transition-all duration-500"
+                      style={{ width: `${learnProgressPct}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold whitespace-nowrap">
+                    {lessonsCompleted}/{dbWords.length} · {learnProgressPct}%
+                  </span>
+                </div>
+                <p className="text-xs text-violet-100 mt-2">
+                  {t.learnPathProgress} · ⚡ {cruiseXp} XP
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="shrink-0 font-bold"
+                onClick={() => window.location.href = '/games/cruiseword/learn'}
+              >
+                {lessonsCompleted > 0 ? t.continueLearning : t.startLearning}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Mode Selector */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-8">

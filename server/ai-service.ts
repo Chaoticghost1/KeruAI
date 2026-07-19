@@ -6,6 +6,18 @@ import { buildRagContext } from './lib/content-chunker.js';
 const PERPLEXITY_BASE_URL = 'https://api.perplexity.ai';
 const PERPLEXITY_MODEL = 'sonar';
 
+/**
+ * Resolve the OpenAI chat model to use.
+ * Env-override: OPENAI_MODEL (defaults to a real, widely-available model).
+ * NOTE: a previously hard-coded "gpt-5" value never existed as a public model
+ * and would fail at runtime — the default here is a safe GA model.
+ */
+export function resolveOpenAIModel(): string {
+  const fromEnv = process.env.OPENAI_MODEL?.trim();
+  if (fromEnv) return fromEnv;
+  return 'gpt-4o';
+}
+
 /** Resolve API keys: stored (System Settings) first, then env. Never returns raw keys to callers outside this file. */
 export async function getApiKeys(): Promise<{ openai: string | undefined; perplexity: string | undefined }> {
   const stored = await storage.getSystemSetting('api_keys');
@@ -19,6 +31,36 @@ export async function getApiKeys(): Promise<{ openai: string | undefined; perple
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
+
+/**
+ * Best-effort LLM audit logging. Never throws — failures are logged and swallowed
+ * so they can never break a tutoring response.
+ */
+async function recordLlmCall(params: {
+  provider: "openai" | "perplexity";
+  model: string;
+  userId?: number;
+  teacherId?: number;
+  agentKey?: string;
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+  status?: "success" | "error";
+}): Promise<void> {
+  try {
+    await storage.createLlmLog({
+      provider: params.provider,
+      model: params.model,
+      userId: params.userId ?? null,
+      teacherId: params.teacherId ?? null,
+      agentKey: params.agentKey ?? null,
+      promptTokens: params.usage?.promptTokens ?? 0,
+      completionTokens: params.usage?.completionTokens ?? 0,
+      totalTokens: params.usage?.totalTokens ?? 0,
+      status: params.status ?? "success",
+    });
+  } catch (err) {
+    console.warn("[llm-log] failed to record call:", err instanceof Error ? err.message : err);
+  }
+}
 
 export interface AITutorResponse {
   message: string;
@@ -131,13 +173,25 @@ Provide your response in JSON format:
       const { openai: openaiKey } = await getApiKeys();
       const client = openaiKey ? new OpenAI({ apiKey: openaiKey }) : openai;
       const response = await client.chat.completions.create({
-        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025
+        model: resolveOpenAIModel(),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: studentMessage }
         ],
         response_format: { type: "json_object" },
         max_completion_tokens: 1500
+      });
+
+      await recordLlmCall({
+        provider: "openai",
+        model: resolveOpenAIModel(),
+        userId: (studentProfile as any)?.userId,
+        agentKey,
+        usage: response.usage ? {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens,
+        } : undefined,
       });
 
       const content = response.choices[0].message.content;
@@ -231,13 +285,23 @@ Provide your response in JSON format:
       const { openai: openaiKey } = await getApiKeys();
       const client = openaiKey ? new OpenAI({ apiKey: openaiKey }) : openai;
       const response = await client.chat.completions.create({
-        model: "gpt-5",
+        model: resolveOpenAIModel(),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: studentMessage }
         ],
         response_format: { type: "json_object" },
         max_completion_tokens: 1500
+      });
+      await recordLlmCall({
+        provider: "openai",
+        model: resolveOpenAIModel(),
+        agentKey: dbPersona?.name,
+        usage: response.usage ? {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens,
+        } : undefined,
       });
       const content = response.choices[0].message.content;
       if (!content) throw new Error('No content in OpenAI response');
@@ -401,13 +465,22 @@ Language: ${language === "en" ? "English" : "Spanish"}.`;
       const { openai: openaiKey } = await getApiKeys();
       const client = openaiKey ? new OpenAI({ apiKey: openaiKey }) : openai;
       const response = await client.chat.completions.create({
-        model: "gpt-5",
+        model: resolveOpenAIModel(),
         messages: [
           { role: "system", content: "You are a curriculum question generator. Output valid JSON only." },
           { role: "user", content: prompt },
         ],
         response_format: { type: "json_object" },
         max_completion_tokens: 2000,
+      });
+      await recordLlmCall({
+        provider: "openai",
+        model: resolveOpenAIModel(),
+        usage: response.usage ? {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens,
+        } : undefined,
       });
       const content = response.choices[0].message.content;
       if (!content) throw new Error("No content from OpenAI");

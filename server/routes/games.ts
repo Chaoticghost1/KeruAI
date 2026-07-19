@@ -121,3 +121,43 @@ gamesRouter.get("/problems/linguaplay/:level", authenticateToken, async (req: Au
     next(error);
   }
 });
+
+// Get all LinguaPlay problems for a mode across levels (authenticated) — powers the Learn Path.
+gamesRouter.get("/problems/linguaplay/all", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const mode = (req.query.mode as string) || "vocabulary";
+    const problems = await storage.getLanguageProblemsAllModes(mode);
+    res.json(problems);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[games] getLanguageProblemsAllModes error:", err.message, err);
+    if (err.message?.includes("does not exist") || err.message?.includes("relation")) {
+      return res.status(503).json({ error: "Games database not set up", hint: "Run: npm run setup:games" });
+    }
+    next(error);
+  }
+});
+
+// Get CruiseWord vocabulary words (authenticated). Optional ?level=1-6 filter.
+gamesRouter.get("/problems/cruiseword", authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const levelRaw = req.query.level as string | undefined;
+    const level = levelRaw != null ? parseInt(levelRaw, 10) : undefined;
+    if (level != null && (isNaN(level) || level < 1 || level > 6)) {
+      return res.status(400).json({ error: "Level must be between 1 and 6" });
+    }
+    const limit = Math.min(parseInt(req.query.limit as string) || 200, 500);
+    const words = await storage.getCruiseWordWords(level, limit);
+    res.json(words);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[games] getCruiseWordWords error:", err.message, err);
+    if (err.message?.includes("does not exist") || err.message?.includes("relation")) {
+      return res.status(503).json({
+        error: "Games database not set up",
+        hint: "Run: npm run setup:games",
+      });
+    }
+    next(error);
+  }
+});

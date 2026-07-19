@@ -1,6 +1,6 @@
 import React from "react";
 import { Trophy, Clock, Star } from "lucide-react";
-import type { QuestionResult } from "@/stores/cruiseWordStore";
+import type { DuoQuestionResult } from "./types";
 
 interface LessonCompleteProps {
   correctAnswerCount: number;

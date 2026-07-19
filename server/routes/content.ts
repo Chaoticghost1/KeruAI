@@ -49,6 +49,8 @@ const upload = multer({
 export const contentRouter = Router();
 
 contentRouter.post("/", authenticateToken, authorizeRoles('teacher', 'superuser'), requireVerification, upload.single('file'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  // DEPRECATED: use POST /api/content/upload (RAG-ingestion pipeline) instead.
+  console.warn("[content] DEPRECATED route POST /api/content/ — use /api/content/upload");
   try {
     const { title, description, contentType, subject, gradeLevel, tags, htmlContent } = req.body;
     
@@ -215,7 +217,8 @@ contentRouter.post("/upload", authenticateToken, authorizeRoles('teacher', 'supe
       language: lang,
     });
 
-    // 3. Persist chunks
+    // 3. Persist chunks — mark embeddingStatus 'pending' so a future embedder
+    //    (pgvector / vector store) can pick them up for RAG retrieval.
     const inserted = await storage.createContentChunks(
       chunks.map((c) => ({
         sourceId: source.id,
@@ -226,6 +229,7 @@ contentRouter.post("/upload", authenticateToken, authorizeRoles('teacher', 'supe
         chunkIndex: c.chunkIndex,
         text: c.text,
         tokenCount: c.tokenCount,
+        embeddingStatus: "pending" as const,
       }))
     );
 
@@ -275,6 +279,20 @@ contentRouter.get("/sources/my", authenticateToken, authorizeRoles('teacher', 's
   try {
     const sources = await storage.getMyContentSources(req.user!.id);
     res.json(sources);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/content/ingestion/status
+ * Ingestion health: how many chunks are pending/done/none for embeddings.
+ * Lets teachers (and ops) see the RAG ingestion queue at a glance.
+ */
+contentRouter.get("/ingestion/status", authenticateToken, authorizeRoles('teacher', 'superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const counts = await storage.getEmbeddingStatusCounts();
+    res.json(counts);
   } catch (error) {
     next(error);
   }

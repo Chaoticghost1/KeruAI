@@ -1,14 +1,14 @@
 import React from "react";
-import type { SelectExercise } from "@/data/cruiseWordUnits";
+import type { DuoSelectExercise, DuoLang } from "./types";
 import { LessonProgressBar } from "./LessonProgressBar";
 import { CheckAnswer } from "./CheckAnswer";
 
-interface ProblemSelect1Of3Props {
-  problem: SelectExercise;
+interface DuoSelectExerciseProps {
+  problem: DuoSelectExercise;
   correctAnswerCount: number;
   totalCorrectAnswersNeeded: number;
   selectedAnswer: number | null;
-  setSelectedAnswer: React.Dispatch<React.SetStateAction<number | null>>;
+  setSelectedAnswer: (index: number) => void;
   correctAnswerShown: boolean;
   isAnswerCorrect: boolean;
   onCheckAnswer: () => void;
@@ -18,7 +18,7 @@ interface ProblemSelect1Of3Props {
   onQuit: () => void;
 }
 
-export const ProblemSelect1Of3: React.FC<ProblemSelect1Of3Props> = ({
+export const DuoSelectExerciseView: React.FC<DuoSelectExerciseProps> = ({
   problem,
   correctAnswerCount,
   totalCorrectAnswersNeeded,
@@ -33,7 +33,7 @@ export const ProblemSelect1Of3: React.FC<ProblemSelect1Of3Props> = ({
   onQuit,
 }) => {
   const { prompt, options } = problem;
-  const lang = document.documentElement.lang === "es" ? "es" : "en";
+  const lang = (document.documentElement.lang === "es" ? "es" : "en") as DuoLang;
 
   return (
     <div className="flex min-h-screen flex-col gap-5 px-4 py-5 sm:px-0 sm:py-0">
@@ -48,7 +48,7 @@ export const ProblemSelect1Of3: React.FC<ProblemSelect1Of3Props> = ({
         </div>
         <section className="flex max-w-2xl grow flex-col gap-5 self-center sm:items-center sm:justify-center sm:gap-24 sm:px-5">
           <h1 className="self-start text-2xl font-bold sm:text-3xl">
-            {prompt[lang as "es" | "en"]}
+            {prompt[lang]}
           </h1>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" role="radiogroup">
             {options.map((answer, i) => {
@@ -102,4 +102,4 @@ export const ProblemSelect1Of3: React.FC<ProblemSelect1Of3Props> = ({
   );
 };
 
-export default ProblemSelect1Of3;
+export default DuoSelectExerciseView;

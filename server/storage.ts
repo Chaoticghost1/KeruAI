@@ -18,6 +18,8 @@ import {
   type InsertGameScore,
   type MathProblem,
   type LanguageProblem,
+  type CruiseWordWord,
+  cruiseWordWords,
   tutorAgents,
   tutorSessions,
   tutorMessages,
@@ -86,6 +88,9 @@ import {
   type InsertBlogPost,
   type BotPersona,
   type InsertBotPersona,
+  llmLogs,
+  type LlmLog,
+  type InsertLlmLog,
   mentorProfiles,
   mentorshipRequests,
   mentorshipSessions,
@@ -231,6 +236,8 @@ export interface IStorage {
   // Game problem content (MathMaster, LinguaPlay)
   getMathProblems(level: number, limit?: number): Promise<MathProblem[]>;
   getLanguageProblems(level: number, mode: string, limit?: number): Promise<LanguageProblem[]>;
+  getLanguageProblemsAllModes(mode: string, limit?: number): Promise<LanguageProblem[]>;
+  getCruiseWordWords(level?: number, limit?: number): Promise<CruiseWordWord[]>;
 
   // Tutor agent methods
   getTutorAgents(): Promise<TutorAgent[]>;
@@ -319,6 +326,17 @@ export interface IStorage {
     language?: string;
     limit?: number;
   }): Promise<ContentChunk[]>;
+  /** Mark all chunks of a source as embedded (embeddingStatus -> 'done'). */
+  markChunksEmbedded(sourceId: number): Promise<number>;
+  /** Count of chunks still awaiting embedding, per status (for ingestion health). */
+  getEmbeddingStatusCounts(): Promise<{ pending: number; done: number; none: number }>;
+  /** Fetch chunks awaiting embedding (none | pending) for the embeddings worker. */
+  getChunksForEmbedding(limit?: number): Promise<ContentChunk[]>;
+  /** Persist a single chunk's embedding vector and mark it done. */
+  saveChunkEmbedding(chunkId: number, vector: number[]): Promise<void>;
+
+  // LLM audit logging
+  createLlmLog(log: InsertLlmLog): Promise<LlmLog>;
 
   // Student Revision v2: practice generations + packs
   createPracticeGeneration(gen: InsertPracticeGeneration): Promise<PracticeQuestionGeneration>;
@@ -690,6 +708,22 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
       .from(languageProblems)
       .where(and(eq(languageProblems.level, level), eq(languageProblems.mode, mode)))
       .limit(limit);
+  }
+
+  async getLanguageProblemsAllModes(mode: string, limit: number = 200): Promise<LanguageProblem[]> {
+    return await db
+      .select()
+      .from(languageProblems)
+      .where(eq(languageProblems.mode, mode))
+      .limit(limit);
+  }
+
+  async getCruiseWordWords(level?: number, limit: number = 100): Promise<CruiseWordWord[]> {
+    const query = db.select().from(cruiseWordWords);
+    if (level != null) {
+      query.where(eq(cruiseWordWords.level, level));
+    }
+    return await query.limit(limit);
   }
 
   // Tutor agent methods — seed agents + synced admin personas (all in tutor_agents)
@@ -1297,6 +1331,51 @@ export class DatabaseStorage { // implements IStorage - temporarily commented to
       .where(and(...conditions))
       .orderBy(contentChunks.chunkIndex)
       .limit(limit);
+  }
+
+  async markChunksEmbedded(sourceId: number): Promise<number> {
+    const result = await db
+      .update(contentChunks)
+      .set({ embeddingStatus: "done" })
+      .where(eq(contentChunks.sourceId, sourceId))
+      .returning({ id: contentChunks.id });
+    return result.length;
+  }
+
+  async getEmbeddingStatusCounts(): Promise<{ pending: number; done: number; none: number }> {
+    const rows = await db
+      .select({ status: contentChunks.embeddingStatus })
+      .from(contentChunks);
+    return rows.reduce(
+      (acc, r) => {
+        if (r.status === "done") acc.done++;
+        else if (r.status === "pending") acc.pending++;
+        else acc.none++;
+        return acc;
+      },
+      { pending: 0, done: 0, none: 0 },
+    );
+  }
+
+  async getChunksForEmbedding(limit = 50): Promise<ContentChunk[]> {
+    return await db
+      .select()
+      .from(contentChunks)
+      .where(inArray(contentChunks.embeddingStatus, ["none", "pending"]))
+      .orderBy(contentChunks.id)
+      .limit(limit);
+  }
+
+  async saveChunkEmbedding(chunkId: number, vector: number[]): Promise<void> {
+    await db
+      .update(contentChunks)
+      .set({ embeddingVector: vector, embeddingStatus: "done" })
+      .where(eq(contentChunks.id, chunkId));
+  }
+
+  async createLlmLog(log: InsertLlmLog): Promise<LlmLog> {
+    const [row] = await db.insert(llmLogs).values(log).returning();
+    return row;
   }
 
   // ---- Student Revision v2: practice generations + packs ----

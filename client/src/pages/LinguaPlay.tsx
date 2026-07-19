@@ -10,6 +10,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { OfflineManager } from "@/lib/offline-storage";
 import { LINGUA_PLAY_LEVELS, LINGUA_PLAY_MODES, getLinguaPlayLevelById } from "@/data/linguaPlayLevels";
 import { PageLayout } from "@/components/PageLayout";
+import { ArrowRight } from "lucide-react";
+import { useLinguaPlayStore } from "@/stores/linguaPlayStore";
 
 const GAME_NAME = "LinguaPlay";
 type Language = "en" | "es";
@@ -109,6 +111,11 @@ export default function LinguaPlay() {
   const [showResult, setShowResult] = useState(false);
   const [lastSubmitResult, setLastSubmitResult] = useState<"ok" | "offline" | null>(null);
   const [lastSubmitRewards, setLastSubmitRewards] = useState<SubmitRewards | null>(null);
+
+  const lpLessonsCompleted = useLinguaPlayStore((s) => s.lessonsCompleted);
+  const lpXp = useLinguaPlayStore((s) => s.xp);
+  const lpTotalUnits = LINGUA_PLAY_LEVELS.length;
+  const lpProgressPct = lpTotalUnits ? Math.round((Math.min(lpLessonsCompleted, lpTotalUnits) / lpTotalUnits) * 100) : 0;
 
   const { data: problemsData, isLoading: problemsLoading, isError: problemsError, error: problemsErrorDetail } = useQuery<LanguageProblem[]>({
     queryKey: ["/api/games/problems/linguaplay", selectedLevel, selectedMode],
@@ -254,7 +261,54 @@ export default function LinguaPlay() {
           <Button variant="ghost" size="sm">{text.back}</Button>
         </Link>
         <h1 className="text-2xl font-bold text-foreground">{text.title}</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          onClick={() => (window.location.href = "/games/linguaplay/learn")}
+        >
+          {language === "es" ? "📚 Ruta de Aprendizaje" : "📚 Learn Path"}
+        </Button>
       </div>
+
+      {/* Prominent Learn Path banner (mirrors CruiseWord hub presentation) */}
+      <Card className="mb-8 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white border-none shadow-lg">
+        <CardContent className="p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <h2 className="text-xl font-bold mb-1">{language === "es" ? "Ruta de Aprendizaje" : "Learn Path"}</h2>
+              <p className="text-sm text-violet-100">
+                {language === "es" ? "Vocabulario, gramática y comprensión auditiva." : "Vocabulary, grammar, and listening."}
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex-1 h-2.5 bg-white/30 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-yellow-400 transition-all duration-500"
+                    style={{ width: `${lpProgressPct}%` }}
+                  />
+                </div>
+                <span className="text-xs font-semibold whitespace-nowrap">
+                  {lpLessonsCompleted}/{lpTotalUnits} · {lpProgressPct}%
+                </span>
+              </div>
+              <p className="text-xs text-violet-100 mt-2">
+                {language === "es" ? "Progreso de Ruta" : "Learn Path progress"} · ⚡ {lpXp} XP
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="shrink-0 font-bold"
+              onClick={() => (window.location.href = "/games/linguaplay/learn")}
+            >
+              {lpLessonsCompleted > 0
+                ? language === "es" ? "Continuar" : "Continue"
+                : language === "es" ? "Empezar" : "Start Learning"}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {selectedLevel == null && pickedLevel == null && lastSubmitRewards && (
         <Card className="mb-6 border-green-500/50 bg-green-500/5">

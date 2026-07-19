@@ -8,29 +8,41 @@ A multi-language educational and productivity platform for Honduras and Central 
 
 Keru.ai Suite provides:
 
-- **AI Study Buddy** — 3 tutors (Math Buddy, Dr. Nova, Professor Quill) powered by OpenAI
+- **AI Study Buddy** — 3 tutors (Math Buddy, Dr. Nova, Professor Quill) powered by OpenAI (env-configurable model, default `gpt-4o`)
 - **BudgetPal** — Personal finance with Lempiras support
-- **CruiseWord** — Vocabulary game for cruise/travel terminology
+- **CruiseWord** — DB-fed vocabulary game (Duolingo Learn Path) for cruise/travel terminology
+- **LinguaPlay** — DB-fed language game (vocabulary, grammar, listening) sharing the same Duolingo Learn Path
+- **MathMaster** — Math game from arithmetic to calculus
 - **Travel Blog** — Cruise and travel content
-- **Admin Panel** — User, content, and persona management
+- **Student Revision** — Revision packs, AI practice generation, spaced-repetition review, and a mobile-first lesson viewer
+- **Teacher Uploader** — Teachers upload PDF/image/text → RAG ingestion (chunking + embeddings)
+- **Admin Panel** — User, content, persona, and embeddings management
 - **Gamification** — Badges, levels, streaks, XP
+- **Mobile-first UX** — `client/src/components/mobile/*` library (teacher uploader, lesson header/viewer, AI Buddy chat) with keyboard-safe + dynamic-layout hooks
 
 **Target:** Students, teachers, young adults in Honduras and Central America (Spanish-first, English-supported)
 
 ---
 
-## Where We're At (Feb 2026)
+## Where We're At (Jul 2026)
 
 | Area | Status |
 |------|--------|
-| **Core features** | Auth, AI tutors, BudgetPal, CruiseWord, Blog admin, Gamification — ✅ Working |
-| **Student Revision** | ✅ Wired to assignments API; requires verified student |
+| **Core features** | Auth, AI tutors, BudgetPal, CruiseWord, LinguaPlay, Blog admin, Gamification — ✅ Working |
+| **AI model** | ✅ Env-configurable (`OPENAI_MODEL`, default `gpt-4o`); no fabricated model strings |
+| **RAG / embeddings** | ✅ Content ingestion (`POST /api/content/upload`) + embeddings producer/worker (`EMBEDDING_BACKEND`, `EMBEDDING_WORKER_ENABLED`) |
+| **Teacher uploader UI** | ✅ `client/src/pages/teacher/Upload.tsx` + `useUpload` hook |
+| **Student Revision** | ✅ Packs, AI practice, spaced-repetition review + mobile viewer (`/revision/mobile`) |
 | **Mentorship** | ✅ Full API + MentorshipHub UI wired |
 | **Blog (public)** | ✅ `/api/blog/posts` + Blog page fetches and displays published posts |
+| **LLM audit logging** | ✅ `llm_logs` table + `recordLlmCall()` wraps OpenAI completions |
+| **COPPA consent** | ⚠️ Partial — `users.consentRequired` flag + `SYSTEM_REQUIRE_PARENTAL_CONSENT` signup gate; no dedicated consent UI yet |
+| **CI** | ✅ `.github/workflows/ci.yml` (tsc → vitest → build) |
+| **Mobile-first UX** | ✅ `client/src/components/mobile/*` (14+ passing Vitest/RTL tests) |
 | **DAO** | Static placeholder (no backend) |
-| **Next priorities** | Error boundaries, automated tests, email service (verification/reset) |
+| **Next priorities** | Email service (verification/reset), full COPPA consent UI, SSO/OAuth config |
 
-See [docs/PROJECT_HEALTH.md](./docs/PROJECT_HEALTH.md) for details.
+See [docs/PROJECT_HEALTH.md](./docs/PROJECT_HEALTH.md) for details and [audit-report.html](./audit-report.html) for the engineering audit.
 
 ---
 
@@ -41,8 +53,8 @@ See [docs/PROJECT_HEALTH.md](./docs/PROJECT_HEALTH.md) for details.
 | Frontend | React, TypeScript, Vite, Tailwind, shadcn/ui |
 | Backend | Express.js, TypeScript |
 | Database | PostgreSQL (Neon **or** local/Docker), Drizzle ORM |
-| AI | OpenAI GPT (latest), Perplexity fallback |
-| Offline | Disabled (caching removed; fresh data) |
+| AI | OpenAI GPT (model via `OPENAI_MODEL`, default `gpt-4o`), Perplexity fallback |
+| Offline | Workbox/PWA caching for revision packs + uploaded files; LLM calls skipped offline (queued) |
 
 ---
 
@@ -52,10 +64,14 @@ See **[QUICK_START.md](QUICK_START.md)** for minimal steps. Summary:
 
 ```bash
 npm install && cp .env.example .env
-npm run db:push && npm run create-admin && npm run dev
+npm run db:push && npm run create-admin && npm run setup:games && npm run dev
 ```
 
-Then open `http://localhost:5000`. Admin user: `admin` / `admin@keru.ai` / `admin123`.
+The `setup:games` script runs `db:push`, seeds badges, and seeds all game data
+(math, language/LinguaPlay, cruise-word). **Games require seeded data** — without it
+CruiseWord/LinguaPlay appear empty ("down").
+
+Then open `http://localhost:3333` (default dev port). Admin user: `admin` / `admin@keru.ai` / `admin123`.
 
 For full setup, env vars, and troubleshooting (including cache/data issues), see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
@@ -92,6 +108,23 @@ After choosing a database, run `npm run db:push` to create the schema, then `npm
 
 ---
 
+## Games (DB-fed)
+
+CruiseWord and LinguaPlay are **database-driven** and share a generic Duolingo-style
+Learn Path UI (`client/src/components/duolingo/*`). Data lives in:
+
+- `cruise_word_words` — CruiseWord vocabulary (seeded by `scripts/seed-cruiseword-words.ts`)
+- `language_problems` — LinguaPlay problems (seeded by `scripts/seed-language-problems.ts`)
+- `math_problems` — MathMaster problems (seeded by `scripts/seed-math-problems.ts`)
+
+Seed all of them with `npm run setup:games` (or individually: `npm run seed:cruiseword`,
+`npm run seed:language`, `npm run seed:math`). If a game looks empty, re-run the seed.
+
+Both games expose the same presentation: a Learn Path unit map (`/games/<game>/learn`)
+plus quick-play modes.
+
+---
+
 ## Documentation
 
 | Link | Description |
@@ -119,7 +152,17 @@ After choosing a database, run `npm run db:push` to create the schema, then `npm
 ## Environment Variables
 
 Required: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`  
-Optional: `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, `TELEGRAM_BOT_TOKEN`
+Optional / feature flags:
+
+| Var | Purpose |
+|-----|---------|
+| `OPENAI_API_KEY` | Primary LLM provider |
+| `OPENAI_MODEL` | Model override (default `gpt-4o`) |
+| `PERPLEXITY_API_KEY` | Fallback LLM provider |
+| `EMBEDDING_BACKEND` | `json` (default) or `pgvector` for RAG embeddings |
+| `EMBEDDING_WORKER_ENABLED` | `true` to drain the embedding queue on boot |
+| `SYSTEM_REQUIRE_PARENTAL_CONSENT` | `true` to enforce COPPA consent at signup |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot |
 
 See [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md#4-environment-variables) for full list.
 

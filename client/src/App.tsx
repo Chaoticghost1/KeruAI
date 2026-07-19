@@ -19,6 +19,8 @@ import CruiseWordLesson from "./pages/cruiseword/Lesson";
 import GameHub from "./pages/GameHub";
 import MathMaster from "./pages/MathMaster";
 import LinguaPlay from "./pages/LinguaPlay";
+import LinguaPlayLearn from "./pages/linguaplay/Learn";
+import LinguaPlayLesson from "./pages/linguaplay/Lesson";
 import AuthPage from "./pages/auth-page";
 import AdminDashboard from "./pages/admin-dashboard";
 import StudentRevision from "./pages/StudentRevision";
@@ -26,6 +28,8 @@ import DAO from "./pages/DAO";
 import MentorshipHub from "./pages/MentorshipHub";
 import MentorshipHubPage from "./pages/MentorshipHubPage";
 import MentorApply from "./pages/MentorApply";
+import TeacherUpload from "./pages/teacher/Upload";
+import StudentRevisionMobile from "./pages/StudentRevisionMobile";
 import ClassGroups from "./pages/ClassGroups";
 import StudentProfile from "./pages/StudentProfile";
 import LandingPage from "./pages/landing-page";
@@ -90,9 +94,13 @@ function Router() {
                     <ProtectedRoute path="/games/cruiseword/lesson" component={CruiseWordLesson} />
                     <ProtectedRoute path="/games/mathmaster" component={MathMaster} />
                     <ProtectedRoute path="/games/linguaplay" component={LinguaPlay} />
+                    <ProtectedRoute path="/games/linguaplay/learn" component={LinguaPlayLearn} />
+                    <ProtectedRoute path="/games/linguaplay/lesson" component={LinguaPlayLesson} />
                     <Route path="/cruiseword">{() => <Redirect to="/games/cruiseword" />}</Route>
                     <ProtectedRoute path="/dao" component={DAO} />
                     <ProtectedRoute path="/classes" component={ClassGroups} />
+                    <ProtectedRoute path="/teacher/upload" component={TeacherUpload} roles={['teacher', 'superuser']} />
+                    <ProtectedRoute path="/revision/mobile" component={StudentRevisionMobile} roles={['student']} />
                     <Route component={NotFound} />
                   </Switch>
                   </ErrorBoundary>

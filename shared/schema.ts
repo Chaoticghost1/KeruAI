@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   profileImage: text("profile_image"),
   isActive: boolean("is_active").default(true).notNull(),
   lastLoginAt: timestamp("last_login_at"),
+  consentRequired: boolean("consent_required").default(false).notNull(), // COPPA: parental consent pending
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -94,6 +95,27 @@ export const languageProblems = pgTable("language_problems", {
   audioUrl: text("audio_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// CruiseWord game: world-geography vocabulary words, fed from DB (replaces static TS data).
+// Each word belongs to a level (1-6) and a geography category. Used to build both the
+// Duolingo-style Learn Path and the quick Play modes.
+export const cruiseWordWords = pgTable("cruise_word_words", {
+  id: serial("id").primaryKey(),
+  level: integer("level").notNull(), // 1-6 (difficulty band)
+  category: text("category").notNull(), // geography, food, music, capital, landmark, language
+  word: text("word").notNull(), // the term to learn (English)
+  translationEs: text("translation_es").notNull(), // Spanish translation
+  promptEs: text("prompt_es").notNull(), // definition/clue in Spanish
+  promptEn: text("prompt_en").notNull(), // definition/clue in English
+  hintEs: text("hint_es"),
+  hintEn: text("hint_en"),
+  country: text("country"), // associated country (geography theme)
+  emoji: text("emoji"), // icon glyph for the card
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  levelIdx: index("cruise_word_words_level_idx").on(table.level),
+  categoryIdx: index("cruise_word_words_category_idx").on(table.category),
+}));
 
 export const tutorAgents = pgTable("tutor_agents", {
   id: serial("id").primaryKey(),
@@ -509,7 +531,8 @@ export const contentChunks = pgTable("content_chunks", {
   chunkIndex: integer("chunk_index").notNull(),
   text: text("text").notNull(),
   tokenCount: integer("token_count").default(0).notNull(),
-  embeddingStatus: text("embedding_status").notNull().default("none"), // 'none' | 'pending' | 'done' (reserved for future vector search)
+  embeddingStatus: text("embedding_status").notNull().default("none"), // 'none' | 'pending' | 'done'
+  embeddingVector: jsonb("embedding_vector"), // stored vector (json array) when EMBEDDING_BACKEND=json
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   ragIdx: index("content_chunks_rag_idx").on(table.subject, table.topic, table.gradeLevel),
@@ -529,6 +552,35 @@ export const contentSourcesRelations = relations(contentSources, ({ one, many })
 export const contentChunksRelations = relations(contentChunks, ({ one }) => ({
   source: one(contentSources, { fields: [contentChunks.sourceId], references: [contentSources.id] }),
 }));
+
+// ---------------------------------------------------------------------------
+// LLM audit logging: every model call is recorded (prompt, response, tokens, cost)
+// ---------------------------------------------------------------------------
+
+export const llmLogs = pgTable("llm_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  teacherId: integer("teacher_id").references(() => users.id),
+  agentKey: text("agent_key"),
+  provider: text("provider").notNull(), // 'openai' | 'perplexity'
+  model: text("model").notNull(),
+  promptTokens: integer("prompt_tokens").default(0).notNull(),
+  completionTokens: integer("completion_tokens").default(0).notNull(),
+  totalTokens: integer("total_tokens").default(0).notNull(),
+  estimatedCostUsd: decimal("estimated_cost_usd", { precision: 10, scale: 6 }).default("0"),
+  status: text("status").notNull().default("success"), // 'success' | 'error'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  llmUserIdx: index("llm_logs_user_idx").on(table.userId),
+  llmCreatedIdx: index("llm_logs_created_idx").on(table.createdAt),
+}));
+
+export const insertLlmLogSchema = createInsertSchema(llmLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertLlmLog = z.infer<typeof insertLlmLogSchema>;
+export type LlmLog = typeof llmLogs.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // Student Revision v2: practice generations + revision packs (spaced repetition)
@@ -959,6 +1011,7 @@ export type InsertGameScore = z.infer<typeof insertGameScoreSchema>;
 export type GameScore = typeof gameScores.$inferSelect;
 export type MathProblem = typeof mathProblems.$inferSelect;
 export type LanguageProblem = typeof languageProblems.$inferSelect;
+export type CruiseWordWord = typeof cruiseWordWords.$inferSelect;
 export type InsertTutorAgent = z.infer<typeof insertTutorAgentSchema>;
 export type TutorAgent = typeof tutorAgents.$inferSelect;
 export type InsertTutorSession = z.infer<typeof insertTutorSessionSchema>;
@@ -1014,8 +1067,9 @@ export const insertContentSourceSchema = createInsertSchema(contentSources).omit
 });
 export const insertContentChunkSchema = createInsertSchema(contentChunks).omit({
   id: true,
-  embeddingStatus: true,
   createdAt: true,
+}).extend({
+  embeddingStatus: z.enum(["none", "pending", "done"]).default("none"),
 });
 export type InsertContentSource = z.infer<typeof insertContentSourceSchema>;
 export type ContentSource = typeof contentSources.$inferSelect;

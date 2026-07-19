@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Check, X } from "lucide-react";
-import type { QuestionResult } from "@/stores/cruiseWordStore";
+import type { DuoQuestionResult } from "./types";
 
 interface ReviewLessonProps {
   reviewShown: boolean;
   onClose: () => void;
-  questionResults: QuestionResult[];
+  questionResults: DuoQuestionResult[];
 }
 
 export const ReviewLesson: React.FC<ReviewLessonProps> = ({
@@ -13,7 +13,7 @@ export const ReviewLesson: React.FC<ReviewLessonProps> = ({
   onClose,
   questionResults,
 }) => {
-  const [selectedQuestion, setSelectedQuestion] = useState<QuestionResult | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<DuoQuestionResult | null>(null);
 
   return (
     <div

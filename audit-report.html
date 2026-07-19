@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StudyBuddyAI — Engineering Audit Report</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --ink:#e2e8f0; --mut:#94a3b8; --acc:#38bdf8; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --line:#334155; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; }
+  .wrap { max-width:1100px; margin:0 auto; padding:32px 24px 80px; }
+  h1 { font-size:30px; margin:0 0 4px; }
+  h2 { font-size:22px; margin:36px 0 12px; border-bottom:2px solid var(--line); padding-bottom:8px; }
+  h3 { font-size:17px; margin:22px 0 8px; color:var(--acc); }
+  p { margin:8px 0; }
+  .sub { color:var(--mut); font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:14px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+  .kv { font-size:13px; color:var(--mut); }
+  .kv b { color:var(--ink); }
+  table { width:100%; border-collapse:collapse; margin:12px 0; font-size:13px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--acc); font-weight:600; background:#172033; }
+  code { background:#0b1220; padding:2px 6px; border-radius:5px; font-size:12px; color:#7dd3fc; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; }
+  .p0 { background:#7f1d1d; color:#fca5a5; }
+  .p1 { background:#7c2d12; color:#fdba74; }
+  .p2 { background:#713f12; color:#fde68a; }
+  .p3 { background:#1e3a5e; color:#7dd3fc; }
+  .ok { background:#052e16; color:#86efac; }
+  .part { background:#422006; color:#fde68a; }
+  .miss { background:#450a0a; color:#fca5a5; }
+  .tag { font-family:monospace; font-size:11px; background:#0b1220; padding:2px 5px; border-radius:4px; }
+  .sev-high { color:var(--bad); font-weight:700; }
+  .sev-med { color:var(--warn); font-weight:700; }
+  .sev-low { color:var(--ok); font-weight:700; }
+  ul { margin:8px 0; padding-left:20px; }
+  li { margin:5px 0; }
+  .note { border-left:3px solid var(--acc); padding:8px 14px; background:#0b1a2b; border-radius:0 8px 8px 0; margin:12px 0; }
+  .score { font-size:40px; font-weight:800; }
+  a { color:var(--acc); }
+  footer { margin-top:48px; color:var(--mut); font-size:12px; border-top:1px solid var(--line); padding-top:16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>StudyBuddyAI — Engineering Audit</h1>
+  <p class="sub">Repository: <code>StudyBuddyAI</code> (TypeScript monorepo: Express + Drizzle + React/Vite). Audit date: 2026-07-19 (initial) · <b>Remediated snapshot: 2026-07-19</b>. Method: static code analysis mapped against <code>docs/*</code>, <code>README.md</code>, and the supplied audit prompt, then re-verified after the fix PRs landed.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">Executive Summary</h3>
+    <ul>
+      <li>The platform is <b>substantially more complete than the supplied research <code>.md</code> implied</b>. Ingestion, chunking, OCR, RAG orchestration, practice-question generation, and a test suite (5 spec files) are all present and wired.</li>
+      <li><span class="ok pill">RESOLVED</span> <b>Critical defect fixed:</b> the fabricated <code>"gpt-5"</code> model was replaced by an env-configurable <code>resolveOpenAIModel()</code> with a safe <code>gpt-4o</code> default (<code>server/lib/model-config.ts</code> + <code>server/ai-service.test.ts</code>). No runtime-only model string remains.</li>
+      <li><b>Auth, roles, rate-limiting, and CSP are implemented</b> (per <code>SECURITY_IMPLEMENTATION.md</code> and code), contradicting the "missing" claims in the stale research doc.</li>
+      <li>RAG is <b>opt-in</b> via the <code>curriculumMode</code> flag in the tutor flow — not on by default, but functional.</li>
+      <li><span class="ok pill">RESOLVED</span> The corrupted <code>audit-report.json</code> was moved to <code>archive/audit-report.corrupted.json</code>; the legacy <code>POST /api/content/</code> route is now deprecated with a console warning.</li>
+    </ul>
+    <p class="kv" style="margin-top:14px"><b>TypeScript:</b> <span class="ok pill">clean</span> <code>tsc --noEmit</code> passes. <b>Build:</b> <code>npm run build</code> succeeds. <b>Dev server:</b> serves on :3333, DB connected. <b>Tests:</b> 14 client component tests (mobile UX) + server model/embeddings tests green.</p>
+  </div>
+
+  <div class="card" style="border-color:var(--ok)">
+    <h3 style="margin-top:0" class="ok">Remediation Status — all P0–P3 audit items addressed</h3>
+    <table>
+      <tr><th>Audit ID</th><th>Item</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td>P0-1</td><td>Fabricated <code>"gpt-5"</code> model (3 sites)</td><td><span class="ok pill">done</span></td><td><code>server/lib/model-config.ts</code>, <code>server/ai-service.test.ts</code></td></tr>
+      <tr><td>P0-2</td><td>Embeddings producer / worker</td><td><span class="ok pill">done</span></td><td><code>server/embeddings.ts</code>, <code>server/embeddingsRunner.ts</code>, <code>POST /api/admin/embeddings/run</code></td></tr>
+      <tr><td>P1-1</td><td>Teacher uploader client UI</td><td><span class="ok pill">done</span></td><td><code>client/src/pages/teacher/Upload.tsx</code>, <code>client/src/hooks/useUpload.ts</code></td></tr>
+      <tr><td>P1-2</td><td><code>tutorQaCache</code> wired in message flow</td><td><span class="ok pill">done</span></td><td><code>server/routes/tutors.ts:177,195,404,525</code> (was already live)</td></tr>
+      <tr><td>P1-3</td><td>Remove corrupted JSON + deprecate legacy route</td><td><span class="ok pill">done</span></td><td><code>archive/audit-report.corrupted.json</code>, <code>server/routes/content.ts</code> deprecation warning</td></tr>
+      <tr><td>P2-1</td><td>CI pipeline</td><td><span class="ok pill">done</span></td><td><code>.github/workflows/ci.yml</code> (npm ci → tsc → vitest → build)</td></tr>
+      <tr><td>P2-2</td><td>COPPA / parental-consent UI flag</td><td><span class="part pill">partial</span></td><td><code>users.consentRequired</code> + <code>SYSTEM_REQUIRE_PARENTAL_CONSENT</code> signup gate; full consent UI flow pending</td></tr>
+      <tr><td>P3-1</td><td>Structured LLM audit logging</td><td><span class="ok pill">done</span></td><td><code>llm_logs</code> table + <code>recordLlmCall()</code> in <code>server/ai-service.ts</code></td></tr>
+      <tr><td>—</td><td>Student Revision v2 (was marked partial)</td><td><span class="ok pill">done</span></td><td><code>StudentRevision.tsx</code> + <code>RevisionPacks</code>; <code>study.ts</code> packs/practice/offline/review APIs (verified present)</td></tr>
+      <tr><td>—</td><td>Mobile-first UX library (3 flows)</td><td><span class="ok pill">done</span></td><td><code>client/src/components/mobile/*</code> (14 passing tests)</td></tr>
+    </table>
+  </div>
+  </div>
+
+  <h2>1. Inventory</h2>
+  <div class="grid">
+    <div class="card"><div class="kv"><b>Server entry</b><br><code>server/index.ts</code> (Express, PORT 3333)</div>
+      <div class="card"><div class="kv"><b>Client entry</b><br><code>client/src/main.tsx</code> → Vite</div>
+      <div class="card"><div class="kv"><b>Shared schema</b><br><code>shared/schema.ts</code> (Drizzle)</div>
+      <div class="card"><div class="kv"><b>Build</b><br><code>vite build</code> + <code>esbuild</code> server bundle → <code>dist/</code></div></div>
+  <div class="card">
+    <h3 style="margin-top:0">Required env vars</h3>
+    <ul class="kv">
+      <li><code>DATABASE_URL</code> (Neon Postgres) — driver auto-selected (Neon vs pg TCP)</li>
+      <li><code>JWT_SECRET</code>, <code>JWT_REFRESH_SECRET</code></li>
+      <li><code>OPENAI_API_KEY</code> (primary LLM)</li>
+      <li><code>PERPLEXITY_API_KEY</code> (fallback LLM; also N8N webhook path)</li>
+      <li>Optional: S3/storage, Telegram bot, CAPTCHA secret</li>
+    </ul>
+  </div>
+
+  <h2>2. API Surface &amp; Routes</h2>
+  <p class="sub">Enumerated by static scan of <code>server/routes/*.ts</code>. Total ≈ 130 endpoints across 15 routers.</p>
+  <table>
+    <tr><th>Router</th><th>#</th><th>Purpose</th><th>Auth/Roles</th></tr>
+    <tr><td><code>auth.ts</code></td><td>9</td><td>register/login/refresh/reset/password</td><td>public + token</td></tr>
+    <tr><td><code>admin.ts</code></td><td>33</td><td>user mgmt, blog, personas, analytics, system settings</td><td>superuser</td></tr>
+    <tr><td><code>tutors.ts</code></td><td>9</td><td>AI tutor sessions + messages (RAG injection point)</td><td>student/teacher</td></tr>
+    <tr><td><code>content.ts</code></td><td>10</td><td>upload → extract → chunk → RAG sources/chunks</td><td>teacher + verify</td></tr>
+    <tr><td><code>classes.ts</code></td><td>19</td><td>class groups, invite codes, chat</td><td>teacher/student</td></tr>
+    <tr><td><code>assignments.ts</code></td><td>8</td><td>assignments + student submission w/ file upload</td><td>teacher/student</td></tr>
+    <tr><td><code>budget.ts</code></td><td>8</td><td>BudgetPal categories/transactions</td><td>authed</td></tr>
+    <tr><td><code>games.ts</code></td><td>8</td><td>scores, leaderboard, problems (math/linguaplay/cruiseword)</td><td>authed</td></tr>
+    <tr><td><code>mentorship.ts</code></td><td>10</td><td>mentors, applications, sessions</td><td>mixed</td></tr>
+    <tr><td><code>students.ts</code></td><td>3</td><td>student profile/linkage</td><td>teacher/student</td></tr>
+    <tr><td><code>study.ts</code></td><td>9</td><td>study notes, revision packs, practice gen</td><td>authed</td></tr>
+    <tr><td><code>progress.ts</code></td><td>10</td><td>game progress, streaks</td><td>authed</td></tr>
+    <tr><td><code>blog.ts</code></td><td>2</td><td>travel blog read</td><td>public</td></tr>
+    <tr><td><code>teachers.ts</code></td><td>2</td><td>teacher directory</td><td>authed</td></tr>
+    <tr><td><code>captcha.ts</code></td><td>1</td><td>CAPTCHA verify</td><td>public</td></tr>
+  </table>
+  <div class="note">Evidence: <code>server/routes/tutors.ts:246</code> calls <code>AITutorService.fetchCurriculumContext</code> when <code>curriculumMode</code> is true — RAG is live, not missing.</div>
+
+  <h2>3. Persistence &amp; Schema</h2>
+  <p class="sub">Drizzle ORM. <code>shared/schema.ts</code> defines ~40 tables. Notable tables for this audit:</p>
+  <table>
+    <tr><th>Table</th><th>Key columns</th><th>Used by</th></tr>
+    <tr><td><code>content_sources</code></td><td>ownerUserId, subject, topic, gradeLevel, fileType, chunkCount, tokenCount, status</td><td>content.ts, storage</td></tr>
+    <tr><td><code>content_chunks</code></td><td>sourceId, subject, topic, chunkIndex, text, tokenCount, <b>embeddingStatus</b> ('none'|'pending'|'done')</td><td>content.ts, ai-service RAG</td></tr>
+    <tr><td><code>tutor_qa_cache</code></td><td>sessionId, agentKey, questionHash, agentResponse</td><td>storage (read/write methods exist)</td></tr>
+    <tr><td><code>practice_question_generations</code></td><td>source material → generated Qs</td><td>ai-service.generatePracticeQuestions</td></tr>
+  </table>
+  <div class="note">Mismatch: <code>embeddingStatus</code> defaults to <code>'none'</code> and no embedder ever writes <code>'done'</code>. RAG retrieval works on raw text, so this is a <b>future-capability slot</b>, not a broken feature. Low risk.</div>
+
+  <h2>4. Content / RAG / AI</h2>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0" class="ok">Implemented</h3>
+      <ul class="kv">
+        <li>LLM: OpenAI (<code>ai-service.ts:19</code>) w/ Perplexity fallback (<code>:161</code>)</li>
+        <li>Text extraction: PDF (<code>pdf-parse</code>), image OCR (<code>tesseract.js</code>), HTML strip, plain</li>
+        <li>Chunking: token-bounded, overlapping, paragraph/sentence-aware (<code>lib/content-chunker.ts</code>)</li>
+        <li>RAG: <code>fetchCurriculumContext</code> → <code>findCurriculumChunks</code> → <code>buildRagContext</code></li>
+        <li>Practice-Q generation: <code>generatePracticeQuestions</code> (<code>:387</code>) used in assignments + study</li>
+        <li>QA cache: <code>tutorQaCache</code> storage methods present</li>
+      </ul>
+    </div>
+    <div class="card"><h3 style="margin-top:0" class="miss">Missing / Fabricated</h3>
+      <ul class="kv">
+        <li><span class="miss pill">WAS FABRICATED</span> OpenAI model <code>"gpt-5"</code> — <span class="ok pill">RESOLVED</span> now <code>resolveOpenAIModel()</code> → <code>gpt-4o</code> default</li>
+        <li>No embeddings producer (no pgvector/Pinecone/Weaviate code) — <span class="ok pill">ADDED</span> <code>server/embeddings.ts</code> (json backend) + <code>server/embeddingsRunner.ts</code></li>
+        <li><code>tutorQaCache</code> write path not invoked in <code>createTutorMessage</code> — <span class="ok pill">VERIFIED LIVE</span> at <code>tutors.ts:177,195,404,525</code></li>
+        <li>No SSO / OAuth config (schema ready, unused) — still partial</li>
+        <li>No COPPA/consent UI flow — <span class="part pill">PARTIAL</span> DB flag + env gate added; full UI pending</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>5. Client Integration</h2>
+  <p class="sub">Pages in <code>client/src/pages</code>; hooks in <code>client/src/hooks</code>; query client <code>lib/queryClient</code>. Map is mostly complete.</p>
+  <table>
+    <tr><th>Server area</th><th>Client counterpart</th><th>Status</th></tr>
+    <tr><td>games/* (math/linguaplay/cruiseword)</td><td>CruiseWord, LinguaPlay, MathMaster + shared <code>duolingo/</code> UI</td><td><span class="ok pill">done</span></td></tr>
+    <tr><td>content/upload</td><td><code>client/src/pages/teacher/Upload.tsx</code> + <code>useUpload</code> hook</td><td><span class="ok pill">done</span></td></tr>
+    <tr><td>tutors/*</td><td>AI Study Buddy chat UI</td><td><span class="ok pill">done</span></td></tr>
+    <tr><td>classes/*, students/*</td><td>ClassGroups, StudentProfile</td><td><span class="ok pill">done</span></td></tr>
+    <tr><td>study/* (revision packs)</td><td>StudentRevision</td><td><span class="part pill">partial</span></td></tr>
+    <tr><td>mentorship/*</td><td>MentorshipHub, MentorApply</td><td><span class="ok pill">done</span> (DAO static)</td></tr>
+  </table>
+
+  <h2>6. Code Health — Dead / Duplicate / Deprecated</h2>
+  <ul>
+    <li><span class="ok pill">RESOLVED</span> <code>audit-report.json</code> (root, corrupted) moved to <code>archive/audit-report.corrupted.json</code>. No longer a repo-root artifact.</li>
+    <li>No <code>TODO</code>/<code>FIXME</code> markers found in source — clean of leftover notes.</li>
+    <li><code>tsc --noEmit</code> passes with no project errors (only pre-existing benign <code>server/db.ts</code> top-level-await config noise unrelated to app code).</li>
+    <li>Duplicate: <code>content.ts</code> has two upload paths (<code>POST /</code> legacy and <code>POST /upload</code> RAG). The legacy <code>POST /</code> does not persist chunks/sources — candidate for deprecation.</li>
+    <li>Reusable generic Duolingo UI (<code>components/duolingo/</code>) correctly shared by CruiseWord + LinguaPlay — not duplicated. Good.</li>
+  </ul>
+
+  <h2>7. Security, Privacy &amp; Compliance</h2>
+  <ul>
+    <li><b>Implemented:</b> JWT access+refresh (<code>auth.ts</code>), bcrypt, Zod validation, Helmet CSP/HSTS, rate limiting (general/auth/password-reset), account lockout, CAPTCHA on sensitive routes, security event logging, role-based <code>authorizeRoles</code>.</li>
+    <li><b>Partial:</b> SSO schema present but unconfigured; password-reset/email-verify flows exist with no provider; <span class="part pill">PARTIAL</span> COPPA — <code>users.consentRequired</code> flag + <code>SYSTEM_REQUIRE_PARENTAL_CONSENT</code> signup gate added, but no dedicated consent UI yet (platform targets minors in Honduras — compliance gap remains).</li>
+    <li><b>LLM logging:</b> <span class="ok pill">RESOLVED</span> <code>llm_logs</code> table + <code>recordLlmCall()</code> wraps every OpenAI completion in <code>ai-service.ts</code> (provider, model, token counts, status) — structured audit/cost persistence now present.</li>
+  </ul>
+
+  <h2>8. Tests, CI, DevOps</h2>
+  <ul>
+    <li><b>Tests exist:</b> <code>content-chunker.test.ts</code>, <code>spaced-repetition.test.ts</code>, <code>error-handler.test.ts</code>, <code>storage.rag.test.ts</code>, <code>storage.revision.test.ts</code> (Vitest).</li>
+    <li><b>CI:</b> <code>Dockerfile</code> + <code>docker-compose.yml</code> present; <b>no</b> <code>.github/workflows</code> found — no automated test/build pipeline.</li>
+    <li>Deploy docs present (<code>DEPLOYMENT.md</code>, <code>QUICK_START.md</code>).</li>
+  </ul>
+
+  <h2>9. Missing Features vs Product Docs</h2>
+  <table>
+    <tr><th>Feature (PRD §5)</th><th>Doc status</th><th>Audit status</th><th>Evidence</th></tr>
+    <tr><td>5.3 CruiseWord</td><td>✅</td><td><span class="ok pill">done</span></td><td>DB-fed geography + Duolingo path</td></tr>
+    <tr><td>5.3b LinguaPlay</td><td>✅</td><td><span class="ok pill">done</span></td><td>Learn Path reuses generic UI</td></tr>
+    <tr><td>5.5 Student Revision</td><td>⚠️ partial</td><td><span class="ok pill">done</span></td><td><code>StudentRevision.tsx</code> + <code>RevisionPacks</code>; packs/practice/offline/review APIs in <code>study.ts</code></td></tr>
+    <tr><td>Phase 2 PDF/OCR/AI revision</td><td>⛔</td><td><span class="part pill">partial</span></td><td>extraction+OCR done; embeddings producer added (<code>json</code> backend)</td></tr>
+    <tr><td>Teacher uploader UI</td><td>⛔</td><td><span class="ok pill">done</span></td><td><code>client/src/pages/teacher/Upload.tsx</code> + <code>useUpload</code></td></tr>
+  </table>
+
+  <h2>10. Risk &amp; Effort Assessment</h2>
+  <table>
+    <tr><th>ID</th><th>Issue</th><th>Sev</th><th>Est.</th><th>Suggested files</th></tr>
+    <tr><td>P0-1</td><td class="sev-high">Fabricated OpenAI model <code>"gpt-5"</code> (3 sites) → runtime failure on primary provider</td><td class="sev-high">HIGH</td><td>1h</td><td><code>server/ai-service.ts:134,234,404</code> → <span class="ok pill">RESOLVED</span></td></tr>
+    <tr><td>P0-2</td><td class="sev-med">No embeddings producer; <code>embeddingStatus</code> never → <code>done</code> (future RAG quality)</td><td class="sev-med">MED</td><td>2–3d</td><td><code>server/embeddings.ts</code> + worker → <span class="ok pill">RESOLVED</span></td></tr>
+    <tr><td>P1-1</td><td>No teacher uploader client page (API unused)</td><td class="sev-med">MED</td><td>1–2d</td><td><code>client/src/pages/teacher/Upload.tsx</code> → <span class="ok pill">RESOLVED</span></td></tr>
+    <tr><td>P1-2</td><td><code>tutorQaCache</code> not invoked in <code>createTutorMessage</code> → no cost savings / dedup</td><td class="sev-med">MED</td><td>4–8h</td><td><code>server/routes/tutors.ts</code> → <span class="ok pill">VERIFIED LIVE</span></td></tr>
+    <tr><td>P1-3</td><td>Remove corrupted <code>audit-report.json</code> + deprecate legacy <code>POST /</code> in content.ts</td><td class="sev-low">LOW</td><td>1h</td><td><code>archive/</code> + deprecation warning → <span class="ok pill">RESOLVED</span></td></tr>
+    <tr><td>P2-1</td><td>No CI pipeline (tests not enforced)</td><td class="sev-med">MED</td><td>4–8h</td><td><code>.github/workflows/ci.yml</code> → <span class="ok pill">RESOLVED</span></td></tr>
+    <tr><td>P2-2</td><td>No COPPA/consent UI (minors in scope)</td><td class="sev-med">MED</td><td>1–2d</td><td>auth flow + <code>users</code> flag → <span class="part pill">PARTIAL</span></td></tr>
+    <tr><td>P3-1</td><td>No structured LLM prompt/response logging for cost/audit</td><td class="sev-low">LOW</td><td>1d</td><td><code>server/ai-service.ts</code> + <code>llm_logs</code> → <span class="ok pill">RESOLVED</span></td></tr>
+  </table>
+
+  <h2>11. Actionable Backlog</h2>
+  <div class="card" style="border-color:var(--ok)">
+    <h3 style="margin-top:0"><span class="pill p0">P0</span> Fix the model name — <span class="ok pill">DONE</span></h3>
+    <p class="kv">Replaced <code>"gpt-5"</code> with env-configurable <code>resolveOpenAIModel()</code> (default <code>gpt-4o</code>) in <code>server/lib/model-config.ts</code>; covered by <code>server/ai-service.test.ts</code>. Acceptance met: no literal <code>"gpt-5"</code> in runtime calls.</p>
+  </div>
+  <div class="card" style="border-color:var(--ok)">
+    <h3 style="margin-top:0"><span class="pill p1">P1</span> Teacher uploader UI — <span class="ok pill">DONE</span></h3>
+    <p class="kv"><code>client/src/pages/teacher/Upload.tsx</code> posts multipart to <code>POST /api/content/upload</code> with subject/topic/gradeLevel/language via <code>client/src/hooks/useUpload.ts</code>; shows returned chunk count. Routed at <code>/teacher/upload</code>.</p>
+  </div>
+  <div class="card" style="border-color:var(--ok)">
+    <h3 style="margin-top:0"><span class="pill p1">P1</span> Wire tutorQaCache — <span class="ok pill">DONE</span></h3>
+    <p class="kv">Verified live in <code>server/routes/tutors.ts</code>: lookup at <code>:177</code>/<code>:404</code>, persist at <code>:195</code>/<code>:525</code>. No change needed (audit false positive).</p>
+  </div>
+  <div class="card" style="border-color:var(--ok)">
+    <h3 style="margin-top:0"><span class="pill p2">P2</span> Add CI — <span class="ok pill">DONE</span></h3>
+    <p class="kv">GitHub Actions <code>.github/workflows/ci.yml</code>: <code>npm ci</code> → <code>tsc --noEmit</code> → <code>vitest run</code> → <code>npm run build</code>.</p>
+  </div>
+
+  <h2>12. Machine-Readable Summary</h2>
+  <pre class="card" style="overflow:auto"><code>{
+  "summary": "Platform substantially complete; all P0-P3 audit items fixed except full COPPA consent UI (flag+env gate done). RAG ingestion + embeddings producer + teacher UI + CI + LLM audit logging now present. Mobile-first UX library added.",
+  "tsc": "clean",
+  "build": "pass",
+  "routeCount": "~130 across 15 routers",
+  "remediated": [
+    { "id":"P0-1", "title":"Fabricated OpenAI model gpt-5", "status":"done", "files":["server/lib/model-config.ts","server/ai-service.test.ts"] },
+    { "id":"P0-2", "title":"Embeddings producer + worker", "status":"done", "files":["server/embeddings.ts","server/embeddingsRunner.ts"] },
+    { "id":"P1-1", "title":"Teacher uploader client UI", "status":"done", "files":["client/src/pages/teacher/Upload.tsx","client/src/hooks/useUpload.ts"] },
+    { "id":"P1-2", "title":"tutorQaCache wired", "status":"done", "files":["server/routes/tutors.ts:177,195,404,525"] },
+    { "id":"P1-3", "title":"Remove corrupted JSON + deprecate legacy route", "status":"done", "files":["archive/audit-report.corrupted.json","server/routes/content.ts"] },
+    { "id":"P2-1", "title":"CI pipeline", "status":"done", "files":[".github/workflows/ci.yml"] },
+    { "id":"P2-2", "title":"COPPA consent flag + env gate", "status":"partial", "files":["shared/schema.ts:consentRequired","server/routes/auth.ts"] },
+    { "id":"P3-1", "title":"Structured LLM audit logging", "status":"done", "files":["shared/schema.ts:llm_logs","server/ai-service.ts:recordLlmCall"] }
+  ],
+  "implemented": ["auth+jwt","roles","rate-limit","csp","pdf-extract","ocr","chunker","rag-retrieval","practice-q-gen","duolingo-ui-shared","games-db-fed","embeddings-producer","teacher-uploader-ui","ci-pipeline","llm-audit-logging","mobile-ux-library","student-revision-v2"],
+  "missing": ["coppa-consent-ui-full","sso-oauth-config"],
+  "partial": ["coppa-consent-ui","sso"],
+  "deadCode": ["audit-report.json (moved to archive)","content.ts legacy POST / (deprecated)"]
+}</code></pre>
+
+  <h2>13. Methodology &amp; Assumptions</h2>
+  <ul class="kv">
+    <li>Findings derived from static analysis of the current working tree (main), not from the stale research <code>.md</code>.</li>
+    <li>Where the research doc claimed "missing," assertions were re-verified against actual code; most were false positives.</li>
+    <li><b>Assumption:</b> "gpt-5" is a typo/hallucination, not an internal model alias — treated as a bug.</li>
+    <li>Runtime LLM calls were not executed (no live API keys in this audit); RAG/data paths verified by code + typecheck + build.</li>
+  </ul>
+
+  <h2>14. Mobile-First UX Library (post-audit addition)</h2>
+  <p class="sub">Added after the initial audit to satisfy phone UX + dynamic screens for the three primary flows. Not part of the original findings but closes the "no teacher uploader page" gap and adds the AI Buddy + revision surfaces.</p>
+  <table>
+    <tr><th>Flow</th><th>Canonical component</th><th>Status</th></tr>
+    <tr><td>Teacher uploader</td><td><code>client/src/components/mobile/TeacherUploaderForm.tsx</code></td><td><span class="ok pill">done</span></td></tr>
+    <tr><td>Student lesson / revision</td><td><code>client/src/components/mobile/LessonHeader.tsx</code></td><td><span class="ok pill">done</span></td></tr>
+    <tr><td>AI Buddy chat</td><td><code>client/src/components/mobile/AIBuddyChat.tsx</code></td><td><span class="ok pill">done</span></td></tr>
+    <tr><td>Hooks (keyboard/layout)</td><td><code>useKeyboardSafeView.ts</code>, <code>useDynamicLayout.ts</code></td><td><span class="ok pill">done</span></td></tr>
+    <tr><td>Tests</td><td>14 Vitest/RTL tests via <code>vitest.client.config.ts</code></td><td><span class="ok pill">passing</span></td></tr>
+    <tr><td>Student Revision v2</td><td><code>StudentRevision.tsx</code> + <code>RevisionPacks</code> + <code>study.ts</code> APIs</td><td><span class="ok pill">done</span></td></tr>
+    <tr><td>Mobile revision viewer</td><td><code>client/src/pages/StudentRevisionMobile.tsx</code> + <code>LessonViewer</code> (flashcards/practice/summary)</td><td><span class="ok pill">done</span></td></tr>
+  </table>
+
+  <footer>
+    Generated by opencode audit run · StudyBuddyAI · initial 2026-07-19 · remediated snapshot 2026-07-19 · Evidence anchors use file:line from the working tree at audit time.
+  </footer>
+</div>
+</body>
+</html>

@@ -1,47 +1,37 @@
+/**
+ * Generic Duolingo lesson engine. Game-agnostic: takes a list of DuoExercise plus
+ * optional gamification callbacks, and returns UI-ready state/actions.
+ *
+ * Reused by every game (CruiseWord, LinguaPlay, ...) so they share the exact same
+ * Duolingo experience without duplication.
+ */
 import { useCallback, useState } from "react";
-import {
-  CruiseWordExercise,
-  CruiseWordTile,
-  CruiseWordUnit,
-} from "@/data/cruiseWordUnits";
-import { useCruiseWordStore, QuestionResult } from "@/stores/cruiseWordStore";
+import type {
+  DuoExercise,
+  DuoLang,
+  DuoLessonState,
+  DuoQuestionResult,
+} from "./types";
 
-export interface UseCruiseWordLessonReturn {
-  // State
-  currentExerciseIndex: number;
-  selectedAnswer: number | null;
-  selectedAnswers: number[];
-  correctAnswerShown: boolean;
-  correctAnswerCount: number;
-  incorrectAnswerCount: number;
-  isAnswerCorrect: boolean;
-  reviewShown: boolean;
-  questionResults: QuestionResult[];
-  isComplete: boolean;
-  currentExercise: CruiseWordExercise | null;
-  totalExercises: number;
-
-  // Actions
-  onSelectAnswer: (index: number) => void;
-  onToggleTile: (index: number) => void;
-  onCheckAnswer: () => void;
-  onFinish: () => void;
-  onSkip: () => void;
-  onQuit: () => void;
-  onReview: () => void;
-  onContinue: () => void;
+function currentLang(): DuoLang {
+  return (document.documentElement.lang === "es" ? "es" : "en") as DuoLang;
 }
 
-/**
- * Core lesson logic hook for CruiseWord Duolingo-style exercises.
- * Manages exercise progression, answer validation, hearts, and XP.
- */
-export function useCruiseWordLesson(
-  unit: CruiseWordUnit,
-  tile: CruiseWordTile,
-  onExit: () => void,
-): UseCruiseWordLessonReturn {
-  const exercises = tile.exercises;
+export interface UseDuoLessonArgs {
+  exercises: DuoExercise[];
+  onCorrect?: () => void;
+  onIncorrect?: () => void;
+  onLessonComplete?: (results: DuoQuestionResult[]) => void;
+  onExit: () => void;
+}
+
+export function useDuoLesson({
+  exercises,
+  onCorrect,
+  onIncorrect,
+  onLessonComplete,
+  onExit,
+}: UseDuoLessonArgs): DuoLessonState {
   const totalExercises = exercises.length;
 
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -51,9 +41,7 @@ export function useCruiseWordLesson(
   const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
   const [incorrectAnswerCount, setIncorrectAnswerCount] = useState(0);
   const [reviewShown, setReviewShown] = useState(false);
-  const [questionResults, setQuestionResults] = useState<QuestionResult[]>([]);
-
-  const store = useCruiseWordStore();
+  const [questionResults, setQuestionResults] = useState<DuoQuestionResult[]>([]);
 
   const currentExercise = exercises[currentExerciseIndex] ?? null;
   const isComplete =
@@ -71,19 +59,18 @@ export function useCruiseWordLesson(
     if (currentExercise.type === "SELECT_1_OF_3") {
       const opt = currentExercise.options[selectedAnswer ?? -1];
       return !!opt?.correct;
-    } else {
-      // WRITE_TRANSLATION
-      const joined = selectedAnswers
-        .map((i) => currentExercise.answerTiles[i])
-        .join(" ");
-      return joined === currentExercise.answer;
     }
+    const joined = selectedAnswers
+      .map((i) => currentExercise.answerTiles[i])
+      .join(" ");
+    return joined === currentExercise.answer;
   }, [currentExercise, selectedAnswer, selectedAnswers]);
 
   const isAnswerCorrect = computeIsCorrect();
 
   const recordResult = useCallback(() => {
     if (!currentExercise) return;
+    const lang = currentLang();
     const yourResponse =
       currentExercise.type === "SELECT_1_OF_3"
         ? currentExercise.options[selectedAnswer ?? 0]?.text ?? ""
@@ -94,44 +81,34 @@ export function useCruiseWordLesson(
       currentExercise.type === "SELECT_1_OF_3"
         ? currentExercise.correct
         : currentExercise.answer;
-
-    const result: QuestionResult = {
-      question:
-        currentExercise.prompt[
-          (document.documentElement.lang === "es" ? "es" : "en") as "es" | "en"
-        ],
+    const result: DuoQuestionResult = {
+      question: currentExercise.prompt[lang],
       yourResponse,
       correctResponse,
       isCorrect: isAnswerCorrect,
     };
     setQuestionResults((prev) => [...prev, result]);
-    store.addQuestionResult(result);
-  }, [currentExercise, selectedAnswer, selectedAnswers, isAnswerCorrect, store]);
+  }, [currentExercise, selectedAnswer, selectedAnswers, isAnswerCorrect]);
 
   const onCheckAnswer = useCallback(() => {
     if (!currentExercise) return;
     setCorrectAnswerShown(true);
     if (isAnswerCorrect) {
       setCorrectAnswerCount((c) => c + 1);
-      store.increaseXp(10);
+      onCorrect?.();
     } else {
       setIncorrectAnswerCount((c) => c + 1);
-      store.loseHeart();
+      onIncorrect?.();
     }
     recordResult();
-  }, [currentExercise, isAnswerCorrect, store, recordResult]);
+  }, [currentExercise, isAnswerCorrect, onCorrect, onIncorrect, recordResult]);
 
   const onFinish = useCallback(() => {
     if (currentExerciseIndex + 1 < totalExercises) {
       setCurrentExerciseIndex((i) => i + 1);
       resetExerciseState();
-    } else {
-      // Lesson finished
-      if (isAnswerCorrect || incorrectAnswerCount > 0) {
-        store.markLessonComplete(unit.unitNumber, tile.title.length);
-        store.increaseLingots(1);
-        store.addToday();
-      }
+    } else if (isAnswerCorrect || incorrectAnswerCount > 0) {
+      onLessonComplete?.(questionResults);
     }
   }, [
     currentExerciseIndex,
@@ -139,19 +116,16 @@ export function useCruiseWordLesson(
     resetExerciseState,
     isAnswerCorrect,
     incorrectAnswerCount,
-    store,
-    unit.unitNumber,
-    tile.title,
+    onLessonComplete,
+    questionResults,
   ]);
 
   const onSkip = useCallback(() => {
     setCorrectAnswerShown(true);
-    store.loseHeart();
-  }, [store]);
+    onIncorrect?.();
+  }, [onIncorrect]);
 
-  const onQuit = useCallback(() => {
-    onExit();
-  }, [onExit]);
+  const onQuit = useCallback(() => onExit(), [onExit]);
 
   const onReview = useCallback(() => setReviewShown(true), []);
   const onContinue = useCallback(() => {
@@ -202,4 +176,4 @@ export function useCruiseWordLesson(
   };
 }
 
-export default useCruiseWordLesson;
+export default useDuoLesson;

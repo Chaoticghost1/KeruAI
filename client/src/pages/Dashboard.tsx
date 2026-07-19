@@ -306,7 +306,13 @@ export default function Dashboard() {
                 </Button>
               }
               dataTestId="card-cruiseword"
-            />
+            >
+              <Link href="/games/cruiseword/learn" data-testid="button-cruiseword-learnpath">
+                <Button variant="link" className="w-full p-0 h-8 text-violet-600 hover:text-violet-700" size="sm">
+                  {t.dashboard.cruiseWordLearnPath}
+                </Button>
+              </Link>
+            </FeatureCard>
             <FeatureCard
               href="/games/mathmaster"
               icon={<Calculator className="h-6 w-6 text-emerald-600" />}
@@ -328,7 +334,7 @@ export default function Dashboard() {
               title={t.dashboard.linguaPlay}
               description={t.dashboard.linguaPlayDesc}
               iconBgClassName="bg-violet-500/20"
-              borderClassName="border-2 border-youth-muted/50 hover:border-violet-500 rounded-youth-lg bg-card hover:shadow-lg"
+              borderClassName="border-2 hover:border-violet-500 rounded-youth-lg bg-card hover:shadow-lg"
               action={
                 <Button variant="outline" className="w-full rounded-youth-lg" data-testid="button-linguaplay">
                   {t.dashboard.playNow}
@@ -336,7 +342,13 @@ export default function Dashboard() {
                 </Button>
               }
               dataTestId="card-linguaplay"
-            />
+            >
+              <Link href="/games/linguaplay/learn" data-testid="button-linguaplay-learnpath">
+                <Button variant="link" className="w-full p-0 h-8 text-violet-600 hover:text-violet-700" size="sm">
+                  {t.dashboard.cruiseWordLearnPath}
+                </Button>
+              </Link>
+            </FeatureCard>
           </div>
           <div className="mt-4 flex justify-center">
             <Link href="/games">

@@ -30,6 +30,7 @@ async function createAdmin() {
         email: ADMIN_EMAIL,
         isVerified: true,
         isActive: true,
+        consentRequired: false,
       });
       console.log('Admin user updated successfully!');
     } else {
@@ -41,6 +42,7 @@ async function createAdmin() {
         role: 'superuser',
         isVerified: true,
         isActive: true,
+        consentRequired: false,
       });
       console.log('Admin user created successfully!');
     }

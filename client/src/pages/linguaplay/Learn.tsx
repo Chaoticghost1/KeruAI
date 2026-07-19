@@ -3,19 +3,20 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { PageLayout } from "@/components/PageLayout";
 import { apiRequest } from "@/lib/queryClient";
-import type { CruiseWordWord } from "@shared/schema";
+import type { LanguageProblem } from "@shared/schema";
 import {
-  buildCruiseWordUnits,
-  getTotalLessons,
-  type CruiseWordUnitView,
-} from "@/data/cruiseWordFeeder";
-import { useCruiseWordStore } from "@/stores/cruiseWordStore";
+  buildLinguaPlayUnits,
+  getLinguaPlayUnit,
+  type LinguaPlayUnitView,
+} from "@/data/linguaPlayFeeder";
+import { LINGUA_PLAY_MODES } from "@/data/linguaPlayLevels";
+import { useLinguaPlayStore } from "@/stores/linguaPlayStore";
 import { Star, BookOpen, Trophy, Lock, Check } from "lucide-react";
 
 type TileStatus = "LOCKED" | "ACTIVE" | "COMPLETE";
 
 function tileStatus(
-  unit: CruiseWordUnitView,
+  unit: LinguaPlayUnitView,
   tileIndex: number,
   lessonsCompleted: number,
 ): TileStatus {
@@ -47,7 +48,7 @@ function UnitSection({
   lessonsCompleted,
   onStartTile,
 }: {
-  unit: CruiseWordUnitView;
+  unit: LinguaPlayUnitView;
   lessonsCompleted: number;
   onStartTile: (unitNumber: number, tileIndex: number) => void;
 }) {
@@ -96,45 +97,66 @@ function UnitSection({
   );
 }
 
-export default function CruiseWordLearn() {
+export default function LinguaPlayLearn() {
   const [_, navigate] = useLocation();
-  const lessonsCompleted = useCruiseWordStore((s) => s.lessonsCompleted);
+  const [mode, setMode] = useState<string>("vocabulary");
+  const lessonsCompleted = useLinguaPlayStore((s) => s.lessonsCompleted);
 
-  const { data: words = [], isLoading } = useQuery<CruiseWordWord[]>({
-    queryKey: ["/api/games/problems/cruiseword"],
+  const { data: problems = [], isLoading } = useQuery<LanguageProblem[]>({
+    queryKey: ["/api/games/problems/linguaplay/all", mode],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/games/problems/cruiseword");
+      const res = await apiRequest(
+        "GET",
+        `/api/games/problems/linguaplay/all?mode=${encodeURIComponent(mode)}`,
+      );
       if (!res.ok) return [];
       return res.json();
     },
   });
 
-  const units = buildCruiseWordUnits(words);
-  const total = getTotalLessons(units);
+  const units = buildLinguaPlayUnits(problems, mode);
 
   const handleStartTile = (unitNumber: number, tileIndex: number) => {
-    navigate(`/games/cruiseword/lesson?unit=${unitNumber}&tile=${tileIndex}`);
+    navigate(`/games/linguaplay/lesson?mode=${mode}&unit=${unitNumber}&tile=${tileIndex}`);
   };
+
+  const lang = document.documentElement.lang === "es" ? "es" : "en";
 
   return (
     <PageLayout maxWidth="7xl">
       <div className="max-w-2xl mx-auto py-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          {document.documentElement.lang === "es" ? "Aprende Geografía" : "Learn Geography"}
+          {lang === "es" ? "Aprende Idiomas" : "Learn Languages"}
         </h1>
-        <p className="text-gray-500 mb-8">
-          {document.documentElement.lang === "es"
-            ? "Países, capitales, comida, música y lugares famosos"
-            : "Countries, capitals, food, music and landmarks"}
+        <p className="text-gray-500 mb-4">
+          {lang === "es"
+            ? "Elige un modo y completa lecciones estilo Duolingo"
+            : "Pick a mode and complete Duolingo-style lessons"}
         </p>
+
+        <div className="flex flex-wrap gap-2 mb-8">
+          {LINGUA_PLAY_MODES.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => setMode(m.key)}
+              className={`rounded-full border-2 px-4 py-2 text-sm font-bold transition ${
+                mode === m.key
+                  ? "border-[#1cb0f6] bg-[#1cb0f6] text-white"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              {m.name[lang]}
+            </button>
+          ))}
+        </div>
 
         {isLoading ? (
           <p className="text-center text-gray-400">Loading…</p>
         ) : units.length === 0 ? (
           <p className="text-center text-gray-400">
-            {document.documentElement.lang === "es"
-              ? "Sin palabras todavía. Ejecuta el seed de CruiseWord."
-              : "No words yet. Run the CruiseWord seed."}
+            {lang === "es"
+              ? "Sin ejercicios para este modo."
+              : "No exercises for this mode yet."}
           </p>
         ) : (
           units.map((unit) => (

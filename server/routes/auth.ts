@@ -50,22 +50,28 @@ export const authRouter = Router();
 // Register user (stricter rate limit: 10/15min per IP)
 authRouter.post("/register", authLimiter, async (req, res, next: NextFunction) => {
   try {
-    const { username, email, phoneNumber, password, role = 'student', firstName, lastName } = req.body;
+    const { username, email, phoneNumber, password, role = 'student', firstName, lastName, consentAcknowledged } = req.body;
     const normalizedPhone = phoneNumber && String(phoneNumber).trim() !== "" ? String(phoneNumber).trim() : undefined;
-    
+
+    const requireParentalConsent = process.env.SYSTEM_REQUIRE_PARENTAL_CONSENT === "true";
+
     const allowedRoles = ['student', 'teacher', 'superuser'];
     const userRole = allowedRoles.includes(role) ? role : 'student';
-    
+
     if (!username || !password) {
       return res.status(400).json({ error: "Username and password are required" });
     }
-    
+
     if (password.length < 8) {
       return res.status(400).json({ error: "Password must be at least 8 characters long" });
     }
-    
+
     if (!email && !normalizedPhone) {
       return res.status(400).json({ error: "Email or phone number is required" });
+    }
+
+    if (requireParentalConsent && !consentAcknowledged) {
+      return res.status(400).json({ error: "Parental consent is required to register." });
     }
 
     const existingUser = await storage.getUserByUsername(username);
@@ -101,7 +107,8 @@ authRouter.post("/register", authLimiter, async (req, res, next: NextFunction) =
       role: userRole,
       firstName,
       lastName,
-      isVerified: false
+      isVerified: false,
+      consentRequired: requireParentalConsent && !consentAcknowledged ? true : false,
     });
 
     const verificationToken = await generateVerificationToken(user.id);

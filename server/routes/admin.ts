@@ -3,6 +3,7 @@ import { getErrorMessage } from "../middleware/error-handler";
 import { getModerationFromStorage, getBadWordLeaderboard, type ModerationSettings } from "../moderation";
 import { storage } from "../storage";
 import { insertBotPersonaSchema } from "@shared/schema";
+import { runEmbeddingWorker } from "../embeddingsRunner.js";
 import {
   authenticateToken,
   authorizeRoles,
@@ -933,6 +934,19 @@ adminRouter.get("/assignments", authenticateToken, authorizeRoles('superuser', '
       const allAssignments = await storage.getAllStudentAssignments();
       res.json(allAssignments);
     }
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/embeddings/run
+ * Manually trigger the embeddings worker to drain the RAG embedding queue.
+ */
+adminRouter.post("/embeddings/run", authenticateToken, authorizeRoles('superuser'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const result = await runEmbeddingWorker();
+    res.json({ ok: true, ...result });
   } catch (error) {
     next(error);
   }
